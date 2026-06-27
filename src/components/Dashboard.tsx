@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Activity, DollarSign, MessageSquare, Users, Loader2, TrendingUp, TrendingDown, ArrowUpRight } from 'lucide-react';
+import { Activity, DollarSign, MessageSquare, Users, Loader2, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { StatMetric } from '../types';
 import { api } from '../services/api';
@@ -31,6 +31,7 @@ const Dashboard: React.FC = () => {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<PeriodFilter>('today');
+  const [refreshKey, setRefreshKey] = useState(0);
   const { setShowOnboarding } = useOutletContext<OutletContext>();
 
   useEffect(() => {
@@ -45,27 +46,27 @@ const Dashboard: React.FC = () => {
         setMetrics(metricsData);
         setChartData(chartDataResponse);
       } catch (error) {
-        console.error("Erro ao carregar dashboard:", error);
+        console.error("Erro ao carregar operações:", error);
       } finally {
         setLoading(false);
       }
     };
 
     loadData();
-  }, [period]);
+  }, [period, refreshKey]);
 
   const getIcon = (label: string) => {
-    if (label.includes('Conversões')) return <DollarSign className="h-5 w-5 text-emerald-400" />;
-    if (label.includes('Atendimentos')) return <MessageSquare className="h-5 w-5 text-cyan-400" />;
-    if (label.includes('Leads')) return <Users className="h-5 w-5 text-violet-400" />;
-    return <Activity className="h-5 w-5 text-orange-400" />;
+    if (label.includes('Conversões')) return <DollarSign className="h-5 w-5 text-emerald-500" />;
+    if (label.includes('Atendimentos')) return <MessageSquare className="h-5 w-5 text-cyan-500" />;
+    if (label.includes('Leads')) return <Users className="h-5 w-5 text-violet-500" />;
+    return <Activity className="h-5 w-5 text-orange-500" />;
   };
 
-  const getGradient = (label: string) => {
-    if (label.includes('Conversões')) return 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/20';
-    if (label.includes('Atendimentos')) return 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/20';
-    if (label.includes('Leads')) return 'from-violet-500/20 to-violet-500/5 border-violet-500/20';
-    return 'from-orange-500/20 to-orange-500/5 border-orange-500/20';
+  const getBorderAccent = (label: string) => {
+    if (label.includes('Conversões')) return 'border-l-emerald-400';
+    if (label.includes('Atendimentos')) return 'border-l-cyan-400';
+    if (label.includes('Leads')) return 'border-l-violet-400';
+    return 'border-l-orange-400';
   };
 
   const getMetricLabel = (baseLabel: string) => {
@@ -80,165 +81,174 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full bg-slate-950">
+      <div className="flex items-center justify-center h-full bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-             <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full"></div>
-             <Loader2 className="h-10 w-10 animate-spin text-cyan-400 relative z-10" />
-          </div>
-          <p className="text-sm text-slate-400 font-medium animate-pulse">Carregando insights...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Carregando operações...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-8 overflow-y-auto h-full bg-slate-950 text-slate-50 custom-scrollbar">
+    <div className="p-6 space-y-6 overflow-y-auto h-full bg-background custom-scrollbar">
+
       {/* Onboarding Banner */}
       <OnboardingBanner onOpenWizard={() => setShowOnboarding(true)} />
 
-      {/* System Health Card */}
-      <SystemHealthCard />
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Cabeçalho */}
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Dashboard</h2>
-          <p className="text-slate-400 mt-1">
-            Visão geral da performance da sua IA {period === 'today' ? 'hoje' : `nos últimos ${periodLabels[period].toLowerCase()}`}.
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Operações</h1>
+          <p className="text-muted-foreground mt-1">Acompanhe a operação da sua empresa em tempo real.</p>
         </div>
-        <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-lg border border-slate-800">
-          {(['today', '7days', '30days'] as PeriodFilter[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                period === p
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              {periodLabels[p]}
-            </button>
-          ))}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
+            {(['today', '7days', '30days'] as PeriodFilter[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                  period === p
+                    ? 'bg-background text-foreground shadow-sm border border-border'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {periodLabels[p]}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setRefreshKey(k => k + 1)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Atualizar
+          </button>
         </div>
       </div>
 
-      {/* Metric Cards */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      {/* Cards de indicadores */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {metrics.map((stat, index) => (
-          <div 
-            key={index} 
-            className={`relative overflow-hidden rounded-2xl border bg-slate-900/50 backdrop-blur-sm p-6 shadow-xl transition-all duration-300 hover:translate-y-[-2px] hover:bg-slate-900 group ${getGradient(stat.label)}`}
-            style={{ animationDelay: `${index * 100}ms` }}
+          <div
+            key={index}
+            className={`rounded-xl border border-border border-l-4 bg-card p-6 shadow-sm hover:shadow-md transition-shadow ${getBorderAccent(stat.label)}`}
           >
-            <div className="flex flex-row items-center justify-between space-y-0 pb-4">
-              <div className="text-sm font-medium text-slate-400">{getMetricLabel(stat.label)}</div>
-              <div className="p-2 rounded-lg bg-slate-800/50 border border-slate-700/50 group-hover:border-slate-600 transition-colors">
-                 {getIcon(stat.label)}
+            <div className="flex flex-row items-center justify-between pb-4">
+              <div className="text-sm font-medium text-muted-foreground">{getMetricLabel(stat.label)}</div>
+              <div className="p-2 rounded-lg bg-muted">
+                {getIcon(stat.label)}
               </div>
             </div>
             <div className="flex items-end justify-between">
-                <div className="text-3xl font-bold text-white tracking-tight">{stat.value}</div>
-                <div className={`flex items-center text-xs font-medium px-2 py-1 rounded-full ${stat.trendUp ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
-                    {stat.trendUp ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                    {stat.trend}
-                </div>
+              <div className="text-3xl font-bold text-foreground tracking-tight">{stat.value}</div>
+              <div className={`flex items-center text-xs font-medium px-2 py-1 rounded-full border ${
+                stat.trendUp
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                  : 'bg-red-50 text-red-600 border-red-200'
+              }`}>
+                {stat.trendUp ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+                {stat.trend}
+              </div>
             </div>
-            {/* Decorative Glow */}
-            <div className="absolute -bottom-10 -right-10 w-24 h-24 bg-white/5 blur-2xl rounded-full group-hover:bg-white/10 transition-all"></div>
           </div>
         ))}
       </div>
 
-      {/* Charts Section */}
+      {/* Alertas operacionais */}
+      <SystemHealthCard />
+
+      {/* Conteúdo detalhado */}
       <div className="grid gap-6 md:grid-cols-7">
-        {/* Main Chart */}
-        <div className="col-span-4 rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-                <h3 className="text-lg font-semibold text-white">Volume de Atendimentos</h3>
-                <p className="text-sm text-slate-400">
-                  Interações da IA {period === 'today' ? 'hoje' : `nos últimos ${periodDays[period]} dias`}
-                </p>
-            </div>
-            <button className="text-cyan-400 hover:text-cyan-300 transition-colors p-2 hover:bg-cyan-950/30 rounded-lg">
-                <ArrowUpRight className="w-5 h-5" />
-            </button>
+
+        {/* Volume de Atendimentos */}
+        <div className="col-span-4 rounded-xl border border-border bg-card p-6 shadow-sm">
+          <div className="mb-6">
+            <h3 className="text-base font-semibold text-foreground">Volume de Atendimentos</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {period === 'today' ? 'Atendimentos de hoje' : `Atendimentos nos últimos ${periodDays[period]} dias`}
+            </p>
           </div>
-          <div className="h-[300px] w-full">
+          <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorChats" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#0891b2" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#0891b2" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tickMargin={10} 
-                    fontSize={12} 
-                    stroke="#64748b"
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tickMargin={10}
+                  fontSize={12}
+                  stroke="#94a3b8"
                 />
-                <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    fontSize={12} 
-                    stroke="#64748b"
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  fontSize={12}
+                  stroke="#94a3b8"
                 />
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b', color: '#f8fafc', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.5)' }} 
-                  itemStyle={{ color: '#06b6d4' }}
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#ffffff',
+                    borderRadius: '8px',
+                    border: '1px solid #e2e8f0',
+                    color: '#0f172a',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                  }}
+                  itemStyle={{ color: '#0891b2' }}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="chats" 
-                  stroke="#06b6d4" 
-                  strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorChats)" 
-                  activeDot={{ r: 6, strokeWidth: 0, fill: '#fff' }}
+                <Area
+                  type="monotone"
+                  dataKey="chats"
+                  stroke="#0891b2"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorChats)"
+                  activeDot={{ r: 5, strokeWidth: 0, fill: '#0891b2' }}
                 />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Secondary Chart */}
-        <div className="col-span-3 rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-sm p-6 shadow-lg flex flex-col">
-           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-white">Conversões</h3>
-            <p className="text-sm text-slate-400">Reuniões, vendas e ações concluídas</p>
+        {/* Conversões */}
+        <div className="col-span-3 rounded-xl border border-border bg-card p-6 shadow-sm flex flex-col">
+          <div className="mb-6">
+            <h3 className="text-base font-semibold text-foreground">Conversões</h3>
+            <p className="text-sm text-muted-foreground mt-0.5">Reuniões, vendas e ações concluídas</p>
           </div>
-          
-          <div className="flex-1 flex flex-col justify-center space-y-5">
+
+          <div className="flex-1 flex flex-col justify-center space-y-4">
             {chartData.slice(0, 5).map((day, i) => (
-              <div key={i} className="group">
-                <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-slate-300">{day.name}</span>
-                    <span className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">{day.sales} conv.</span>
+              <div key={i}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-sm font-medium text-foreground">{day.name}</span>
+                  <span className="text-sm font-semibold text-foreground">{day.sales} conv.</span>
                 </div>
-                <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-cyan-600 to-teal-500 rounded-full shadow-[0_0_10px_rgba(6,182,212,0.3)] transition-all duration-1000 ease-out group-hover:shadow-[0_0_15px_rgba(6,182,212,0.6)]" 
-                    style={{ width: `${Math.min((day.sales / Math.max(...chartData.map(d => d.sales), 1)) * 100, 100)}%` }} 
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-500 to-teal-400 rounded-full transition-all duration-700"
+                    style={{ width: `${Math.min((day.sales / Math.max(...chartData.map(d => d.sales), 1)) * 100, 100)}%` }}
                   />
                 </div>
               </div>
             ))}
           </div>
-          
-          <div className="mt-6 pt-4 border-t border-slate-800">
-             <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-500">Total no período</span>
-                <span className="text-emerald-400 font-bold">
-                  {chartData.reduce((sum, d) => sum + d.sales, 0)} conversões
-                </span>
-             </div>
+
+          <div className="mt-6 pt-4 border-t border-border">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Total no período</span>
+              <span className="text-emerald-600 font-bold">
+                {chartData.reduce((sum, d) => sum + d.sales, 0)} conversões
+              </span>
+            </div>
           </div>
         </div>
       </div>

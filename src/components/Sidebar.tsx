@@ -1,24 +1,17 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, MessageSquare, Users, Settings as SettingsIcon, LogOut, ShieldCheck, Calendar, Kanban } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { navigation } from '@/config/navigation';
+import SidebarSection from '@/components/navigation/SidebarSection';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { useAuth } from '@/hooks/useAuth';
-import { Sidebar, SidebarBody, SidebarLink, useSidebar } from '@/components/ui/sidebar';
+import { Sidebar, SidebarBody, useSidebar } from '@/components/ui/sidebar';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import viaIcon from '@/assets/icon-via.png';
 import viaLogoWhite from '@/assets/logo-via-white.png';
 
-const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'pipeline', label: 'Pipeline', icon: Kanban },
-  { id: 'chat', label: 'Chat Ao Vivo', icon: MessageSquare },
-  { id: 'contacts', label: 'Contatos', icon: Users },
-  { id: 'scheduling', label: 'Agendamentos', icon: Calendar },
-  { id: 'team', label: 'Equipe', icon: ShieldCheck },
-  { id: 'settings', label: 'Configurações', icon: SettingsIcon },
-];
 
 const Logo = ({ companyName }: { companyName: string }) => {
   return (
@@ -63,12 +56,6 @@ const SidebarContent = () => {
   const currentPath = location.pathname.substring(1) || 'dashboard';
   const { open, setOpen } = useSidebar();
 
-  const links = menuItems.map(item => ({
-    label: item.label,
-    href: `/${item.id}`,
-    icon: <item.icon className="h-5 w-5" />,
-  }));
-
   const handleLogout = async () => {
     try {
       await signOut();
@@ -101,15 +88,13 @@ const SidebarContent = () => {
           {open ? <Logo companyName={companyName} /> : <LogoIcon />}
         </div>
         
-        <nav className="flex flex-col gap-1.5">
-          {links.map((link, idx) => (
-            <SidebarLink
-              key={idx}
-              link={link}
-              isActive={currentPath.startsWith(link.href.slice(1))}
-            />
-          ))}
-        </nav>
+        {navigation.map((section) => (
+          <SidebarSection
+            key={section.id}
+            items={section.items}
+            currentPath={currentPath}
+          />
+        ))}
       </div>
 
       {/* VIA Logo - Footer */}
