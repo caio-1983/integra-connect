@@ -2633,7 +2633,7 @@ verify_jwt = false`}</pre>
                     <p className="text-slate-300">Configure o Verify Token (copie de Configurações → APIs):</p>
                     <div className="bg-slate-950 border border-slate-700 rounded-lg p-3 mt-2">
                       <code className="text-xs text-emerald-400 font-mono">
-                        viver-de-ia-nina-webhook
+                        integra-connect-webhook
                       </code>
                     </div>
                   </div>

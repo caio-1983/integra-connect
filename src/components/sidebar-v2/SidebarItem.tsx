@@ -11,16 +11,15 @@ interface SidebarItemProps {
 }
 
 /**
- * Item de navegação atômico — tema claro, aparência premium B2B.
+ * Item de navegação atômico — tema claro, aparência premium B2B (UI-001).
  *
- * Estados (Design System — 05-design-system.md):
- *   Default:  texto slate neutro, sem fundo.
- *   Hover:    fundo slate-50 extremamente suave — sem sombra, sem glow.
- *   Focus:    anel de foco com token `primary`.
- *   Active:   fundo primary/10, texto primary, barra lateral primary, ícone primary.
+ * Dimensões: altura 48px | padding 16px | ícone 20px | texto 15px | gap 12px.
  *
- * Usa tokens de cor do Design System (`primary`, `destructive`) em vez de
- * valores fixos blue-* para consistência com o restante do produto.
+ * Estados (Design System — 05-design-system.md + UI-001 paleta):
+ *   Default:  texto slate-700, sem fundo.
+ *   Hover:    bg-slate-50 (#F8FAFC) — sem glow, sem sombra.
+ *   Focus:    anel violet-500/30.
+ *   Active:   bg-violet-50 (#F5F3FF), texto violet-700, barra esquerda 3px violet-600.
  */
 export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive }) => {
   const { open, animate } = useSidebar();
@@ -32,24 +31,24 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive }) => {
       aria-current={isActive ? 'page' : undefined}
       title={!open ? item.label : undefined}
       className={cn(
-        'group/item relative flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-sm transition-colors duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-1 focus-visible:ring-offset-white',
+        'group/item relative flex min-h-[48px] items-center gap-3 rounded-lg px-4 text-[15px] transition-colors duration-150',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 focus-visible:ring-offset-1 focus-visible:ring-offset-white',
         isActive
-          ? 'bg-primary/10 font-medium text-primary'
-          : 'font-normal text-slate-600 hover:bg-slate-50 hover:text-slate-800',
+          ? 'bg-violet-50 font-medium text-violet-700'
+          : 'font-normal text-slate-700 hover:bg-slate-50 hover:text-slate-900',
       )}
     >
-      {/* Barra lateral do estado ativo */}
+      {/* Barra lateral do estado ativo — 3px, UI-001 */}
       {isActive && (
-        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />
+        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-violet-600" />
       )}
 
       <Icon
         className={cn(
-          'h-4 w-4 flex-shrink-0 transition-colors',
+          'h-5 w-5 flex-shrink-0 transition-colors',
           isActive
-            ? 'text-primary'
-            : 'text-slate-400 group-hover/item:text-slate-500',
+            ? 'text-violet-600'
+            : 'text-slate-400 group-hover/item:text-slate-600',
         )}
       />
 

@@ -10,10 +10,10 @@ interface SidebarSectionProps {
 }
 
 /**
- * Agrupa itens de um mesmo domínio de negócio.
+ * Agrupa itens de um mesmo domínio de negócio (UI-001 — Seções).
  *
- * Rótulo da seção: discreto, sem caixa-alta, sem tracking excessivo.
- * No estado colapsado o rótulo dá lugar a um divisor fino.
+ * Rótulo: 11px, medium, uppercase, tracking-wider, cinza suave.
+ * Colapsado: divisor fino substitui o rótulo.
  */
 export const SidebarSection: React.FC<SidebarSectionProps> = ({ section, currentPath }) => {
   const { open, animate } = useSidebar();
@@ -26,12 +26,12 @@ export const SidebarSection: React.FC<SidebarSectionProps> = ({ section, current
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.2 }}
-          className="px-2 pb-1 pt-3 text-[11px] font-medium text-slate-400"
+          className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-slate-400"
         >
           {section.title}
         </motion.p>
       ) : (
-        <div className="mx-2 my-3 h-px bg-slate-100" aria-hidden="true" />
+        <div className="mx-2 my-2 h-px bg-slate-100" aria-hidden="true" />
       )}
 
       <nav className="flex flex-col gap-0.5" aria-label={section.title}>

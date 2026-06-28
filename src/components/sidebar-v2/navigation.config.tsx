@@ -1,11 +1,10 @@
 import {
-  LayoutDashboard,
   MessageSquare,
   Users,
   Settings as SettingsIcon,
-  ShieldCheck,
-  Calendar,
-  Kanban,
+  Briefcase,
+  TrendingUp,
+  Building2,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -35,67 +34,38 @@ export interface SidebarItemConfig {
 export interface SidebarSectionConfig {
   /** Identificador estável da seção. */
   id: string;
-  /** Nome do domínio de negócio (ex.: "Atendimento"). */
+  /** Nome do domínio de negócio. Exibido em uppercase via CSS. */
   title: string;
   /** Itens pertencentes ao domínio. */
   items: SidebarItemConfig[];
 }
 
 /**
- * Navegação global organizada por domínio de negócio.
+ * Navegação global organizada por domínio de negócio (UI-001).
  *
- * Ordem e nomenclatura seguem a "Estrutura Principal" do Handbook:
- * Operações, Atendimento, Clientes, Comercial, Analytics, Administração.
+ * Estrutura: OPERAÇÃO → 5 módulos | ADMINISTRAÇÃO → Configurações.
  *
- * Mapeamento domínio → rota existente:
- *   Operações     → /scheduling  (Agenda / Compromissos operacionais)
- *   Atendimento   → /chat        (Conversas em tempo real)
- *   Clientes      → /contacts    (Cadastro e relacionamento)
- *   Comercial     → /pipeline    (Oportunidades e pipeline)
- *   Analytics     → /dashboard   (Indicadores e visão geral)
- *   Administração → /team, /settings (Equipe e configurações)
+ * Renomeações aplicadas (sem alterar rotas):
+ *   Agenda      → Operações   (/scheduling)
+ *   Conversas   → Atendimento (/chat)
+ *   Painel      → Indicadores (/dashboard)
  */
 export const sidebarNavigation: SidebarSectionConfig[] = [
   {
-    id: 'operacoes',
-    title: 'Operações',
+    id: 'operacao',
+    title: 'Operação',
     items: [
-      { id: 'scheduling', label: 'Operações', href: '/scheduling', icon: Calendar },
-    ],
-  },
-  {
-    id: 'atendimento',
-    title: 'Atendimento',
-    items: [
-      { id: 'chat', label: 'Conversas', href: '/chat', icon: MessageSquare },
-    ],
-  },
-  {
-    id: 'clientes',
-    title: 'Clientes',
-    items: [
-      { id: 'contacts', label: 'Contatos', href: '/contacts', icon: Users },
-    ],
-  },
-  {
-    id: 'comercial',
-    title: 'Comercial',
-    items: [
-      { id: 'pipeline', label: 'Comercial', href: '/pipeline', icon: Kanban },
-    ],
-  },
-  {
-    id: 'analytics',
-    title: 'Analytics',
-    items: [
-      { id: 'dashboard', label: 'Painel', href: '/dashboard', icon: LayoutDashboard },
+      { id: 'scheduling', label: 'Operações',   href: '/scheduling', icon: Building2     },
+      { id: 'chat',       label: 'Atendimento', href: '/chat',       icon: MessageSquare },
+      { id: 'contacts',   label: 'Clientes',    href: '/contacts',   icon: Users         },
+      { id: 'pipeline',   label: 'Comercial',   href: '/pipeline',   icon: Briefcase     },
+      { id: 'dashboard',  label: 'Indicadores', href: '/dashboard',  icon: TrendingUp    },
     ],
   },
   {
     id: 'administracao',
     title: 'Administração',
     items: [
-      { id: 'team', label: 'Equipe', href: '/team', icon: ShieldCheck },
       { id: 'settings', label: 'Configurações', href: '/settings', icon: SettingsIcon },
     ],
   },

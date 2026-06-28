@@ -26,15 +26,15 @@
     --ring: 187 85% 53%;
     --radius: 0.5rem;
     
-    /* Sidebar - Dark themed */
-    --sidebar-background: 222.2 84% 4.9%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 187 85% 53%;
-    --sidebar-primary-foreground: 222.2 84% 4.9%;
-    --sidebar-accent: 217.2 32.6% 17.5%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 187 85% 53%;
+    /* Sidebar — tema claro, paleta UI-001 */
+    --sidebar-background: 0 0% 100%;           /* #FFFFFF */
+    --sidebar-foreground: 215 16% 47%;         /* #64748B slate-500 */
+    --sidebar-primary: 263 70% 50%;            /* violet — estado ativo */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 98%;             /* #F8FAFC — hover */
+    --sidebar-accent-foreground: 222 47% 11%;  /* #0F172A */
+    --sidebar-border: 214 32% 91%;             /* #E2E8F0 slate-200 */
+    --sidebar-ring: 263 70% 50%;
   }
 
   /* Dark class for compatibility - same values */
