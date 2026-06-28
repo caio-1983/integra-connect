@@ -96,11 +96,11 @@ export const DesktopSidebar = ({
     <div className="relative h-full flex-shrink-0">
       <motion.div
         className={cn(
-          "h-full px-4 py-4 hidden md:flex md:flex-col w-[260px]",
+          "h-full px-4 py-5 hidden md:flex md:flex-col w-[280px]",
           className
         )}
         animate={{
-          width: animate ? (open ? "260px" : "76px") : "260px",
+          width: animate ? (open ? "280px" : "76px") : "280px",
         }}
         transition={{
           duration: 0.3,
@@ -114,17 +114,18 @@ export const DesktopSidebar = ({
       {/* Toggle Button - outside motion.div to avoid type issues */}
       <button
         onClick={() => setOpen(!open)}
-        className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 
-                   bg-slate-800 border border-slate-700 rounded-full 
+        aria-label={open ? "Recolher menu" : "Expandir menu"}
+        className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6
+                   bg-white border border-slate-200 rounded-full
                    hidden md:flex items-center justify-center
-                   hover:bg-slate-700 hover:border-cyan-500/50 
-                   transition-all shadow-lg z-50 group"
+                   hover:border-primary/40
+                   transition-all shadow-sm z-50 group"
       >
-        <ChevronLeft 
+        <ChevronLeft
           className={cn(
-            "w-4 h-4 text-slate-400 group-hover:text-cyan-400 transition-all duration-300",
+            "w-4 h-4 text-slate-400 group-hover:text-primary transition-all duration-300",
             !open && "rotate-180"
-          )} 
+          )}
         />
       </button>
     </div>
@@ -141,13 +142,13 @@ export const MobileSidebar = ({
     <>
       <div
         className={cn(
-          "h-14 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-slate-950/80 backdrop-blur-xl w-full border-b border-slate-800/50"
+          "h-14 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-white/90 backdrop-blur-xl w-full border-b border-slate-200"
         )}
         {...props}
       >
         <div className="flex justify-end z-20 w-full">
           <Menu
-            className="text-slate-200 cursor-pointer hover:text-cyan-400 transition-colors"
+            className="text-slate-600 cursor-pointer hover:text-primary transition-colors"
             onClick={() => setOpen(!open)}
           />
         </div>
@@ -162,12 +163,12 @@ export const MobileSidebar = ({
                 ease: "easeInOut",
               }}
               className={cn(
-                "fixed h-full w-full inset-0 bg-slate-950 p-10 z-[100] flex flex-col justify-between",
+                "fixed h-full w-full inset-0 bg-white p-10 z-[100] flex flex-col justify-between",
                 className
               )}
             >
               <div
-                className="absolute right-10 top-10 z-50 text-slate-200 cursor-pointer hover:text-cyan-400 transition-colors"
+                className="absolute right-10 top-10 z-50 text-slate-600 cursor-pointer hover:text-primary transition-colors"
                 onClick={() => setOpen(!open)}
               >
                 <X />
