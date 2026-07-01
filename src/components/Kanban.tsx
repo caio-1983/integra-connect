@@ -14,6 +14,7 @@ import { PipelineSettingsModal } from './PipelineSettingsModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
+import { PageContainer, PageHeader, Toolbar } from '@/components/layout';
 
 const Kanban: React.FC = () => {
   const { sdrName } = useCompanySettings();
@@ -291,45 +292,47 @@ const Kanban: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full bg-slate-950">
+      <PageContainer className="flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
-      </div>
+      </PageContainer>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-950 text-slate-50 p-6 overflow-hidden relative">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4 flex-shrink-0">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Pipeline de Vendas</h2>
-          <p className="text-sm text-slate-400 mt-1">Gerencie oportunidades e acompanhe o fluxo de receita.</p>
+    <PageContainer scrollable={false}>
+      <PageHeader
+        title="Pipeline de Vendas"
+        description="Gerencie oportunidades e acompanhe o fluxo de receita."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              className="border-slate-700 text-slate-300 hover:bg-slate-800"
+              onClick={() => setIsSettingsModalOpen(true)}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Configurar
+            </Button>
+            <Button className="shadow-lg shadow-cyan-500/20" onClick={() => setIsCreateModalOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Deal
+            </Button>
+          </>
+        }
+      />
+
+      <Toolbar>
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+          <input
+            type="text"
+            placeholder="Buscar oportunidade..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-cyan-500 outline-none placeholder:text-slate-600"
+          />
         </div>
-        <div className="flex gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
-             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-             <input 
-                type="text" 
-                placeholder="Buscar oportunidade..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-cyan-500 outline-none placeholder:text-slate-600"
-             />
-          </div>
-          <Button 
-            variant="outline" 
-            className="border-slate-700 text-slate-300 hover:bg-slate-800"
-            onClick={() => setIsSettingsModalOpen(true)}
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Configurar
-          </Button>
-          <Button className="shadow-lg shadow-cyan-500/20" onClick={() => setIsCreateModalOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Deal
-          </Button>
-        </div>
-      </div>
+      </Toolbar>
 
       {/* Board Scroll Container */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden pb-4">
@@ -858,7 +861,7 @@ const Kanban: React.FC = () => {
           setStages(data);
         }}
       />
-    </div>
+    </PageContainer>
   );
 };
 

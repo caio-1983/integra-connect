@@ -6,6 +6,7 @@ import { Appointment, Contact } from '../types';
 import { api } from '../services/api';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { PageContainer, PageHeader } from '@/components/layout';
 
 type ViewMode = 'month' | 'week' | 'day';
 
@@ -462,62 +463,57 @@ const Scheduling: React.FC = () => {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col bg-slate-950 text-slate-50">
-      {/* Header */}
-      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between mb-6 gap-4">
-        <div>
-           <h2 className="text-3xl font-bold text-white flex items-center gap-2">
-            <CalendarIcon className="w-8 h-8 text-cyan-500" />
-            Agendamentos
-           </h2>
-           <p className="text-slate-400 text-sm mt-1">Gerencie demos, reuniões e suporte técnico.</p>
-        </div>
-        
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full xl:w-auto">
+    <PageContainer scrollable={false}>
+      <PageHeader
+        title="Agendamentos"
+        description="Gerencie demos, reuniões e suporte técnico."
+        actions={
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
             {/* View Switcher */}
             <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
-                <button 
-                    onClick={() => setViewMode('month')} 
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'month' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                    <LayoutGrid className="w-3.5 h-3.5" /> Mês
-                </button>
-                <button 
-                    onClick={() => setViewMode('week')} 
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'week' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                    <Columns className="w-3.5 h-3.5" /> Semana
-                </button>
-                <button 
-                    onClick={() => setViewMode('day')} 
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'day' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                    <List className="w-3.5 h-3.5" /> Dia
-                </button>
+              <button
+                onClick={() => setViewMode('month')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'month' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" /> Mês
+              </button>
+              <button
+                onClick={() => setViewMode('week')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'week' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                <Columns className="w-3.5 h-3.5" /> Semana
+              </button>
+              <button
+                onClick={() => setViewMode('day')}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'day' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                <List className="w-3.5 h-3.5" /> Dia
+              </button>
             </div>
 
             {/* Date Nav */}
             <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-1">
-                <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors">
-                    <ChevronLeft className="w-5 h-5" />
-                </button>
-                <div className="flex flex-col items-center justify-center w-48 px-2 cursor-pointer" onClick={goToToday} title="Ir para hoje">
-                    <span className="text-sm font-bold text-slate-200 capitalize">
-                        {viewMode === 'month' ? getMonthLabel() : viewMode === 'week' ? getWeekLabel() : getDayLabel()}
-                    </span>
-                    {viewMode === 'week' && <span className="text-[10px] text-slate-500">{currentDate.getFullYear()}</span>}
-                </div>
-                <button onClick={() => navigateDate(1)} className="p-2 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors">
-                    <ChevronRight className="w-5 h-5" />
-                </button>
+              <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors">
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <div className="flex flex-col items-center justify-center w-48 px-2 cursor-pointer" onClick={goToToday} title="Ir para hoje">
+                <span className="text-sm font-bold text-slate-200 capitalize">
+                  {viewMode === 'month' ? getMonthLabel() : viewMode === 'week' ? getWeekLabel() : getDayLabel()}
+                </span>
+                {viewMode === 'week' && <span className="text-[10px] text-slate-500">{currentDate.getFullYear()}</span>}
+              </div>
+              <button onClick={() => navigateDate(1)} className="p-2 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors">
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
 
             <Button onClick={() => { setSelectedDate(new Date().toISOString().split('T')[0]); setShowCreateModal(true); }}>
-                <Plus className="w-4 h-4 mr-2" />
-                Agendar
+              <Plus className="w-4 h-4 mr-2" />
+              Agendar
             </Button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* Main Calendar Area */}
       <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden shadow-2xl flex flex-col relative">
@@ -970,7 +966,7 @@ const Scheduling: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

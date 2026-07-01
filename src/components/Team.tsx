@@ -6,6 +6,7 @@ import { TeamMember, type Team as TeamType, type TeamFunction } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import TeamConfigModal from './TeamConfigModal';
 import { toast } from 'sonner';
+import { PageContainer, PageHeader } from '@/components/layout';
 
 const Team: React.FC = () => {
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -189,24 +190,23 @@ const Team: React.FC = () => {
   };
 
   return (
-    <div className="p-8 h-full overflow-y-auto bg-slate-950 text-slate-50 relative custom-scrollbar">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Equipe</h2>
-          <p className="text-sm text-slate-400 mt-1">Gerencie usuários e times da organização</p>
-        </div>
-        <div className="flex gap-3">
-          <Button onClick={() => setShowConfigModal(true)} variant="outline" className="border-slate-700">
-            <Settings className="w-4 h-4 mr-2" />
-            Configurar
-          </Button>
-          <Button onClick={() => setShowModal(true)} className="shadow-lg shadow-cyan-500/20 bg-slate-100 text-slate-900 hover:bg-white hover:text-black">
-            <UserPlus className="w-4 h-4 mr-2" />
-            Convidar Usuário
-          </Button>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Equipe"
+        description="Gerencie usuários e times da organização."
+        actions={
+          <>
+            <Button onClick={() => setShowConfigModal(true)} variant="outline" className="border-slate-700">
+              <Settings className="w-4 h-4 mr-2" />
+              Configurar
+            </Button>
+            <Button onClick={() => setShowModal(true)} className="shadow-lg shadow-cyan-500/20 bg-slate-100 text-slate-900 hover:bg-white hover:text-black">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Convidar Usuário
+            </Button>
+          </>
+        }
+      />
 
       {/* Stats Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -602,7 +602,7 @@ const Team: React.FC = () => {
             </div>
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 };
 

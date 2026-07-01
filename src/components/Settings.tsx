@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Shield, Bot, Plug, Loader2, Save, RotateCcw, BookOpen, Lock } from 'lucide-react';
+import { PageContainer, PageHeader } from '@/components/layout';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import AgentSettings, { AgentSettingsRef } from './settings/AgentSettings';
 import ApiSettings, { ApiSettingsRef } from './settings/ApiSettings';
@@ -48,42 +49,42 @@ const Settings: React.FC = () => {
     : apiRef.current?.isSaving;
   
   return (
-    <div className="p-8 max-w-5xl mx-auto h-full overflow-y-auto bg-slate-950 text-slate-50 custom-scrollbar">
-      <div className="mb-10 flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Configurações</h2>
-          <p className="text-sm text-slate-400 mt-1">
+    <PageContainer className="max-w-5xl mx-auto">
+      <PageHeader
+        title="Configurações"
+        description={
+          <>
             Central de controle da sua instância {companyName}.
-            {!isAdmin && (
-              <span className="ml-2 text-amber-400">(Somente leitura)</span>
+            {!isAdmin && <span className="ml-2 text-amber-400">(Somente leitura)</span>}
+          </>
+        }
+        actions={
+          <div className="flex gap-2 items-center">
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReopenOnboarding}
+                className="text-slate-400 hover:text-white gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Refazer Onboarding
+              </Button>
             )}
-          </p>
-        </div>
-        <div className="flex gap-2 items-center">
-          {isAdmin && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleReopenOnboarding}
-              className="text-slate-400 hover:text-white gap-2"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Refazer Onboarding
-            </Button>
-          )}
-          <span className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs rounded-full font-mono flex items-center">
-            {isAdmin ? (
-              <>
-                <Shield className="w-3 h-3 mr-1" /> Admin
-              </>
-            ) : (
-              <>
-                <Lock className="w-3 h-3 mr-1" /> Somente Leitura
-              </>
-            )}
-          </span>
-        </div>
-      </div>
+            <span className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs rounded-full font-mono flex items-center">
+              {isAdmin ? (
+                <>
+                  <Shield className="w-3 h-3 mr-1" /> Admin
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3 h-3 mr-1" /> Somente Leitura
+                </>
+              )}
+            </span>
+          </div>
+        }
+      />
 
       <Tabs defaultValue="agent" className="w-full" onValueChange={setActiveTab}>
         <div className="flex items-center justify-between mb-8">
@@ -152,7 +153,7 @@ const Settings: React.FC = () => {
           <SystemRoadmap />
         </TabsContent>
       </Tabs>
-    </div>
+    </PageContainer>
   );
 };
 

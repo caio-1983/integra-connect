@@ -8,6 +8,7 @@ import Settings from './components/Settings';
 import Team from './components/Team';
 import Scheduling from './components/Scheduling';
 import Kanban from './components/Kanban';
+import Operations from './components/Operations';
 import Auth from './pages/Auth';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -69,7 +70,8 @@ const App: React.FC = () => {
                 <AppLayout />
               </ProtectedRoute>
             }>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/" element={<Navigate to="/operations" replace />} />
+              <Route path="/operations" element={<Operations />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/pipeline" element={<Kanban />} />
               <Route path="/chat" element={<ChatInterface />} />

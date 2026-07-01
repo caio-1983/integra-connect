@@ -3,6 +3,7 @@ import { Search, Filter, MoreHorizontal, UserPlus, MessageSquare, Loader2, Mail,
 import { useNavigate } from 'react-router-dom';
 import { Button } from './Button';
 import { api } from '../services/api';
+import { PageContainer, PageHeader, Toolbar } from '@/components/layout';
 import { Contact } from '../types';
 
 const Contacts: React.FC = () => {
@@ -48,36 +49,35 @@ const Contacts: React.FC = () => {
   };
 
   return (
-    <div className="p-8 h-full overflow-y-auto bg-slate-950 text-slate-50">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Contatos</h2>
-          <p className="text-sm text-slate-400 mt-1">Gerencie sua base de leads e clientes com inteligência.</p>
-        </div>
-        <Button 
-          className="shadow-lg shadow-cyan-500/20 opacity-50 cursor-not-allowed"
-          disabled
-          title="Em breve: Adicionar contato"
-        >
-          <UserPlus className="w-4 h-4 mr-2" />
-          Novo Contato
-        </Button>
-      </div>
+    <PageContainer>
+      <PageHeader
+        title="Contatos"
+        description="Gerencie sua base de leads e clientes com inteligência."
+        actions={
+          <Button
+            className="shadow-lg shadow-cyan-500/20 opacity-50 cursor-not-allowed"
+            disabled
+            title="Em breve: Adicionar contato"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Novo Contato
+          </Button>
+        }
+      />
 
-      {/* Filters Bar */}
-      <div className="flex flex-col sm:flex-row items-center gap-4 mb-8 bg-slate-900/50 p-2 rounded-xl border border-slate-800">
+      <Toolbar>
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          <input 
-            type="text" 
+          <input
+            type="text"
             placeholder="Buscar por nome, email ou telefone"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-slate-950 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 placeholder:text-slate-600 transition-all"
+            className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-slate-900/50 border border-slate-800 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 placeholder:text-slate-600 transition-all"
           />
         </div>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           className="w-full sm:w-auto bg-slate-950 border-slate-800 text-slate-500 cursor-not-allowed opacity-50"
           disabled
           title="Em breve: Filtros avançados"
@@ -85,7 +85,7 @@ const Contacts: React.FC = () => {
           <Filter className="w-4 h-4 mr-2" />
           Filtros Avançados
         </Button>
-      </div>
+      </Toolbar>
 
       {/* Table */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm shadow-xl overflow-hidden min-h-[400px]">
@@ -182,7 +182,7 @@ const Contacts: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 };
 

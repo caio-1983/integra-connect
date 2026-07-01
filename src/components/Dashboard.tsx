@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import { OnboardingBanner } from './OnboardingBanner';
 import { SystemHealthCard } from './SystemHealthCard';
 import { useOutletContext } from 'react-router-dom';
+import { PageContainer, PageHeader } from '@/components/layout';
 
 interface OutletContext {
   showOnboarding: boolean;
@@ -80,7 +81,7 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full bg-slate-950">
+      <PageContainer className="flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="relative">
              <div className="absolute inset-0 bg-cyan-500/20 blur-xl rounded-full"></div>
@@ -88,41 +89,38 @@ const Dashboard: React.FC = () => {
           </div>
           <p className="text-sm text-slate-400 font-medium animate-pulse">Carregando insights...</p>
         </div>
-      </div>
+      </PageContainer>
     );
   }
 
-  return (
-    <div className="p-6 space-y-8 overflow-y-auto h-full bg-slate-950 text-slate-50 custom-scrollbar">
-      {/* Onboarding Banner */}
-      <OnboardingBanner onOpenWizard={() => setShowOnboarding(true)} />
+  const periodFilter = (
+    <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-lg border border-slate-800">
+      {(['today', '7days', '30days'] as PeriodFilter[]).map((p) => (
+        <button
+          key={p}
+          onClick={() => setPeriod(p)}
+          className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+            period === p
+              ? 'bg-slate-800 text-white shadow-sm'
+              : 'text-slate-500 hover:text-slate-300'
+          }`}
+        >
+          {periodLabels[p]}
+        </button>
+      ))}
+    </div>
+  );
 
-      {/* System Health Card */}
+  return (
+    <PageContainer>
+      <OnboardingBanner onOpenWizard={() => setShowOnboarding(true)} />
       <SystemHealthCard />
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Dashboard</h2>
-          <p className="text-slate-400 mt-1">
-            Visão geral da performance da sua IA {period === 'today' ? 'hoje' : `nos últimos ${periodLabels[period].toLowerCase()}`}.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 bg-slate-900 p-1 rounded-lg border border-slate-800">
-          {(['today', '7days', '30days'] as PeriodFilter[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                period === p
-                  ? 'bg-slate-800 text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-300'
-              }`}
-            >
-              {periodLabels[p]}
-            </button>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        title="Dashboard"
+        description={`Visão geral da performance da sua IA ${period === 'today' ? 'hoje' : `nos últimos ${periodLabels[period].toLowerCase()}`}.`}
+        actions={periodFilter}
+      />
 
       {/* Metric Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -242,7 +240,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 };
 
