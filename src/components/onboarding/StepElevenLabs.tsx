@@ -149,29 +149,29 @@ export const StepElevenLabs: React.FC<StepElevenLabsProps> = ({
     >
       <motion.div variants={itemVariants} className="text-center mb-8">
         <motion.div 
-          className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 border border-violet-500/30 flex items-center justify-center"
+          className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-violet-50 to-fuchsia-50 border border-violet-200 flex items-center justify-center"
           whileHover={{ scale: 1.05, rotate: 5 }}
           transition={{ type: "spring", stiffness: 400 }}
         >
-          <Mic className="w-8 h-8 text-violet-400" />
+          <Mic className="w-8 h-8 text-violet-600" />
         </motion.div>
-        <h3 className="text-xl font-semibold text-white mb-2">Respostas em Áudio</h3>
-        <p className="text-slate-400 text-sm max-w-md mx-auto">
+        <h3 className="text-xl font-semibold text-foreground mb-2">Respostas em Áudio</h3>
+        <p className="text-muted-foreground text-sm max-w-md mx-auto">
           Configure o ElevenLabs para que seu agente responda também por áudio.
         </p>
-        <p className="text-xs text-amber-400/80 mt-2">
+        <p className="text-xs text-amber-600 mt-2">
           ⚡ Esta configuração é opcional
         </p>
       </motion.div>
 
       <div className="space-y-6 max-w-md mx-auto">
         {/* Enable Audio Toggle */}
-        <motion.div variants={itemVariants} className="flex items-center justify-between p-4 rounded-lg bg-slate-800/30 border border-slate-700/50">
+        <motion.div variants={itemVariants} className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border">
           <div className="flex items-center gap-3">
-            <Volume2 className="w-5 h-5 text-violet-400" />
+            <Volume2 className="w-5 h-5 text-violet-600" />
             <div>
-              <Label className="text-slate-300">Habilitar Respostas em Áudio</Label>
-              <p className="text-xs text-slate-500">O agente enviará mensagens de voz</p>
+              <Label className="text-foreground">Habilitar Respostas em Áudio</Label>
+              <p className="text-xs text-muted-foreground">O agente enviará mensagens de voz</p>
             </div>
           </div>
           <Switch
@@ -182,8 +182,8 @@ export const StepElevenLabs: React.FC<StepElevenLabsProps> = ({
 
         {/* API Key */}
         <motion.div variants={itemVariants} className="space-y-2">
-          <Label htmlFor="elevenLabsApiKey" className="text-slate-300 flex items-center gap-2">
-            <Mic className="w-4 h-4 text-slate-500" />
+          <Label htmlFor="elevenLabsApiKey" className="text-foreground flex items-center gap-2">
+            <Mic className="w-4 h-4 text-muted-foreground" />
             API Key do ElevenLabs
           </Label>
           <div className="relative">
@@ -193,19 +193,19 @@ export const StepElevenLabs: React.FC<StepElevenLabsProps> = ({
               value={elevenLabsApiKey}
               onChange={(e) => onApiKeyChange(e.target.value)}
               placeholder="sk-..."
-              className="bg-slate-800/50 border-slate-700 focus:border-violet-500 text-white placeholder:text-slate-500 pr-10 font-mono"
+              className="bg-background border-border focus:border-ring text-foreground placeholder:text-muted-foreground pr-10 font-mono"
             />
             <button
               type="button"
               onClick={() => setShowApiKey(!showApiKey)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-muted-foreground">
             Obtenha em{' '}
-            <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener noreferrer" className="text-violet-400 hover:underline">
+            <a href="https://elevenlabs.io/app/settings/api-keys" target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:underline">
               elevenlabs.io
             </a>
           </p>
@@ -213,18 +213,18 @@ export const StepElevenLabs: React.FC<StepElevenLabsProps> = ({
 
         {/* Voice Selector */}
         <motion.div variants={itemVariants} className="space-y-2">
-          <Label className="text-slate-300">Voz</Label>
+          <Label className="text-foreground">Voz</Label>
           <Select value={elevenLabsVoiceId} onValueChange={onVoiceIdChange}>
-            <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
+            <SelectTrigger className="bg-background border-border text-foreground">
               <SelectValue placeholder="Selecione uma voz">
                 {selectedVoice ? `${selectedVoice.name} - ${selectedVoice.description}` : 'Selecione uma voz'}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent className="bg-slate-800 border-slate-700 z-50">
+            <SelectContent className="bg-card border-border z-50">
               {VOICES.map((voice) => (
-                <SelectItem key={voice.id} value={voice.id} className="text-white hover:bg-violet-500/20 focus:bg-violet-500/20 focus:text-white">
+                <SelectItem key={voice.id} value={voice.id} className="text-foreground hover:bg-accent focus:bg-accent">
                   <span className="font-medium">{voice.name}</span>
-                  <span className="text-slate-400 ml-2">- {voice.description}</span>
+                  <span className="text-muted-foreground ml-2">- {voice.description}</span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -233,16 +233,16 @@ export const StepElevenLabs: React.FC<StepElevenLabsProps> = ({
 
         {/* Model Selector */}
         <motion.div variants={itemVariants} className="space-y-2">
-          <Label className="text-slate-300">Modelo</Label>
+          <Label className="text-foreground">Modelo</Label>
           <Select value={elevenLabsModel} onValueChange={onModelChange}>
-            <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
+            <SelectTrigger className="bg-background border-border text-foreground">
               <SelectValue placeholder="Selecione um modelo" />
             </SelectTrigger>
-            <SelectContent className="bg-slate-800 border-slate-700 z-50">
+            <SelectContent className="bg-card border-border z-50">
               {MODELS.map((model) => (
-                <SelectItem key={model.id} value={model.id} className="text-white hover:bg-violet-500/20 focus:bg-violet-500/20 focus:text-white">
+                <SelectItem key={model.id} value={model.id} className="text-foreground hover:bg-accent focus:bg-accent">
                   <span className="font-medium">{model.name}</span>
-                  <span className="text-slate-400 ml-2">- {model.description}</span>
+                  <span className="text-muted-foreground ml-2">- {model.description}</span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -250,14 +250,14 @@ export const StepElevenLabs: React.FC<StepElevenLabsProps> = ({
         </motion.div>
 
         {/* Voice Settings Sliders */}
-        <motion.div variants={itemVariants} className="space-y-4 p-4 rounded-lg bg-slate-800/20 border border-slate-700/30">
-          <h4 className="text-sm font-medium text-slate-300">Ajustes da Voz</h4>
+        <motion.div variants={itemVariants} className="space-y-4 p-4 rounded-lg bg-muted/50 border border-border">
+          <h4 className="text-sm font-medium text-foreground">Ajustes da Voz</h4>
           
           <div className="space-y-3">
             <div className="space-y-2">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Estabilidade</span>
-                <span className="text-slate-500">{(elevenLabsStability * 100).toFixed(0)}%</span>
+                <span className="text-muted-foreground">Estabilidade</span>
+                <span className="text-muted-foreground">{(elevenLabsStability * 100).toFixed(0)}%</span>
               </div>
               <Slider
                 value={[elevenLabsStability]}
@@ -271,8 +271,8 @@ export const StepElevenLabs: React.FC<StepElevenLabsProps> = ({
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Similaridade</span>
-                <span className="text-slate-500">{(elevenLabsSimilarityBoost * 100).toFixed(0)}%</span>
+                <span className="text-muted-foreground">Similaridade</span>
+                <span className="text-muted-foreground">{(elevenLabsSimilarityBoost * 100).toFixed(0)}%</span>
               </div>
               <Slider
                 value={[elevenLabsSimilarityBoost]}
@@ -286,8 +286,8 @@ export const StepElevenLabs: React.FC<StepElevenLabsProps> = ({
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Velocidade</span>
-                <span className="text-slate-500">{elevenLabsSpeed.toFixed(1)}x</span>
+                <span className="text-muted-foreground">Velocidade</span>
+                <span className="text-muted-foreground">{elevenLabsSpeed.toFixed(1)}x</span>
               </div>
               <Slider
                 value={[elevenLabsSpeed]}

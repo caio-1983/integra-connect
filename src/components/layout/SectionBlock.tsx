@@ -23,8 +23,8 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
     <section className={cn('flex flex-col gap-4', className)}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-800 border border-slate-700/60 flex-shrink-0">
-            <Icon className="w-4 h-4 text-slate-400" />
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted border border-border flex-shrink-0">
+            <Icon className="w-4 h-4 text-muted-foreground" />
           </div>
           <div>
             <h2 className="text-sm font-semibold text-foreground leading-none">{title}</h2>

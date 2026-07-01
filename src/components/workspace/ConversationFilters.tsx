@@ -27,15 +27,15 @@ const ConversationFilters: React.FC<ConversationFiltersProps> = ({ active, onCha
           className={cn(
             'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all',
             active === key
-              ? 'bg-slate-700 text-white'
-              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60',
+              ? 'bg-secondary text-foreground shadow-sm border border-border'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted',
           )}
         >
           {label}
           {counts[key] > 0 && key !== 'all' && (
             <span className={cn(
               'text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full',
-              active === key ? 'bg-slate-600 text-slate-200' : 'bg-slate-800 text-slate-500',
+              active === key ? 'bg-foreground/10 text-foreground' : 'bg-muted text-muted-foreground',
             )}>
               {counts[key] > 9 ? '9+' : counts[key]}
             </span>

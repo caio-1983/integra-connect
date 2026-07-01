@@ -22,16 +22,16 @@ interface UpcomingAppointment {
 }
 
 const statusConfig = {
-  nina:   { icon: Bot,   label: 'IA',       color: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' },
-  human:  { icon: User,  label: 'Humano',   color: 'text-violet-400 bg-violet-500/10 border-violet-500/20' },
-  paused: { icon: Pause, label: 'Pausada',  color: 'text-slate-400 bg-slate-700 border-slate-600' },
+  nina:   { icon: Bot,   label: 'IA',       color: 'text-cyan-700 bg-cyan-50 border-cyan-200' },
+  human:  { icon: User,  label: 'Humano',   color: 'text-violet-700 bg-violet-50 border-violet-200' },
+  paused: { icon: Pause, label: 'Pausada',  color: 'text-muted-foreground bg-muted border-border' },
 };
 
 const appointmentTypeColor: Record<string, string> = {
-  demo:     'text-cyan-400',
-  meeting:  'text-violet-400',
-  support:  'text-emerald-400',
-  followup: 'text-amber-400',
+  demo:     'text-cyan-600',
+  meeting:  'text-violet-600',
+  support:  'text-emerald-600',
+  followup: 'text-amber-600',
 };
 
 function formatRelative(dateStr: string): string {
@@ -106,14 +106,14 @@ const OperationalSummary: React.FC = () => {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {[1, 2].map(col => (
-          <div key={col} className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 space-y-3 animate-pulse">
-            <div className="h-3 w-28 bg-slate-800 rounded" />
+          <div key={col} className="rounded-xl border border-border bg-card p-4 space-y-3 animate-pulse">
+            <div className="h-3 w-28 bg-muted rounded" />
             {[1, 2, 3].map(r => (
               <div key={r} className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-slate-800 flex-shrink-0" />
+                <div className="w-8 h-8 rounded-full bg-muted flex-shrink-0" />
                 <div className="flex-1 space-y-1.5">
-                  <div className="h-2.5 w-24 bg-slate-800 rounded" />
-                  <div className="h-2 w-36 bg-slate-800/60 rounded" />
+                  <div className="h-2.5 w-24 bg-muted rounded" />
+                  <div className="h-2 w-36 bg-muted/60 rounded" />
                 </div>
               </div>
             ))}
@@ -126,10 +126,10 @@ const OperationalSummary: React.FC = () => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       {/* Conversas recentes */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/70">
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+            <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
             <span className="text-xs font-semibold text-foreground">Conversas Recentes</span>
           </div>
           {conversations.length > 0 && (
@@ -143,19 +143,19 @@ const OperationalSummary: React.FC = () => {
             title="Nenhuma conversa recente"
             description="As conversas ativas aparecerão aqui assim que os primeiros atendimentos iniciarem."
             compact
-            className="m-3 border-slate-800/60"
+            className="m-3 border-border/60"
           />
         ) : (
-          <ul className="divide-y divide-slate-800/50">
+          <ul className="divide-y divide-border">
             {conversations.map((conv) => {
               const statusCfg = statusConfig[conv.status];
               const StatusIcon = statusCfg.icon;
               return (
                 <li
                   key={conv.id}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-slate-800/30 transition-colors"
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-xs font-bold text-slate-300 flex-shrink-0 uppercase">
+                  <div className="w-8 h-8 rounded-full bg-muted border border-border flex items-center justify-center text-xs font-bold text-foreground flex-shrink-0 uppercase">
                     {conv.contactName.charAt(0)}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -174,10 +174,10 @@ const OperationalSummary: React.FC = () => {
       </div>
 
       {/* Agendamentos próximos */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/70">
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
             <span className="text-xs font-semibold text-foreground">Próximos Agendamentos</span>
           </div>
           {appointments.length > 0 && (
@@ -191,15 +191,15 @@ const OperationalSummary: React.FC = () => {
             title="Nenhum agendamento próximo"
             description="Agendamentos dos próximos 3 dias aparecerão aqui."
             compact
-            className="m-3 border-slate-800/60"
+            className="m-3 border-border/60"
           />
         ) : (
-          <ul className="divide-y divide-slate-800/50">
+          <ul className="divide-y divide-border">
             {appointments.map((appt) => {
-              const typeColor = appointmentTypeColor[appt.type] || 'text-slate-400';
+              const typeColor = appointmentTypeColor[appt.type] || 'text-muted-foreground';
               return (
-                <li key={appt.id} className="flex items-center gap-3 px-4 py-3 hover:bg-slate-800/30 transition-colors">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-800 border border-slate-700/50 flex-shrink-0">
+                <li key={appt.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted border border-border flex-shrink-0">
                     <Clock className={cn('w-3.5 h-3.5', typeColor)} />
                   </div>
                   <div className="flex-1 min-w-0">

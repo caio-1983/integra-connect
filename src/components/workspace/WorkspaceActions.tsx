@@ -12,24 +12,20 @@ interface WorkspaceActionsProps {
 }
 
 const WorkspaceActions: React.FC<WorkspaceActionsProps> = ({
-  status,
-  sdrName,
-  showCustomerPanel,
-  onStatusChange,
-  onToggleCustomerPanel,
+  status, sdrName, showCustomerPanel, onStatusChange, onToggleCustomerPanel,
 }) => {
   return (
     <div className="flex items-center gap-1.5 flex-shrink-0">
       {/* Status switcher */}
-      <div className="flex items-center bg-slate-950/60 rounded-lg p-0.5 border border-slate-800">
+      <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
         <button
           onClick={() => onStatusChange('nina')}
           title={`Ativar ${sdrName} (IA)`}
           className={cn(
             'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
             status === 'nina'
-              ? 'bg-violet-500/20 text-violet-400'
-              : 'text-slate-500 hover:text-slate-300',
+              ? 'bg-violet-100 text-violet-700'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           <Bot className="w-3.5 h-3.5" />
@@ -41,8 +37,8 @@ const WorkspaceActions: React.FC<WorkspaceActionsProps> = ({
           className={cn(
             'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
             status === 'human'
-              ? 'bg-emerald-500/20 text-emerald-400'
-              : 'text-slate-500 hover:text-slate-300',
+              ? 'bg-emerald-100 text-emerald-700'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           <User className="w-3.5 h-3.5" />
@@ -54,8 +50,8 @@ const WorkspaceActions: React.FC<WorkspaceActionsProps> = ({
           className={cn(
             'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
             status === 'paused'
-              ? 'bg-amber-500/20 text-amber-400'
-              : 'text-slate-500 hover:text-slate-300',
+              ? 'bg-amber-100 text-amber-700'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           <Pause className="w-3.5 h-3.5" />
@@ -63,26 +59,24 @@ const WorkspaceActions: React.FC<WorkspaceActionsProps> = ({
         </button>
       </div>
 
-      <div className="w-px h-5 bg-slate-800" />
+      <div className="w-px h-5 bg-border" />
 
-      {/* Quick actions — infrastructure only */}
-      <button disabled title="Em breve: Transferir"         className="p-1.5 rounded-lg text-slate-700 cursor-not-allowed"><ArrowRightLeft className="w-3.5 h-3.5" /></button>
-      <button disabled title="Em breve: Finalizar"          className="p-1.5 rounded-lg text-slate-700 cursor-not-allowed"><CheckCircle    className="w-3.5 h-3.5" /></button>
-      <button disabled title="Em breve: Etiquetas"          className="p-1.5 rounded-lg text-slate-700 cursor-not-allowed"><Tag            className="w-3.5 h-3.5" /></button>
-      <button disabled title="Em breve: Agendar retorno"    className="p-1.5 rounded-lg text-slate-700 cursor-not-allowed"><CalendarClock  className="w-3.5 h-3.5" /></button>
-      <button disabled title="Em breve: Criar oportunidade" className="p-1.5 rounded-lg text-slate-700 cursor-not-allowed"><TrendingUp     className="w-3.5 h-3.5" /></button>
+      <button disabled title="Em breve: Transferir"         className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><ArrowRightLeft className="w-3.5 h-3.5" /></button>
+      <button disabled title="Em breve: Finalizar"          className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><CheckCircle    className="w-3.5 h-3.5" /></button>
+      <button disabled title="Em breve: Etiquetas"          className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><Tag            className="w-3.5 h-3.5" /></button>
+      <button disabled title="Em breve: Agendar retorno"    className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><CalendarClock  className="w-3.5 h-3.5" /></button>
+      <button disabled title="Em breve: Criar oportunidade" className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><TrendingUp     className="w-3.5 h-3.5" /></button>
 
-      <div className="w-px h-5 bg-slate-800" />
+      <div className="w-px h-5 bg-border" />
 
-      {/* Toggle workspace panel */}
       <button
         onClick={onToggleCustomerPanel}
         title="Workspace do cliente"
         className={cn(
           'p-1.5 rounded-lg transition-colors',
           showCustomerPanel
-            ? 'bg-slate-800 text-cyan-400'
-            : 'text-slate-500 hover:text-white hover:bg-slate-800',
+            ? 'bg-muted text-primary'
+            : 'text-muted-foreground hover:text-foreground hover:bg-muted',
         )}
       >
         <Info className="w-3.5 h-3.5" />

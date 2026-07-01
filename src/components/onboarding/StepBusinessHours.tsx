@@ -99,17 +99,17 @@ export const StepBusinessHours: React.FC<StepBusinessHoursProps> = ({
     >
       <motion.div variants={itemVariants} className="text-center mb-8">
         <motion.div 
-          className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-orange-500/20 to-amber-500/20 border border-orange-500/30 flex items-center justify-center"
+          className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-200 flex items-center justify-center"
           whileHover={{ scale: 1.05, rotate: 5 }}
           transition={{ type: "spring", stiffness: 400 }}
         >
-          <Clock className="w-8 h-8 text-orange-400" />
+          <Clock className="w-8 h-8 text-orange-600" />
         </motion.div>
-        <h3 className="text-xl font-semibold text-white mb-2">Horário Comercial</h3>
-        <p className="text-slate-400 text-sm max-w-md mx-auto">
+        <h3 className="text-xl font-semibold text-foreground mb-2">Horário Comercial</h3>
+        <p className="text-muted-foreground text-sm max-w-md mx-auto">
           Configure quando seu agente estará disponível para atender.
         </p>
-        <p className="text-xs text-amber-400/80 mt-2">
+        <p className="text-xs text-amber-600 mt-2">
           ⚡ Esta configuração é opcional
         </p>
       </motion.div>
@@ -117,19 +117,19 @@ export const StepBusinessHours: React.FC<StepBusinessHoursProps> = ({
       <div className="space-y-6 max-w-md mx-auto">
         {/* Timezone */}
         <motion.div variants={itemVariants} className="space-y-2">
-          <Label className="text-slate-300 flex items-center gap-2">
-            <Globe className="w-4 h-4 text-slate-500" />
+          <Label className="text-foreground flex items-center gap-2">
+            <Globe className="w-4 h-4 text-muted-foreground" />
             Fuso Horário
           </Label>
           <Select value={timezone} onValueChange={onTimezoneChange}>
-            <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
+            <SelectTrigger className="bg-background border-border text-foreground">
               <SelectValue placeholder="Selecione o fuso horário">
                 {selectedTimezone?.name || 'Selecione o fuso horário'}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent className="bg-slate-800 border-slate-700 z-50">
+            <SelectContent className="bg-card border-border z-50">
               {TIMEZONES.map((tz) => (
-                <SelectItem key={tz.id} value={tz.id} className="text-white hover:bg-violet-500/20 focus:bg-violet-500/20 focus:text-white">
+                <SelectItem key={tz.id} value={tz.id} className="text-foreground hover:bg-accent focus:bg-accent">
                   {tz.name}
                 </SelectItem>
               ))}
@@ -139,20 +139,20 @@ export const StepBusinessHours: React.FC<StepBusinessHoursProps> = ({
 
         {/* Business Hours */}
         <motion.div variants={itemVariants} className="space-y-3">
-          <Label className="text-slate-300 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-slate-500" />
+          <Label className="text-foreground flex items-center gap-2">
+            <Clock className="w-4 h-4 text-muted-foreground" />
             Horário de Atendimento
           </Label>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <span className="text-xs text-slate-500">Início</span>
+              <span className="text-xs text-muted-foreground">Início</span>
               <Select value={businessHoursStart} onValueChange={onBusinessHoursStartChange}>
-                <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
+                <SelectTrigger className="bg-background border-border text-foreground">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700 max-h-60 z-50">
+                <SelectContent className="bg-card border-border max-h-60 z-50">
                   {HOURS.map((hour) => (
-                    <SelectItem key={hour.id} value={hour.id} className="text-white hover:bg-violet-500/20 focus:bg-violet-500/20 focus:text-white">
+                    <SelectItem key={hour.id} value={hour.id} className="text-foreground hover:bg-accent focus:bg-accent">
                       {hour.name}
                     </SelectItem>
                   ))}
@@ -160,14 +160,14 @@ export const StepBusinessHours: React.FC<StepBusinessHoursProps> = ({
               </Select>
             </div>
             <div className="space-y-1">
-              <span className="text-xs text-slate-500">Fim</span>
+              <span className="text-xs text-muted-foreground">Fim</span>
               <Select value={businessHoursEnd} onValueChange={onBusinessHoursEndChange}>
-                <SelectTrigger className="bg-slate-800/50 border-slate-700 text-white">
+                <SelectTrigger className="bg-background border-border text-foreground">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700 max-h-60 z-50">
+                <SelectContent className="bg-card border-border max-h-60 z-50">
                   {HOURS.map((hour) => (
-                    <SelectItem key={hour.id} value={hour.id} className="text-white hover:bg-violet-500/20 focus:bg-violet-500/20 focus:text-white">
+                    <SelectItem key={hour.id} value={hour.id} className="text-foreground hover:bg-accent focus:bg-accent">
                       {hour.name}
                     </SelectItem>
                   ))}
@@ -179,8 +179,8 @@ export const StepBusinessHours: React.FC<StepBusinessHoursProps> = ({
 
         {/* Business Days */}
         <motion.div variants={itemVariants} className="space-y-3">
-          <Label className="text-slate-300 flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-slate-500" />
+          <Label className="text-foreground flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
             Dias de Atendimento
           </Label>
           <div className="flex gap-2 justify-center">
@@ -192,8 +192,8 @@ export const StepBusinessHours: React.FC<StepBusinessHoursProps> = ({
                 className={`
                   w-10 h-10 rounded-lg text-sm font-medium transition-all
                   ${businessDays.includes(day.id)
-                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/30'
-                    : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:border-orange-500/50'
+                    ? 'bg-orange-500 text-foreground shadow-lg shadow-orange-500/30'
+                    : 'bg-muted text-muted-foreground border border-border hover:border-orange-400'
                   }
                 `}
                 whileHover={{ scale: 1.1 }}
@@ -209,24 +209,24 @@ export const StepBusinessHours: React.FC<StepBusinessHoursProps> = ({
         {/* Preview */}
         <motion.div 
           variants={itemVariants}
-          className="mt-8 p-4 rounded-xl bg-slate-800/30 border border-slate-700/50"
+          className="mt-8 p-4 rounded-xl bg-muted/50 border border-border"
         >
-          <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
             <Eye className="w-3 h-3" />
             Preview do Horário
           </div>
           <div className="space-y-2 text-sm">
-            <p className="text-slate-300">
-              <span className="text-slate-500">Fuso:</span>{' '}
-              <span className="text-white font-medium">{selectedTimezone?.short || timezone}</span>
+            <p className="text-foreground">
+              <span className="text-muted-foreground">Fuso:</span>{' '}
+              <span className="text-foreground font-medium">{selectedTimezone?.short || timezone}</span>
             </p>
-            <p className="text-slate-300">
-              <span className="text-slate-500">Horário:</span>{' '}
-              <span className="text-orange-400 font-medium">{businessHoursStart} - {businessHoursEnd}</span>
+            <p className="text-foreground">
+              <span className="text-muted-foreground">Horário:</span>{' '}
+              <span className="text-orange-600 font-medium">{businessHoursStart} - {businessHoursEnd}</span>
             </p>
-            <p className="text-slate-300">
-              <span className="text-slate-500">Dias:</span>{' '}
-              <span className="text-white font-medium">{formattedDays || 'Nenhum selecionado'}</span>
+            <p className="text-foreground">
+              <span className="text-muted-foreground">Dias:</span>{' '}
+              <span className="text-foreground font-medium">{formattedDays || 'Nenhum selecionado'}</span>
             </p>
           </div>
         </motion.div>

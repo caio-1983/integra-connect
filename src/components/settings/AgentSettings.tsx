@@ -195,18 +195,18 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
       <TooltipProvider>
       <div className="space-y-6">
         {/* System Prompt - PRIMEIRA SEÇÃO */}
-        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+        <div className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <Bot className="w-5 h-5 text-cyan-400" />
-              <h3 className="font-semibold text-white">Prompt do Sistema</h3>
+              <Bot className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Prompt do Sistema</h3>
             </div>
             <div className="flex gap-2">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleRestoreDefault}
-                className="text-slate-400 hover:text-white hover:bg-slate-700"
+                className="text-muted-foreground hover:text-foreground hover:bg-muted"
               >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Restaurar Padrão
@@ -215,7 +215,7 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsGeneratorOpen(true)}
-                className="text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10"
+                className="text-primary hover:text-primary/80 hover:bg-cyan-500/10"
               >
                 <Wand2 className="w-4 h-4 mr-2" />
                 Gerar com IA
@@ -224,7 +224,7 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
           </div>
           
           {/* Nota explicativa sobre o prompt */}
-          <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300">
+          <div className="mb-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
             <p className="flex items-start gap-2">
               <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <span>
@@ -239,19 +239,19 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
             onChange={(e) => setSettings({ ...settings, system_prompt_override: e.target.value || null })}
             placeholder="Cole ou escreva o prompt do agente aqui..."
             rows={12}
-            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 resize-y font-mono custom-scrollbar"
+            className="w-full rounded-lg border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 resize-y font-mono custom-scrollbar"
           />
           <details className="mt-3">
-            <summary className="text-xs text-cyan-400 cursor-pointer hover:text-cyan-300 flex items-center gap-2">
+            <summary className="text-xs text-primary cursor-pointer hover:text-primary/80 flex items-center gap-2">
               <span>📋</span> Variáveis dinâmicas disponíveis
             </summary>
-            <div className="mt-2 p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono space-y-1">
-              <div><span className="text-cyan-400">{"{{ data_hora }}"}</span> → Data e hora atual (ex: 29/11/2024 14:35:22)</div>
-              <div><span className="text-cyan-400">{"{{ data }}"}</span> → Apenas data (ex: 29/11/2024)</div>
-              <div><span className="text-cyan-400">{"{{ hora }}"}</span> → Apenas hora (ex: 14:35:22)</div>
-              <div><span className="text-cyan-400">{"{{ dia_semana }}"}</span> → Dia da semana por extenso (ex: sexta-feira)</div>
-              <div><span className="text-cyan-400">{"{{ cliente_nome }}"}</span> → Nome do cliente na conversa</div>
-              <div><span className="text-cyan-400">{"{{ cliente_telefone }}"}</span> → Telefone do cliente</div>
+            <div className="mt-2 p-3 rounded-lg bg-background border border-border text-xs font-mono space-y-1">
+              <div><span className="text-primary">{"{{ data_hora }}"}</span> → Data e hora atual (ex: 29/11/2024 14:35:22)</div>
+              <div><span className="text-primary">{"{{ data }}"}</span> → Apenas data (ex: 29/11/2024)</div>
+              <div><span className="text-primary">{"{{ hora }}"}</span> → Apenas hora (ex: 14:35:22)</div>
+              <div><span className="text-primary">{"{{ dia_semana }}"}</span> → Dia da semana por extenso (ex: sexta-feira)</div>
+              <div><span className="text-primary">{"{{ cliente_nome }}"}</span> → Nome do cliente na conversa</div>
+              <div><span className="text-primary">{"{{ cliente_telefone }}"}</span> → Telefone do cliente</div>
             </div>
           </details>
         </div>
@@ -259,68 +259,68 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
         {/* 2-Column Grid: Company Info + Business Hours */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Company Info */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+          <div className="rounded-xl border border-border bg-card p-6">
             <div className="flex items-center gap-3 mb-4">
-              <Building2 className="w-5 h-5 text-blue-400" />
-              <h3 className="font-semibold text-white">Informações da Empresa</h3>
+              <Building2 className="w-5 h-5 text-blue-600" />
+              <h3 className="font-semibold text-foreground">Informações da Empresa</h3>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-400 mb-1.5 block">
-                  Nome da Empresa <span className="text-amber-400 text-[10px]">(recomendado)</span>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                  Nome da Empresa <span className="text-amber-600 text-[10px]">(recomendado)</span>
                 </label>
                 <input
                   type="text"
                   value={settings.company_name || ''}
                   onChange={(e) => setSettings({ ...settings, company_name: e.target.value || null })}
                   placeholder="Nome da sua empresa"
-                  className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-400 mb-1.5 block">
-                  Nome do Agente <span className="text-amber-400 text-[10px]">(recomendado)</span>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                  Nome do Agente <span className="text-amber-600 text-[10px]">(recomendado)</span>
                 </label>
                 <input
                   type="text"
                   value={settings.sdr_name || ''}
                   onChange={(e) => setSettings({ ...settings, sdr_name: e.target.value || null })}
                   placeholder="Nome do agente (ex: Ana, Sofia)"
-                  className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
                 />
               </div>
             </div>
           </div>
 
           {/* Business Hours */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+          <div className="rounded-xl border border-border bg-card p-6">
             <div className="flex items-center gap-3 mb-4">
-              <Calendar className="w-5 h-5 text-indigo-400" />
-              <h3 className="font-semibold text-white">Horário de Atendimento</h3>
+              <Calendar className="w-5 h-5 text-indigo-600" />
+              <h3 className="font-semibold text-foreground">Horário de Atendimento</h3>
             </div>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-slate-400 mb-1.5 block">Início</label>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Início</label>
                   <input
                     type="time"
                     value={settings.business_hours_start}
                     onChange={(e) => setSettings({ ...settings, business_hours_start: e.target.value })}
-                    className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-400 mb-1.5 block">Fim</label>
+                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Fim</label>
                   <input
                     type="time"
                     value={settings.business_hours_end}
                     onChange={(e) => setSettings({ ...settings, business_hours_end: e.target.value })}
-                    className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                    className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-400 mb-2 block">Dias da Semana</label>
+                <label className="text-xs font-medium text-muted-foreground mb-2 block">Dias da Semana</label>
                 <div className="flex gap-2">
                   {DAYS_OF_WEEK.map(day => (
                     <button
@@ -328,8 +328,8 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
                       onClick={() => toggleBusinessDay(day.value)}
                       className={`flex-1 h-9 text-xs font-medium rounded-lg transition-all ${
                         settings.business_days.includes(day.value)
-                          ? 'bg-indigo-500 text-white'
-                          : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                          ? 'bg-primary text-white'
+                          : 'bg-muted text-muted-foreground hover:bg-muted'
                       }`}
                     >
                       {day.label}
@@ -342,23 +342,23 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
         </div>
 
         {/* Comportamento */}
-        <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-6">
+        <div className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-center gap-3 mb-4">
             <Bot className="w-5 h-5 text-violet-400" />
-            <h3 className="font-semibold text-white">Comportamento</h3>
+            <h3 className="font-semibold text-foreground">Comportamento</h3>
           </div>
           
           {/* AI Model Selection */}
           <div className="mb-4">
-            <label className="text-xs font-medium text-slate-400 mb-3 block">Modelo de IA</label>
+            <label className="text-xs font-medium text-muted-foreground mb-3 block">Modelo de IA</label>
             <div className="grid grid-cols-4 gap-2">
               <button
                 type="button"
                 onClick={() => setSettings({ ...settings, ai_model_mode: 'flash' })}
                 className={`flex flex-col items-center gap-1 p-3 rounded-lg border transition-all ${
                   settings.ai_model_mode === 'flash'
-                    ? 'bg-violet-500/20 border-violet-500 text-violet-300'
-                    : 'bg-slate-950/50 border-slate-800 text-slate-400 hover:bg-slate-800'
+                    ? 'bg-violet-50 border-violet-200 text-violet-700'
+                    : 'bg-background/50 border-border text-muted-foreground hover:bg-muted'
                 }`}
               >
                 <span className="text-lg">⚡</span>
@@ -370,8 +370,8 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
                 onClick={() => setSettings({ ...settings, ai_model_mode: 'pro' })}
                 className={`flex flex-col items-center gap-1 p-3 rounded-lg border transition-all ${
                   settings.ai_model_mode === 'pro'
-                    ? 'bg-violet-500/20 border-violet-500 text-violet-300'
-                    : 'bg-slate-950/50 border-slate-800 text-slate-400 hover:bg-slate-800'
+                    ? 'bg-violet-50 border-violet-200 text-violet-700'
+                    : 'bg-background/50 border-border text-muted-foreground hover:bg-muted'
                 }`}
               >
                 <span className="text-lg">🧠</span>
@@ -383,8 +383,8 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
                 onClick={() => setSettings({ ...settings, ai_model_mode: 'pro3' })}
                 className={`flex flex-col items-center gap-1 p-3 rounded-lg border transition-all ${
                   settings.ai_model_mode === 'pro3'
-                    ? 'bg-violet-500/20 border-violet-500 text-violet-300'
-                    : 'bg-slate-950/50 border-slate-800 text-slate-400 hover:bg-slate-800'
+                    ? 'bg-violet-50 border-violet-200 text-violet-700'
+                    : 'bg-background/50 border-border text-muted-foreground hover:bg-muted'
                 }`}
               >
                 <span className="text-lg">🚀</span>
@@ -396,8 +396,8 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
                 onClick={() => setSettings({ ...settings, ai_model_mode: 'adaptive' })}
                 className={`flex flex-col items-center gap-1 p-3 rounded-lg border transition-all ${
                   settings.ai_model_mode === 'adaptive'
-                    ? 'bg-violet-500/20 border-violet-500 text-violet-300'
-                    : 'bg-slate-950/50 border-slate-800 text-slate-400 hover:bg-slate-800'
+                    ? 'bg-violet-50 border-violet-200 text-violet-700'
+                    : 'bg-background/50 border-border text-muted-foreground hover:bg-muted'
                 }`}
               >
                 <span className="text-lg">🎯</span>
@@ -405,7 +405,7 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
                 <span className="text-[10px] text-center opacity-70">Contexto</span>
               </button>
             </div>
-            <p className="text-xs text-slate-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               {settings.ai_model_mode === 'flash' && 'Gemini 2.5 Flash: respostas rápidas e econômicas'}
               {settings.ai_model_mode === 'pro' && 'Gemini 2.5 Pro: respostas elaboradas e inteligentes'}
               {settings.ai_model_mode === 'pro3' && 'Gemini 3 Pro: modelo mais recente e avançado'}
@@ -415,12 +415,12 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
 
           {/* Toggles em grid 2x2 com tooltips */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-950/50 border border-slate-800">
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-background/50 border border-border">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="text-sm text-slate-300 cursor-help flex items-center gap-1.5">
+                  <span className="text-sm text-foreground cursor-help flex items-center gap-1.5">
                     Agente Ativo
-                    <Info className="w-3 h-3 text-slate-500" />
+                    <Info className="w-3 h-3 text-muted-foreground" />
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -434,16 +434,16 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
                   onChange={(e) => setSettings({ ...settings, is_active: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-500/50 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
+                <div className="w-9 h-5 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring/50 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
               </label>
             </div>
 
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-950/50 border border-slate-800">
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-background/50 border border-border">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="text-sm text-slate-300 cursor-help flex items-center gap-1.5">
+                  <span className="text-sm text-foreground cursor-help flex items-center gap-1.5">
                     Resposta Automática
-                    <Info className="w-3 h-3 text-slate-500" />
+                    <Info className="w-3 h-3 text-muted-foreground" />
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -457,16 +457,16 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
                   onChange={(e) => setSettings({ ...settings, auto_response_enabled: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-500/50 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
+                <div className="w-9 h-5 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring/50 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
               </label>
             </div>
 
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-950/50 border border-slate-800">
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-background/50 border border-border">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="text-sm text-slate-300 cursor-help flex items-center gap-1.5">
+                  <span className="text-sm text-foreground cursor-help flex items-center gap-1.5">
                     Quebrar Mensagens
-                    <Info className="w-3 h-3 text-slate-500" />
+                    <Info className="w-3 h-3 text-muted-foreground" />
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -480,16 +480,16 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
                   onChange={(e) => setSettings({ ...settings, message_breaking_enabled: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-500/50 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
+                <div className="w-9 h-5 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring/50 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
               </label>
             </div>
 
-            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-slate-950/50 border border-slate-800">
+            <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-background/50 border border-border">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="text-sm text-slate-300 cursor-help flex items-center gap-1.5">
+                  <span className="text-sm text-foreground cursor-help flex items-center gap-1.5">
                     Agendamento via IA
-                    <Info className="w-3 h-3 text-slate-500" />
+                    <Info className="w-3 h-3 text-muted-foreground" />
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -503,7 +503,7 @@ const AgentSettings = forwardRef<AgentSettingsRef, {}>((props, ref) => {
                   onChange={(e) => setSettings({ ...settings, ai_scheduling_enabled: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-cyan-500/50 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
+                <div className="w-9 h-5 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring/50 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
               </label>
             </div>
           </div>

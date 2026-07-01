@@ -8,6 +8,10 @@ import TeamConfigModal from './TeamConfigModal';
 import { toast } from 'sonner';
 import { PageContainer, PageHeader } from '@/components/layout';
 
+const inputClass = 'w-full bg-background border border-border rounded-lg p-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 focus:border-ring/50 outline-none transition-all placeholder:text-muted-foreground';
+const selectClass = 'w-full bg-background border border-border rounded-lg p-2.5 text-sm text-foreground outline-none transition-all';
+const inlineSelectClass = 'w-32 px-3 py-1.5 bg-background border border-border rounded-md text-sm text-foreground cursor-pointer hover:border-ring/50 transition-colors outline-none';
+
 const Team: React.FC = () => {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [teams, setTeams] = useState<TeamType[]>([]);
@@ -15,25 +19,16 @@ const Team: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
-  const [formData, setFormData] = useState({ 
-    name: '', 
-    email: '', 
-    role: 'agent',
-    team_id: '',
-    function_id: '',
-    weight: 1
+  const [formData, setFormData] = useState({
+    name: '', email: '', role: 'agent', team_id: '', function_id: '', weight: 1
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [editFormData, setEditFormData] = useState({
-    name: '',
-    email: '',
-    role: 'agent',
+    name: '', email: '', role: 'agent',
     status: 'invited' as 'active' | 'invited' | 'disabled',
-    team_id: '',
-    function_id: '',
-    weight: 1
+    team_id: '', function_id: '', weight: 1
   });
 
   useEffect(() => {
@@ -54,7 +49,7 @@ const Team: React.FC = () => {
       setTeams(teamsData as TeamType[]);
       setFunctions(functionsData as TeamFunction[]);
     } catch (error) {
-      console.error("Erro ao carregar dados da equipe", error);
+      console.error('Erro ao carregar dados da equipe', error);
     } finally {
       setLoading(false);
     }
@@ -67,25 +62,19 @@ const Team: React.FC = () => {
         loadAllData();
       })
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   };
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     try {
       await api.createTeamMember({
-        name: formData.name,
-        email: formData.email,
+        name: formData.name, email: formData.email,
         role: formData.role as 'agent' | 'admin' | 'manager',
         team_id: formData.team_id || undefined,
         function_id: formData.function_id || undefined,
         weight: formData.weight
       });
-
       toast.success('Membro convidado com sucesso!');
       setShowModal(false);
       setFormData({ name: '', email: '', role: 'agent', team_id: '', function_id: '', weight: 1 });
@@ -121,13 +110,9 @@ const Team: React.FC = () => {
   const handleEditClick = (member: TeamMember) => {
     setEditingMember(member);
     setEditFormData({
-      name: member.name,
-      email: member.email,
-      role: member.role,
-      status: member.status,
-      team_id: member.team_id || '',
-      function_id: member.function_id || '',
-      weight: member.weight || 1
+      name: member.name, email: member.email, role: member.role,
+      status: member.status, team_id: member.team_id || '',
+      function_id: member.function_id || '', weight: member.weight || 1
     });
     setShowEditModal(true);
   };
@@ -135,11 +120,9 @@ const Team: React.FC = () => {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMember) return;
-
     try {
       await api.updateTeamMember(editingMember.id, {
-        name: editFormData.name,
-        email: editFormData.email,
+        name: editFormData.name, email: editFormData.email,
         role: editFormData.role as 'admin' | 'manager' | 'agent',
         status: editFormData.status,
         team_id: editFormData.team_id || null,
@@ -158,16 +141,15 @@ const Team: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-        case 'active':
-            return <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-950 border border-slate-700 text-white shadow-sm">Ativo</span>;
-        case 'invited':
-            return <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-950 border border-amber-900/50 text-amber-500 shadow-sm">Pendente</span>;
-        default:
-            return <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-950 border border-slate-800 text-slate-500 shadow-sm">Inativo</span>;
+      case 'active':
+        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 border border-emerald-200 text-emerald-700">Ativo</span>;
+      case 'invited':
+        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-50 border border-amber-200 text-amber-700">Pendente</span>;
+      default:
+        return <span className="px-3 py-1 rounded-full text-xs font-bold bg-muted border border-border text-muted-foreground">Inativo</span>;
     }
   };
 
-  // Filtered members based on search
   const filteredMembers = members.filter(m => {
     if (!searchTerm.trim()) return true;
     const term = searchTerm.toLowerCase();
@@ -181,13 +163,14 @@ const Team: React.FC = () => {
     );
   });
 
-  // Dynamic stats
   const stats = {
-    total: members.length,
-    admins: members.filter(m => m.role === 'admin').length,
+    total:   members.length,
+    admins:  members.filter(m => m.role === 'admin').length,
     members: members.filter(m => m.role !== 'admin').length,
-    teams: teams.length
+    teams:   teams.length
   };
+
+  const roleLabel = (role: string) => role === 'agent' ? 'Atendente' : role === 'manager' ? 'Gerente' : 'Admin';
 
   return (
     <PageContainer>
@@ -196,11 +179,11 @@ const Team: React.FC = () => {
         description="Gerencie usuários e times da organização."
         actions={
           <>
-            <Button onClick={() => setShowConfigModal(true)} variant="outline" className="border-slate-700">
+            <Button onClick={() => setShowConfigModal(true)} variant="outline">
               <Settings className="w-4 h-4 mr-2" />
               Configurar
             </Button>
-            <Button onClick={() => setShowModal(true)} className="shadow-lg shadow-cyan-500/20 bg-slate-100 text-slate-900 hover:bg-white hover:text-black">
+            <Button onClick={() => setShowModal(true)}>
               <UserPlus className="w-4 h-4 mr-2" />
               Convidar Usuário
             </Button>
@@ -208,398 +191,301 @@ const Team: React.FC = () => {
         }
       />
 
-      {/* Stats Cards Row */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 shadow-sm">
-            <div className="text-sm font-medium text-slate-400 mb-2">Total de Usuários</div>
-            <div className="text-3xl font-bold text-white">{loading ? '-' : stats.total}</div>
-        </div>
-        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 shadow-sm">
-            <div className="text-sm font-medium text-slate-400 mb-2">Admins</div>
-            <div className="text-3xl font-bold text-white">{loading ? '-' : stats.admins}</div>
-        </div>
-        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 shadow-sm">
-            <div className="text-sm font-medium text-slate-400 mb-2">Membros</div>
-            <div className="text-3xl font-bold text-white">{loading ? '-' : stats.members}</div>
-        </div>
-        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 shadow-sm">
-            <div className="text-sm font-medium text-slate-400 mb-2">Times Ativos</div>
-            <div className="text-3xl font-bold text-white">{stats.teams}</div>
-        </div>
+        {[
+          { label: 'Total de Usuários', value: loading ? '-' : stats.total },
+          { label: 'Admins',            value: loading ? '-' : stats.admins },
+          { label: 'Membros',           value: loading ? '-' : stats.members },
+          { label: 'Times Ativos',      value: stats.teams },
+        ].map(({ label, value }) => (
+          <div key={label} className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <div className="text-sm font-medium text-muted-foreground mb-2">{label}</div>
+            <div className="text-3xl font-bold text-foreground">{value}</div>
+          </div>
+        ))}
       </div>
 
       {/* Search Bar */}
       <div className="mb-6 relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-        <input 
-            type="text" 
-            placeholder="Buscar por nome, email, time ou função..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full sm:w-96 pl-10 pr-4 py-2 bg-slate-900/50 border border-slate-800 rounded-lg text-sm text-slate-200 focus:ring-1 focus:ring-slate-700 outline-none placeholder:text-slate-600 transition-all"
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Buscar por nome, email, time ou função..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full sm:w-96 pl-10 pr-4 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground transition-all"
         />
       </div>
 
       {/* Main Table Card */}
-      <div className="bg-slate-900/30 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
-        <div className="p-6 border-b border-slate-800">
-            <h3 className="text-lg font-bold text-white">Usuários da Equipe</h3>
-            <p className="text-sm text-slate-500 mt-1">Gerencie roles e times dos usuários</p>
+      <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-border">
+          <h3 className="text-lg font-bold text-foreground">Usuários da Equipe</h3>
+          <p className="text-sm text-muted-foreground mt-1">Gerencie roles e times dos usuários</p>
         </div>
 
         {loading ? (
-             <div className="flex flex-col items-center justify-center p-12">
-                <Loader2 className="h-8 w-8 animate-spin text-cyan-500 mb-3" />
-                <span className="text-sm text-slate-400">Carregando dados...</span>
-           </div>
+          <div className="flex flex-col items-center justify-center p-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+            <span className="text-sm text-muted-foreground">Carregando dados...</span>
+          </div>
         ) : members.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12">
-                <Users className="w-12 h-12 text-slate-600 mb-4" />
-                <p className="text-slate-400 mb-4">Nenhum membro cadastrado ainda.</p>
-                <Button onClick={() => setShowModal(true)} className="bg-slate-100 text-slate-900 hover:bg-white">
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Convidar Primeiro Membro
-                </Button>
-            </div>
+          <div className="flex flex-col items-center justify-center p-12">
+            <Users className="w-12 h-12 text-muted-foreground/30 mb-4" />
+            <p className="text-muted-foreground mb-4">Nenhum membro cadastrado ainda.</p>
+            <Button onClick={() => setShowModal(true)}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Convidar Primeiro Membro
+            </Button>
+          </div>
         ) : (
-            <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                    <thead>
-                        <tr className="border-b border-slate-800/50">
-                            <th className="px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider">Usuário</th>
-                            <th className="px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
-                            <th className="px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider">Role</th>
-                            <th className="px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider">Time</th>
-                            <th className="px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider">Função</th>
-                            <th className="px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider">Peso</th>
-                            <th className="px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider text-center">Status</th>
-                            <th className="px-6 py-4 text-xs font-medium text-slate-500 uppercase tracking-wider text-center">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/30">
-                        {filteredMembers.map((member) => (
-                            <tr key={member.id} className="hover:bg-slate-800/20 transition-colors group">
-                                {/* User Info */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-300 border border-slate-700 uppercase">
-                                            {member.name.substring(0, 2)}
-                                        </div>
-                                        <span className="text-sm font-medium text-slate-200">{member.name}</span>
-                                    </div>
-                                </td>
-                                
-                                {/* Email */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className="text-sm text-slate-400">{member.email}</span>
-                                </td>
-
-                                {/* Role Selector */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <select
-                                        value={member.role}
-                                        onChange={(e) => handleUpdateMember(member.id, 'role', e.target.value)}
-                                        className="w-32 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-md text-sm text-slate-300 cursor-pointer hover:border-slate-600 transition-colors"
-                                    >
-                                        <option value="agent">Atendente</option>
-                                        <option value="manager">Gerente</option>
-                                        <option value="admin">Admin</option>
-                                    </select>
-                                </td>
-
-                                {/* Time Selector */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <select
-                                        value={member.team_id || ''}
-                                        onChange={(e) => handleUpdateMember(member.id, 'team_id', e.target.value || null)}
-                                        className="w-32 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-md text-sm text-slate-300 cursor-pointer hover:border-slate-600 transition-colors"
-                                    >
-                                        <option value="">Sem time</option>
-                                        {teams.map(team => (
-                                            <option key={team.id} value={team.id}>{team.name}</option>
-                                        ))}
-                                    </select>
-                                </td>
-
-                                {/* Function Selector */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <select
-                                        value={member.function_id || ''}
-                                        onChange={(e) => handleUpdateMember(member.id, 'function_id', e.target.value || null)}
-                                        className="w-32 px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-md text-sm text-slate-300 cursor-pointer hover:border-slate-600 transition-colors"
-                                    >
-                                        <option value="">Sem função</option>
-                                        {functions.map(func => (
-                                            <option key={func.id} value={func.id}>{func.name}</option>
-                                        ))}
-                                    </select>
-                                </td>
-
-                                {/* Weight */}
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="10"
-                                        value={member.weight || 1}
-                                        onChange={(e) => handleUpdateMember(member.id, 'weight', parseInt(e.target.value))}
-                                        className="w-16 px-2 py-1 bg-slate-950 border border-slate-800 rounded-md text-sm text-slate-300 text-center"
-                                    />
-                                </td>
-
-                                {/* Status */}
-                                <td className="px-6 py-4 whitespace-nowrap text-center">
-                                    {getStatusBadge(member.status)}
-                                </td>
-
-                                {/* Actions */}
-                                <td className="px-6 py-4 whitespace-nowrap text-center">
-                                    <div className="flex items-center justify-center gap-1">
-                                        <button 
-                                            onClick={() => handleEditClick(member)}
-                                            className="p-2 rounded-lg text-slate-500 hover:bg-slate-800 hover:text-white transition-colors"
-                                            title="Editar membro"
-                                        >
-                                            <Edit2 className="w-4 h-4" />
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDeleteMember(member.id, member.name)}
-                                            className="p-2 rounded-lg text-slate-500 hover:bg-red-900/50 hover:text-red-400 transition-colors"
-                                            title="Excluir membro"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-border bg-muted">
+                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Usuário</th>
+                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Time</th>
+                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Função</th>
+                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Peso</th>
+                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">Status</th>
+                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/30">
+                {filteredMembers.map((member) => (
+                  <tr key={member.id} className="hover:bg-muted/40 transition-colors group">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground border border-border uppercase">
+                          {member.name.substring(0, 2)}
+                        </div>
+                        <span className="text-sm font-medium text-foreground">{member.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-sm text-muted-foreground">{member.email}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <select
+                        value={member.role}
+                        onChange={(e) => handleUpdateMember(member.id, 'role', e.target.value)}
+                        className={inlineSelectClass}
+                      >
+                        <option value="agent">Atendente</option>
+                        <option value="manager">Gerente</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <select
+                        value={member.team_id || ''}
+                        onChange={(e) => handleUpdateMember(member.id, 'team_id', e.target.value || null)}
+                        className={inlineSelectClass}
+                      >
+                        <option value="">Sem time</option>
+                        {teams.map(team => (
+                          <option key={team.id} value={team.id}>{team.name}</option>
                         ))}
-                    </tbody>
-                </table>
-            </div>
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <select
+                        value={member.function_id || ''}
+                        onChange={(e) => handleUpdateMember(member.id, 'function_id', e.target.value || null)}
+                        className={inlineSelectClass}
+                      >
+                        <option value="">Sem função</option>
+                        {functions.map(func => (
+                          <option key={func.id} value={func.id}>{func.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <input
+                        type="number" min="1" max="10"
+                        value={member.weight || 1}
+                        onChange={(e) => handleUpdateMember(member.id, 'weight', parseInt(e.target.value))}
+                        className="w-16 px-2 py-1 bg-background border border-border rounded-md text-sm text-foreground text-center outline-none"
+                      />
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      {getStatusBadge(member.status)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => handleEditClick(member)}
+                          className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                          title="Editar membro"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMember(member.id, member.name)}
+                          className="p-2 rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-700 transition-colors"
+                          title="Excluir membro"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {/* Invite Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-white">Convidar para a Equipe</h3>
-                    <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-white transition-colors">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-                
-                <form onSubmit={handleInvite} className="p-6 space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Nome Completo</label>
-                        <input 
-                            required
-                            type="text" 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:ring-1 focus:ring-slate-600 outline-none transition-all"
-                            placeholder="Ex: João da Silva"
-                            value={formData.name}
-                            onChange={(e) => setFormData({...formData, name: e.target.value})}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Email Corporativo</label>
-                        <input 
-                            required
-                            type="email" 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:ring-1 focus:ring-slate-600 outline-none transition-all"
-                            placeholder="colaborador@empresa.com"
-                            value={formData.email}
-                            onChange={(e) => setFormData({...formData, email: e.target.value})}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Nível de Acesso</label>
-                        <div className="grid grid-cols-3 gap-2">
-                            {['agent', 'manager', 'admin'].map((role) => (
-                                <div 
-                                    key={role}
-                                    onClick={() => setFormData({...formData, role})}
-                                    className={`cursor-pointer rounded-lg border p-2 text-center transition-all ${
-                                        formData.role === role 
-                                        ? 'bg-slate-800 border-slate-500 text-white' 
-                                        : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-700'
-                                    }`}
-                                >
-                                    <div className="text-xs font-bold uppercase mb-1">{role === 'agent' ? 'Atendente' : role === 'manager' ? 'Gerente' : 'Admin'}</div>
-                                    {formData.role === role && <div className="flex justify-center"><Check className="w-3 h-3" /></div>}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Time (opcional)</label>
-                        <select
-                            value={formData.team_id}
-                            onChange={(e) => setFormData({...formData, team_id: e.target.value})}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white"
-                        >
-                            <option value="">Sem time</option>
-                            {teams.map(team => (
-                                <option key={team.id} value={team.id}>{team.name}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Função (opcional)</label>
-                        <select
-                            value={formData.function_id}
-                            onChange={(e) => setFormData({...formData, function_id: e.target.value})}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white"
-                        >
-                            <option value="">Sem função</option>
-                            {functions.map(func => (
-                                <option key={func.id} value={func.id}>{func.name}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Peso (para distribuição)</label>
-                        <input
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={formData.weight}
-                            onChange={(e) => setFormData({...formData, weight: parseInt(e.target.value)})}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white"
-                        />
-                    </div>
-
-                    <div className="pt-4 flex gap-3">
-                        <Button type="button" variant="ghost" onClick={() => setShowModal(false)} className="flex-1 border border-slate-700 hover:bg-slate-800">Cancelar</Button>
-                        <Button type="submit" className="flex-1 bg-white text-black hover:bg-slate-200">Enviar Convite</Button>
-                    </div>
-                </form>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-card border border-border rounded-xl shadow-xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-border flex justify-between items-center">
+              <h3 className="text-lg font-bold text-foreground">Convidar para a Equipe</h3>
+              <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-5 h-5" />
+              </button>
             </div>
+            <form onSubmit={handleInvite} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Nome Completo</label>
+                <input required type="text" className={inputClass} placeholder="Ex: João da Silva"
+                  value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Email Corporativo</label>
+                <input required type="email" className={inputClass} placeholder="colaborador@empresa.com"
+                  value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Nível de Acesso</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['agent', 'manager', 'admin'].map((role) => (
+                    <div
+                      key={role}
+                      onClick={() => setFormData({...formData, role})}
+                      className={`cursor-pointer rounded-lg border p-2 text-center transition-all ${
+                        formData.role === role
+                          ? 'bg-muted border-border text-foreground shadow-sm'
+                          : 'bg-background border-border text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <div className="text-xs font-bold uppercase mb-1">{roleLabel(role)}</div>
+                      {formData.role === role && <div className="flex justify-center"><Check className="w-3 h-3" /></div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Time (opcional)</label>
+                <select value={formData.team_id} onChange={(e) => setFormData({...formData, team_id: e.target.value})} className={selectClass}>
+                  <option value="">Sem time</option>
+                  {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Função (opcional)</label>
+                <select value={formData.function_id} onChange={(e) => setFormData({...formData, function_id: e.target.value})} className={selectClass}>
+                  <option value="">Sem função</option>
+                  {functions.map(func => <option key={func.id} value={func.id}>{func.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Peso (para distribuição)</label>
+                <input type="number" min="1" max="10" value={formData.weight}
+                  onChange={(e) => setFormData({...formData, weight: parseInt(e.target.value)})} className={inputClass} />
+              </div>
+              <div className="pt-4 flex gap-3">
+                <Button type="button" variant="outline" onClick={() => setShowModal(false)} className="flex-1">Cancelar</Button>
+                <Button type="submit" className="flex-1">Enviar Convite</Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
       {/* Config Modal */}
-      <TeamConfigModal 
-        isOpen={showConfigModal} 
-        onClose={() => setShowConfigModal(false)} 
-        onUpdate={loadAllData}
-      />
+      <TeamConfigModal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} onUpdate={loadAllData} />
 
       {/* Edit Member Modal */}
       {showEditModal && editingMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-white">Editar Membro</h3>
-                    <button onClick={() => { setShowEditModal(false); setEditingMember(null); }} className="text-slate-400 hover:text-white transition-colors">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-                
-                <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Nome Completo</label>
-                        <input 
-                            required
-                            type="text" 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:ring-1 focus:ring-slate-600 outline-none transition-all"
-                            value={editFormData.name}
-                            onChange={(e) => setEditFormData({...editFormData, name: e.target.value})}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Email</label>
-                        <input 
-                            required
-                            type="email" 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:ring-1 focus:ring-slate-600 outline-none transition-all"
-                            value={editFormData.email}
-                            onChange={(e) => setEditFormData({...editFormData, email: e.target.value})}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Nível de Acesso</label>
-                        <div className="grid grid-cols-3 gap-2">
-                            {['agent', 'manager', 'admin'].map((role) => (
-                                <div 
-                                    key={role}
-                                    onClick={() => setEditFormData({...editFormData, role})}
-                                    className={`cursor-pointer rounded-lg border p-2 text-center transition-all ${
-                                        editFormData.role === role 
-                                        ? 'bg-slate-800 border-slate-500 text-white' 
-                                        : 'bg-slate-950 border-slate-800 text-slate-500 hover:border-slate-700'
-                                    }`}
-                                >
-                                    <div className="text-xs font-bold uppercase mb-1">{role === 'agent' ? 'Atendente' : role === 'manager' ? 'Gerente' : 'Admin'}</div>
-                                    {editFormData.role === role && <div className="flex justify-center"><Check className="w-3 h-3" /></div>}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Status</label>
-                        <select
-                            value={editFormData.status}
-                            onChange={(e) => setEditFormData({...editFormData, status: e.target.value as 'active' | 'invited' | 'disabled'})}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white"
-                        >
-                            <option value="active">Ativo</option>
-                            <option value="invited">Pendente</option>
-                            <option value="disabled">Inativo</option>
-                        </select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Time</label>
-                        <select
-                            value={editFormData.team_id}
-                            onChange={(e) => setEditFormData({...editFormData, team_id: e.target.value})}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white"
-                        >
-                            <option value="">Sem time</option>
-                            {teams.map(team => (
-                                <option key={team.id} value={team.id}>{team.name}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Função</label>
-                        <select
-                            value={editFormData.function_id}
-                            onChange={(e) => setEditFormData({...editFormData, function_id: e.target.value})}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white"
-                        >
-                            <option value="">Sem função</option>
-                            {functions.map(func => (
-                                <option key={func.id} value={func.id}>{func.name}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">Peso</label>
-                        <input
-                            type="number"
-                            min="1"
-                            max="10"
-                            value={editFormData.weight}
-                            onChange={(e) => setEditFormData({...editFormData, weight: parseInt(e.target.value)})}
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-sm text-white"
-                        />
-                    </div>
-
-                    <div className="pt-4 flex gap-3">
-                        <Button type="button" variant="ghost" onClick={() => { setShowEditModal(false); setEditingMember(null); }} className="flex-1 border border-slate-700 hover:bg-slate-800">Cancelar</Button>
-                        <Button type="submit" className="flex-1 bg-white text-black hover:bg-slate-200">Salvar Alterações</Button>
-                    </div>
-                </form>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-card border border-border rounded-xl shadow-xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-border flex justify-between items-center">
+              <h3 className="text-lg font-bold text-foreground">Editar Membro</h3>
+              <button onClick={() => { setShowEditModal(false); setEditingMember(null); }} className="text-muted-foreground hover:text-foreground transition-colors">
+                <X className="w-5 h-5" />
+              </button>
             </div>
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Nome Completo</label>
+                <input required type="text" className={inputClass} value={editFormData.name}
+                  onChange={(e) => setEditFormData({...editFormData, name: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Email</label>
+                <input required type="email" className={inputClass} value={editFormData.email}
+                  onChange={(e) => setEditFormData({...editFormData, email: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Nível de Acesso</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['agent', 'manager', 'admin'].map((role) => (
+                    <div
+                      key={role}
+                      onClick={() => setEditFormData({...editFormData, role})}
+                      className={`cursor-pointer rounded-lg border p-2 text-center transition-all ${
+                        editFormData.role === role
+                          ? 'bg-muted border-border text-foreground shadow-sm'
+                          : 'bg-background border-border text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <div className="text-xs font-bold uppercase mb-1">{roleLabel(role)}</div>
+                      {editFormData.role === role && <div className="flex justify-center"><Check className="w-3 h-3" /></div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Status</label>
+                <select value={editFormData.status}
+                  onChange={(e) => setEditFormData({...editFormData, status: e.target.value as 'active' | 'invited' | 'disabled'})}
+                  className={selectClass}>
+                  <option value="active">Ativo</option>
+                  <option value="invited">Pendente</option>
+                  <option value="disabled">Inativo</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Time</label>
+                <select value={editFormData.team_id} onChange={(e) => setEditFormData({...editFormData, team_id: e.target.value})} className={selectClass}>
+                  <option value="">Sem time</option>
+                  {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Função</label>
+                <select value={editFormData.function_id} onChange={(e) => setEditFormData({...editFormData, function_id: e.target.value})} className={selectClass}>
+                  <option value="">Sem função</option>
+                  {functions.map(func => <option key={func.id} value={func.id}>{func.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Peso</label>
+                <input type="number" min="1" max="10" value={editFormData.weight}
+                  onChange={(e) => setEditFormData({...editFormData, weight: parseInt(e.target.value)})} className={inputClass} />
+              </div>
+              <div className="pt-4 flex gap-3">
+                <Button type="button" variant="outline" onClick={() => { setShowEditModal(false); setEditingMember(null); }} className="flex-1">Cancelar</Button>
+                <Button type="submit" className="flex-1">Salvar Alterações</Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </PageContainer>

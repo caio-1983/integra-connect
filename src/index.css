@@ -4,68 +4,68 @@
 
 @layer base {
   :root {
-    /* Force Dark Mode as default - App is 100% dark themed */
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 217 33% 12%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 187 85% 53%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 263 70% 50%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 22%;
-    --ring: 187 85% 53%;
+    /* Sprint 006 — Tema Claro */
+    --background: 210 40% 98%;           /* #F8FAFC — slate-50 */
+    --foreground: 222 47% 11%;           /* #0F172A — slate-900 */
+    --card: 0 0% 100%;                   /* #FFFFFF */
+    --card-foreground: 222 47% 11%;      /* #0F172A */
+    --popover: 0 0% 100%;               /* #FFFFFF */
+    --popover-foreground: 222 47% 11%;  /* #0F172A */
+    --primary: 188 95% 36%;             /* cyan-600 ajustado — contraste no claro */
+    --primary-foreground: 0 0% 100%;    /* #FFFFFF */
+    --secondary: 214 32% 91%;           /* #E2E8F0 — slate-200 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 214 32% 91%;              /* #E2E8F0 */
+    --muted-foreground: 215 16% 47%;   /* #64748B — slate-500 */
+    --accent: 263 70% 50%;             /* #A78BFA — violet */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;          /* #F44336 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;             /* #E2E8F0 — slate-200 */
+    --input: 214 32% 91%;
+    --ring: 263 70% 50%;               /* violet */
     --radius: 0.5rem;
-    
-    /* Sidebar — tema claro, paleta UI-001 */
-    --sidebar-background: 0 0% 100%;           /* #FFFFFF */
-    --sidebar-foreground: 215 16% 47%;         /* #64748B slate-500 */
-    --sidebar-primary: 263 70% 50%;            /* violet — estado ativo */
+
+    /* Sidebar — tema claro, paleta UI-001 (referência visual) */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215 16% 47%;
+    --sidebar-primary: 263 70% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 40% 98%;             /* #F8FAFC — hover */
-    --sidebar-accent-foreground: 222 47% 11%;  /* #0F172A */
-    --sidebar-border: 214 32% 91%;             /* #E2E8F0 slate-200 */
+    --sidebar-accent: 210 40% 98%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
     --sidebar-ring: 263 70% 50%;
   }
 
-  /* Dark class for compatibility - same values */
+  /* Mantido por compatibilidade — app roda em tema claro */
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 217 33% 12%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 187 85% 53%;
-    --primary-foreground: 222.2 84% 4.9%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 188 95% 36%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 32% 91%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 214 32% 91%;
+    --muted-foreground: 215 16% 47%;
     --accent: 263 70% 50%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 22%;
-    --ring: 187 85% 53%;
-    --sidebar-background: 222.2 84% 4.9%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 187 85% 53%;
-    --sidebar-primary-foreground: 222.2 84% 4.9%;
-    --sidebar-accent: 217.2 32.6% 17.5%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 187 85% 53%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 263 70% 50%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215 16% 47%;
+    --sidebar-primary: 263 70% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 98%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 263 70% 50%;
   }
 }
 
@@ -73,34 +73,33 @@
   * {
     @apply border-border;
   }
-  
+
   body {
     @apply bg-background text-foreground;
   }
-  
-  /* Smooth transitions for interactive elements */
+
   button, a, input, textarea, select {
     @apply transition-colors duration-200;
   }
 }
 
-/* Scrollbar Customization */
+/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent; 
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(217.2 32.6% 25%);
+  background: hsl(214 32% 82%);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(217.2 32.6% 35%);
+  background: hsl(214 32% 68%);
 }
 
-/* Focus ring styling */
+/* Focus ring */
 *:focus-visible {
   @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
 }

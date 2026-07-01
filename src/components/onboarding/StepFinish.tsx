@@ -155,17 +155,17 @@ export const StepFinish: React.FC<StepFinishProps> = ({
 
   const getStatusIcon = (status: 'ok' | 'warning' | 'error') => {
     switch (status) {
-      case 'ok': return <CheckCircle className="w-4 h-4 text-emerald-400" />;
-      case 'warning': return <AlertTriangle className="w-4 h-4 text-amber-400" />;
-      case 'error': return <XCircle className="w-4 h-4 text-red-400" />;
+      case 'ok': return <CheckCircle className="w-4 h-4 text-emerald-600" />;
+      case 'warning': return <AlertTriangle className="w-4 h-4 text-amber-600" />;
+      case 'error': return <XCircle className="w-4 h-4 text-red-600" />;
     }
   };
 
   const getStatusBg = (status: 'ok' | 'warning' | 'error') => {
     switch (status) {
-      case 'ok': return 'bg-emerald-500/10 border-emerald-500/20';
-      case 'warning': return 'bg-amber-500/10 border-amber-500/20';
-      case 'error': return 'bg-red-500/10 border-red-500/20';
+      case 'ok': return 'bg-emerald-50 border-emerald-200';
+      case 'warning': return 'bg-amber-50 border-amber-200';
+      case 'error': return 'bg-red-50 border-red-200';
     }
   };
 
@@ -180,13 +180,13 @@ export const StepFinish: React.FC<StepFinishProps> = ({
     >
       <motion.div variants={itemVariants} className="text-center mb-6">
         <motion.div 
-          className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 flex items-center justify-center"
+          className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 flex items-center justify-center"
           whileHover={{ scale: 1.05, rotate: 5 }}
         >
-          <Rocket className="w-8 h-8 text-emerald-400" />
+          <Rocket className="w-8 h-8 text-emerald-600" />
         </motion.div>
-        <h3 className="text-xl font-semibold text-white mb-2">Validação do Sistema</h3>
-        <p className="text-slate-400 text-sm max-w-md mx-auto">
+        <h3 className="text-xl font-semibold text-foreground mb-2">Validação do Sistema</h3>
+        <p className="text-muted-foreground text-sm max-w-md mx-auto">
           Verificando todas as configurações antes de começar.
         </p>
       </motion.div>
@@ -194,7 +194,7 @@ export const StepFinish: React.FC<StepFinishProps> = ({
       {/* Validation Results */}
       <motion.div variants={itemVariants} className="max-w-md mx-auto">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-medium text-slate-300">Verificação Automática</h4>
+          <h4 className="text-sm font-medium text-foreground">Verificação Automática</h4>
           <Button
             variant="secondary"
             size="sm"
@@ -223,15 +223,15 @@ export const StepFinish: React.FC<StepFinishProps> = ({
                 <div className="flex items-center gap-3">
                   {getStatusIcon(validation.overallStatus)}
                   <div>
-                    <p className="text-sm font-medium text-white">{validation.message}</p>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-sm font-medium text-foreground">{validation.message}</p>
+                    <p className="text-xs text-muted-foreground">
                       {validation.summary.ok}/{validation.summary.total} verificações OK
                     </p>
                   </div>
                 </div>
                 <div className={`text-2xl font-bold ${
-                  validation.overallStatus === 'ok' ? 'text-emerald-400' :
-                  validation.overallStatus === 'warning' ? 'text-amber-400' : 'text-red-400'
+                  validation.overallStatus === 'ok' ? 'text-emerald-600' :
+                  validation.overallStatus === 'warning' ? 'text-amber-600' : 'text-red-600'
                 }`}>
                   {validation.summary.percentage}%
                 </div>
@@ -250,7 +250,7 @@ export const StepFinish: React.FC<StepFinishProps> = ({
                 >
                   {getStatusIcon(result.status)}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-200 truncate">
+                    <p className="text-xs font-medium text-foreground truncate">
                       {componentLabels[result.component] || result.component}
                     </p>
                   </div>
@@ -262,22 +262,22 @@ export const StepFinish: React.FC<StepFinishProps> = ({
 
         {isValidating && !validation && (
           <div className="flex items-center justify-center p-8">
-            <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
-            <span className="ml-2 text-sm text-slate-400">Validando...</span>
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <span className="ml-2 text-sm text-muted-foreground">Validando...</span>
           </div>
         )}
       </motion.div>
 
       {/* Test Message Section */}
-      <motion.div variants={itemVariants} className="max-w-md mx-auto pt-4 border-t border-slate-700/50">
-        <h4 className="text-sm font-medium text-slate-300 mb-4 flex items-center gap-2">
+      <motion.div variants={itemVariants} className="max-w-md mx-auto pt-4 border-t border-border">
+        <h4 className="text-sm font-medium text-foreground mb-4 flex items-center gap-2">
           <Send className="w-4 h-4" />
           Enviar Mensagem de Teste
         </h4>
         
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="testPhone" className="text-slate-400 text-xs">
+            <Label htmlFor="testPhone" className="text-muted-foreground text-xs">
               Número de Telefone (com DDD)
             </Label>
             <Input
@@ -285,19 +285,19 @@ export const StepFinish: React.FC<StepFinishProps> = ({
               value={testPhone}
               onChange={(e) => setTestPhone(e.target.value)}
               placeholder="5511999999999"
-              className="bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 font-mono"
+              className="bg-background border-border text-foreground placeholder:text-muted-foreground font-mono"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="testMessage" className="text-slate-400 text-xs">
+            <Label htmlFor="testMessage" className="text-muted-foreground text-xs">
               Mensagem de Teste
             </Label>
             <Input
               id="testMessage"
               value={testMessage}
               onChange={(e) => setTestMessage(e.target.value)}
-              className="bg-slate-800/50 border-slate-700 text-white"
+              className="bg-background border-border text-foreground"
             />
           </div>
 
@@ -334,7 +334,7 @@ export const StepFinish: React.FC<StepFinishProps> = ({
           Começar a Usar o Sistema
         </Button>
         {!canComplete && (
-          <p className="text-xs text-slate-500 text-center mt-2">
+          <p className="text-xs text-muted-foreground text-center mt-2">
             Corrija os erros de validação para continuar
           </p>
         )}

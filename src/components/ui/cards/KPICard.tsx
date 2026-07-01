@@ -16,33 +16,33 @@ interface KPICardProps {
 
 const colorMap: Record<KPICardProps['color'], {
   icon: string;
-  border: string;
-  glow: string;
+  bg: string;
+  iconContainer: string;
   trend: { up: string; down: string };
 }> = {
   cyan: {
-    icon: 'text-cyan-400',
-    border: 'from-cyan-500/10 to-transparent border-cyan-500/15',
-    glow: 'bg-cyan-500/8',
-    trend: { up: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', down: 'bg-red-500/10 text-red-400 border-red-500/20' },
+    icon: 'text-cyan-600',
+    bg: 'from-cyan-50 to-transparent border-cyan-200',
+    iconContainer: 'bg-cyan-50 border-cyan-200',
+    trend: { up: 'bg-emerald-50 text-emerald-700 border-emerald-200', down: 'bg-red-50 text-red-700 border-red-200' },
   },
   violet: {
-    icon: 'text-violet-400',
-    border: 'from-violet-500/10 to-transparent border-violet-500/15',
-    glow: 'bg-violet-500/8',
-    trend: { up: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', down: 'bg-red-500/10 text-red-400 border-red-500/20' },
+    icon: 'text-violet-600',
+    bg: 'from-violet-50 to-transparent border-violet-200',
+    iconContainer: 'bg-violet-50 border-violet-200',
+    trend: { up: 'bg-emerald-50 text-emerald-700 border-emerald-200', down: 'bg-red-50 text-red-700 border-red-200' },
   },
   emerald: {
-    icon: 'text-emerald-400',
-    border: 'from-emerald-500/10 to-transparent border-emerald-500/15',
-    glow: 'bg-emerald-500/8',
-    trend: { up: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', down: 'bg-red-500/10 text-red-400 border-red-500/20' },
+    icon: 'text-emerald-600',
+    bg: 'from-emerald-50 to-transparent border-emerald-200',
+    iconContainer: 'bg-emerald-50 border-emerald-200',
+    trend: { up: 'bg-emerald-50 text-emerald-700 border-emerald-200', down: 'bg-red-50 text-red-700 border-red-200' },
   },
   amber: {
-    icon: 'text-amber-400',
-    border: 'from-amber-500/10 to-transparent border-amber-500/15',
-    glow: 'bg-amber-500/8',
-    trend: { up: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', down: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+    icon: 'text-amber-600',
+    bg: 'from-amber-50 to-transparent border-amber-200',
+    iconContainer: 'bg-amber-50 border-amber-200',
+    trend: { up: 'bg-emerald-50 text-emerald-700 border-emerald-200', down: 'bg-amber-50 text-amber-700 border-amber-200' },
   },
 };
 
@@ -60,13 +60,13 @@ const KPICard: React.FC<KPICardProps> = ({
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 animate-pulse">
+      <div className="rounded-xl border border-border bg-card p-5 animate-pulse">
         <div className="flex items-start justify-between mb-4">
-          <div className="h-3 w-24 bg-slate-800 rounded" />
-          <div className="h-8 w-8 bg-slate-800 rounded-lg" />
+          <div className="h-3 w-24 bg-muted rounded" />
+          <div className="h-8 w-8 bg-muted rounded-lg" />
         </div>
-        <div className="h-7 w-16 bg-slate-800 rounded mb-2" />
-        <div className="h-3 w-12 bg-slate-800 rounded" />
+        <div className="h-7 w-16 bg-muted rounded mb-2" />
+        <div className="h-3 w-12 bg-muted rounded" />
       </div>
     );
   }
@@ -74,19 +74,16 @@ const KPICard: React.FC<KPICardProps> = ({
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-xl border bg-gradient-to-br bg-slate-900/50 p-5',
-        'transition-all duration-200 hover:bg-slate-900/80 group',
-        theme.border,
+        'relative overflow-hidden rounded-xl border bg-gradient-to-br bg-card p-5',
+        'transition-all duration-200 hover:shadow-sm',
+        theme.bg,
       )}
     >
-      {/* Ambient glow */}
-      <div className={cn('absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300', theme.glow)} />
-
-      <div className="relative flex flex-col gap-3">
+      <div className="flex flex-col gap-3">
         {/* Header */}
         <div className="flex items-start justify-between">
           <span className="text-xs font-medium text-muted-foreground leading-tight">{label}</span>
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-800/80 border border-slate-700/50">
+          <div className={cn('flex items-center justify-center w-8 h-8 rounded-lg border', theme.iconContainer)}>
             <Icon className={cn('w-4 h-4', theme.icon)} />
           </div>
         </div>

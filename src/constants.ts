@@ -1,4 +1,10 @@
 import { Contact, Conversation, MessageDirection, MessageType, StatMetric, TeamMember, Appointment, Deal, KanbanColumn } from "./types";
+import {
+  MOCK_TEAM_EXTENDED,
+  MOCK_CONTACTS_EXTENDED,
+  MOCK_DEALS_EXTENDED,
+  MOCK_APPOINTMENTS_EXTENDED,
+} from './lib/mockData';
 
 export const STATS: StatMetric[] = [
   { label: 'Atendimentos Hoje', value: '142', trend: '+12%', trendUp: true },
@@ -7,43 +13,9 @@ export const STATS: StatMetric[] = [
   { label: 'Novos Leads', value: '28', trend: '-5%', trendUp: false },
 ];
 
-export const MOCK_TEAM: TeamMember[] = [
-  { 
-    id: 't1', 
-    name: 'Admin User', 
-    email: 'admin@empresa.com', 
-    role: 'admin', 
-    status: 'active', 
-    avatar: 'https://ui-avatars.com/api/?name=Admin+User&background=0891b2&color=fff',
-    lastActive: 'Agora'
-  },
-  { 
-    id: 't2', 
-    name: 'Sarah Connor', 
-    email: 'sarah@empresa.com', 
-    role: 'manager', 
-    status: 'active', 
-    avatar: 'https://i.pravatar.cc/150?u=sarah',
-    lastActive: 'Há 5 min'
-  },
-  { 
-    id: 't3', 
-    name: 'John Doe', 
-    email: 'john@empresa.com', 
-    role: 'agent', 
-    status: 'invited', 
-    avatar: 'https://ui-avatars.com/api/?name=John+Doe&background=334155&color=fff',
-    lastActive: '-'
-  },
-];
+export const MOCK_TEAM: TeamMember[] = MOCK_TEAM_EXTENDED;
 
-export const MOCK_CONTACTS: Contact[] = [
-  { id: '1', name: 'Ana Silva', phone: '+55 11 99999-0001', email: 'ana@email.com', status: 'customer', lastContact: '2023-10-25' },
-  { id: '2', name: 'Carlos Souza', phone: '+55 11 99999-0002', email: 'carlos@tech.com', status: 'lead', lastContact: '2023-10-26' },
-  { id: '3', name: 'Beatriz Costa', phone: '+55 11 99999-0003', email: 'bia@design.com', status: 'churned', lastContact: '2023-09-10' },
-  { id: '4', name: 'João Pereira', phone: '+55 11 99999-0004', email: 'joao@corp.com', status: 'lead', lastContact: '2023-10-27' },
-  { id: '5', name: 'Fernanda Lima', phone: '+55 11 99999-0005', email: 'nanda@email.com', status: 'customer', lastContact: '2023-10-27' },
-];
+export const MOCK_CONTACTS: Contact[] = MOCK_CONTACTS_EXTENDED;
 
 export const MOCK_CONVERSATIONS: Conversation[] = [
   {
@@ -95,66 +67,7 @@ export const MOCK_CONVERSATIONS: Conversation[] = [
   }
 ];
 
-// Gerar datas dinâmicas para o mês atual
-const today = new Date();
-const currentYear = today.getFullYear();
-const currentMonth = today.getMonth();
-
-const getDateString = (day: number) => {
-    return new Date(currentYear, currentMonth, day).toISOString().split('T')[0];
-};
-
-export const MOCK_APPOINTMENTS: Appointment[] = [
-    {
-        id: 'evt1',
-        title: 'Demo da Plataforma',
-        date: getDateString(5),
-        time: '14:00',
-        duration: 60,
-        type: 'demo',
-        attendees: ['Carlos Souza'],
-        description: 'Apresentação geral dos módulos de IA.'
-    },
-    {
-        id: 'evt2',
-        title: 'Reunião Semanal',
-        date: getDateString(12),
-        time: '10:00',
-        duration: 30,
-        type: 'meeting',
-        description: 'Alinhamento de metas com SDRs.'
-    },
-    {
-        id: 'evt3',
-        title: 'Suporte Técnico - Ana',
-        date: getDateString(15),
-        time: '16:30',
-        duration: 45,
-        type: 'support',
-        attendees: ['Ana Silva'],
-        description: 'Resolução de problema de integração API.'
-    },
-    {
-        id: 'evt4',
-        title: 'Follow-up João',
-        date: getDateString(18),
-        time: '11:00',
-        duration: 15,
-        type: 'followup',
-        attendees: ['João Pereira'],
-        description: 'Verificar se ele conversou com o sócio.'
-    },
-     {
-        id: 'evt5',
-        title: 'Demo Enterprise',
-        date: getDateString(25),
-        time: '15:00',
-        duration: 60,
-        type: 'demo',
-        attendees: ['Diretor One Corp'],
-        description: 'Demo focada em enterprise.'
-    }
-];
+export const MOCK_APPOINTMENTS: Appointment[] = MOCK_APPOINTMENTS_EXTENDED;
 
 export const MOCK_KANBAN_COLUMNS: KanbanColumn[] = [
   { id: 'new', title: 'Novos Leads', color: 'border-slate-500', position: 0, isSystem: false, isActive: true, isAiManaged: false, aiTriggerCriteria: null },
@@ -165,66 +78,4 @@ export const MOCK_KANBAN_COLUMNS: KanbanColumn[] = [
   { id: 'lost', title: 'Perdido', color: 'border-red-500', position: 5, isSystem: true, isActive: true, isAiManaged: false, aiTriggerCriteria: null },
 ];
 
-export const MOCK_DEALS: Deal[] = [
-  {
-    id: 'd1',
-    title: 'Implantação Chatbot',
-    company: 'Tech Solutions Ltd',
-    value: 5000,
-    stage: 'new',
-    ownerAvatar: 'https://ui-avatars.com/api/?name=Admin+User&background=0891b2&color=fff',
-    tags: ['Hot', 'Indicação'],
-    priority: 'high'
-  },
-  {
-    id: 'd2',
-    title: 'Automação WhatsApp',
-    company: 'Clínica Saúde',
-    value: 2500,
-    stage: 'qualification',
-    ownerAvatar: 'https://i.pravatar.cc/150?u=sarah',
-    tags: ['Saúde'],
-    priority: 'medium'
-  },
-  {
-    id: 'd3',
-    title: 'Plano Enterprise',
-    company: 'Grupo Varejo Sul',
-    value: 15000,
-    stage: 'presentation',
-    ownerAvatar: 'https://ui-avatars.com/api/?name=John+Doe&background=334155&color=fff',
-    tags: ['Enterprise', 'Reunião'],
-    priority: 'high',
-    dueDate: '2023-11-10'
-  },
-  {
-    id: 'd4',
-    title: 'Consultoria IA',
-    company: 'Advocacia Silva',
-    value: 8000,
-    stage: 'negotiation',
-    ownerAvatar: 'https://ui-avatars.com/api/?name=Admin+User&background=0891b2&color=fff',
-    tags: ['Jurídico'],
-    priority: 'medium'
-  },
-  {
-    id: 'd5',
-    title: 'Licença Anual',
-    company: 'StartUp Hub',
-    value: 3000,
-    stage: 'new',
-    ownerAvatar: 'https://i.pravatar.cc/150?u=sarah',
-    tags: ['SaaS'],
-    priority: 'low'
-  },
-  {
-    id: 'd6',
-    title: 'Renovação Contrato',
-    company: 'Logística Express',
-    value: 12000,
-    stage: 'won',
-    ownerAvatar: 'https://ui-avatars.com/api/?name=John+Doe&background=334155&color=fff',
-    tags: ['Renovação'],
-    priority: 'high'
-  }
-];
+export const MOCK_DEALS: Deal[] = MOCK_DEALS_EXTENDED;

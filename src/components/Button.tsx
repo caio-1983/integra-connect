@@ -3,22 +3,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:pointer-events-none disabled:opacity-50 active:scale-95",
+  "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 active:scale-95",
   {
     variants: {
       variant: {
-        primary: "bg-gradient-to-r from-cyan-600 to-teal-600 text-white hover:from-cyan-500 hover:to-teal-500 shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_20px_rgba(6,182,212,0.5)] border border-transparent",
-        secondary: "bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700",
-        outline: "border border-slate-700 bg-transparent text-slate-300 hover:bg-slate-800 hover:text-white hover:border-slate-600",
-        ghost: "text-slate-400 hover:bg-slate-800/50 hover:text-cyan-400",
-        danger: "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20",
-        default: "bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700",
+        primary:   "bg-gradient-to-r from-cyan-600 to-teal-600 text-white hover:from-cyan-500 hover:to-teal-500 shadow-sm border border-transparent",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border",
+        outline:   "border border-border bg-transparent text-foreground hover:bg-muted hover:text-foreground",
+        ghost:     "text-muted-foreground hover:bg-muted hover:text-foreground",
+        danger:    "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200",
+        default:   "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border",
       },
       size: {
-        sm: "h-8 px-3 text-xs",
-        md: "h-10 px-4 py-2 text-sm",
-        lg: "h-12 px-8 text-base",
-        icon: "h-10 w-10 p-2",
+        sm:      "h-8 px-3 text-xs",
+        md:      "h-10 px-4 py-2 text-sm",
+        lg:      "h-12 px-8 text-base",
+        icon:    "h-10 w-10 p-2",
         default: "h-10 px-4 py-2 text-sm",
       },
     },

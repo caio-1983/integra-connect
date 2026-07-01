@@ -29,13 +29,11 @@ const ChatInterface: React.FC = () => {
   const activeChat = conversations.find(c => c.id === selectedChatId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load tags and team on mount
   useEffect(() => {
     api.fetchTagDefinitions().then(setAvailableTags).catch(console.error);
     api.fetchTeam().then(setTeamMembers).catch(console.error);
   }, []);
 
-  // Auto-select first conversation or from URL param
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const conversationParam = urlParams.get('conversation');
@@ -46,24 +44,20 @@ const ChatInterface: React.FC = () => {
     }
   }, [conversations, selectedChatId]);
 
-  // Mark as read on selection
   useEffect(() => {
     if (selectedChatId && (activeChat?.unreadCount ?? 0) > 0) {
       markAsRead(selectedChatId);
     }
   }, [selectedChatId, activeChat?.unreadCount, markAsRead]);
 
-  // Sync notes with active chat
   useEffect(() => {
     if (activeChat) setNotesValue(activeChat.notes || '');
   }, [activeChat?.id]);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeChat?.messages, selectedChatId]);
 
-  // Handlers
   const handleNotesBlur = async () => {
     if (!activeChat || notesValue === (activeChat.notes || '')) return;
     setIsSavingNotes(true);
@@ -116,17 +110,17 @@ const ChatInterface: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex h-full bg-slate-950 items-center justify-center">
+      <div className="flex h-full bg-background items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
-          <p className="text-sm text-slate-500">Sincronizando conversas...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Sincronizando conversas...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full bg-slate-950 rounded-tl-2xl overflow-hidden border-t border-l border-slate-800/50">
+    <div className="flex h-full bg-background rounded-tl-2xl overflow-hidden border-t border-l border-border">
 
       {/* Coluna 1 — Fila Operacional */}
       <ConversationQueue
@@ -139,13 +133,7 @@ const ChatInterface: React.FC = () => {
 
       {/* Coluna 2 — Conversa */}
       {activeChat ? (
-        <div className="flex-1 flex flex-col min-w-0 bg-[#0B0E14] relative overflow-hidden">
-          {/* Dot pattern ambient */}
-          <div
-            className="absolute inset-0 opacity-[0.025] pointer-events-none"
-            style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '28px 28px' }}
-          />
-
+        <div className="flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden">
           <ConversationHeader
             conversation={activeChat}
             sdrName={sdrName}
@@ -171,27 +159,27 @@ const ChatInterface: React.FC = () => {
         </div>
       ) : (
         /* Empty state */
-        <div className="flex-1 flex flex-col items-center justify-center bg-[#0B0E14] relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-900/20 to-transparent pointer-events-none" />
+        <div className="flex-1 flex flex-col items-center justify-center bg-background relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-100/20 to-transparent pointer-events-none" />
           <div className="relative z-10 flex flex-col items-center p-8 text-center max-w-sm">
             <div className="w-18 h-18 relative mb-6">
-              <div className="absolute inset-0 bg-cyan-500/15 rounded-full blur-xl" />
-              <div className="relative w-18 h-18 bg-slate-900 rounded-full flex items-center justify-center border border-slate-800 shadow-2xl w-[72px] h-[72px]">
-                <MessageSquare className="w-8 h-8 text-cyan-500" />
+              <div className="absolute inset-0 bg-primary/10 rounded-full blur-xl" />
+              <div className="relative w-[72px] h-[72px] bg-card rounded-full flex items-center justify-center border border-border shadow-sm">
+                <MessageSquare className="w-8 h-8 text-primary" />
               </div>
             </div>
-            <h2 className="text-lg font-bold text-white mb-2">{companyName} Workspace</h2>
-            <p className="text-slate-400 text-sm leading-relaxed">
+            <h2 className="text-lg font-bold text-foreground mb-2">{companyName} Workspace</h2>
+            <p className="text-muted-foreground text-sm leading-relaxed">
               {conversations.length === 0
                 ? 'Aguardando novas conversas.'
                 : 'Selecione uma conversa para iniciar o atendimento.'}
             </p>
-            <div className="mt-6 flex gap-3 text-xs text-slate-500 bg-slate-900/50 px-4 py-2 rounded-lg border border-slate-800/50">
+            <div className="mt-6 flex gap-3 text-xs text-muted-foreground bg-card px-4 py-2 rounded-lg border border-border">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 {sdrName} Online
               </span>
-              <span className="w-px h-4 bg-slate-800" />
+              <span className="w-px h-4 bg-border" />
               <span>{conversations.length} conversa{conversations.length !== 1 ? 's' : ''}</span>
             </div>
           </div>

@@ -123,7 +123,7 @@ const Operations: React.FC = () => {
     <button
       onClick={handleRefresh}
       disabled={isLoading}
-      className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-700 bg-slate-800/60 text-slate-300 hover:bg-slate-700 hover:text-foreground disabled:opacity-50 transition-all duration-150"
+      className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-all duration-150"
     >
       {isLoading
         ? <Loader2 className="w-3.5 h-3.5 animate-spin" />

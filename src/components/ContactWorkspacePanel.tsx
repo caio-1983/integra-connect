@@ -32,14 +32,14 @@ const EmptyState = ({
   text: string;
 }) => (
   <div className="flex flex-col items-center justify-center h-full py-12 px-6 text-center">
-    <div className="w-11 h-11 rounded-full bg-slate-800/60 flex items-center justify-center mb-4 text-slate-500">
+    <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center mb-4 text-muted-foreground">
       <Icon className="w-5 h-5" />
     </div>
-    <h4 className="text-sm font-semibold text-slate-400 mb-2">{title}</h4>
-    <p className="text-xs text-slate-500 leading-relaxed mb-6">{text}</p>
+    <h4 className="text-sm font-semibold text-muted-foreground mb-2">{title}</h4>
+    <p className="text-xs text-muted-foreground leading-relaxed mb-6">{text}</p>
     <button
       disabled
-      className="px-4 py-2 text-xs font-medium rounded-lg border border-slate-700 text-slate-600 cursor-not-allowed opacity-50"
+      className="px-4 py-2 text-xs font-medium rounded-lg border border-border text-muted-foreground cursor-not-allowed opacity-50"
     >
       Em breve
     </button>
@@ -76,11 +76,11 @@ const ContactWorkspacePanel: React.FC<ContactWorkspacePanelProps> = ({
   return (
     <div className="w-80 h-full flex flex-col">
       {/* Header */}
-      <div className="h-16 flex items-center justify-between px-6 border-b border-slate-800 flex-shrink-0">
-        <span className="font-semibold text-white">Cliente</span>
+      <div className="h-16 flex items-center justify-between px-6 border-b border-border flex-shrink-0">
+        <span className="font-semibold text-foreground">Cliente</span>
         <button
           onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+          className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
@@ -116,93 +116,93 @@ const ContactWorkspacePanel: React.FC<ContactWorkspacePanelProps> = ({
               <img
                 src={activeChat.contactAvatar}
                 alt={activeChat.contactName}
-                className="w-full h-full rounded-full object-cover border-2 border-slate-900"
+                className="w-full h-full rounded-full object-cover border-2 border-background"
               />
             </div>
-            <h3 className="text-xl font-bold text-white mb-1">{activeChat.contactName}</h3>
-            <p className="text-sm text-slate-400 mb-4">
+            <h3 className="text-xl font-bold text-foreground mb-1">{activeChat.contactName}</h3>
+            <p className="text-sm text-muted-foreground mb-4">
               {stageLabel(activeChat.clientMemory.lead_profile.lead_stage)}
             </p>
           </div>
 
           {/* Dados de Contato */}
           <div className="space-y-4">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
               Dados de Contato
             </h4>
             <div className="flex items-center gap-3 text-sm">
-              <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
+              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 text-muted-foreground">
                 <Phone className="w-4 h-4" />
               </div>
               <div className="flex flex-col">
-                <span className="text-xs text-slate-500">Telefone</span>
-                <span className="text-slate-200 font-medium">{activeChat.contactPhone}</span>
+                <span className="text-xs text-muted-foreground">Telefone</span>
+                <span className="text-foreground font-medium">{activeChat.contactPhone}</span>
               </div>
             </div>
             {activeChat.contactEmail && (
               <div className="flex items-center gap-3 text-sm">
-                <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center flex-shrink-0 text-slate-400">
+                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 text-muted-foreground">
                   <Mail className="w-4 h-4" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs text-slate-500">Email</span>
-                  <span className="text-slate-200 font-medium">{activeChat.contactEmail}</span>
+                  <span className="text-xs text-muted-foreground">Email</span>
+                  <span className="text-foreground font-medium">{activeChat.contactEmail}</span>
                 </div>
               </div>
             )}
           </div>
 
-          <div className="h-px bg-slate-800/50 w-full" />
+          <div className="h-px bg-muted w-full" />
 
           {/* Resumo do Atendimento */}
           <div className="space-y-4">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               <FileText className="w-4 h-4" />
               Resumo do Atendimento
             </h4>
 
             {activeChat.clientMemory.lead_profile.interests.length > 0 && (
-              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                <span className="text-xs text-slate-400">Interesses</span>
-                <p className="text-sm text-slate-200 mt-1">
+              <div className="p-3 rounded-lg bg-muted border border-border">
+                <span className="text-xs text-muted-foreground">Interesses</span>
+                <p className="text-sm text-foreground mt-1">
                   {activeChat.clientMemory.lead_profile.interests.join(', ')}
                 </p>
               </div>
             )}
 
             {activeChat.clientMemory.sales_intelligence.pain_points.length > 0 && (
-              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-                <span className="text-xs text-slate-400">Dores Identificadas</span>
-                <p className="text-sm text-slate-200 mt-1">
+              <div className="p-3 rounded-lg bg-muted border border-border">
+                <span className="text-xs text-muted-foreground">Dores Identificadas</span>
+                <p className="text-sm text-foreground mt-1">
                   {activeChat.clientMemory.sales_intelligence.pain_points.join(', ')}
                 </p>
               </div>
             )}
 
-            <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50">
-              <span className="text-xs text-slate-400">Próxima Ação Sugerida</span>
-              <p className="text-sm text-slate-200 mt-1">
+            <div className="p-3 rounded-lg bg-muted border border-border">
+              <span className="text-xs text-muted-foreground">Próxima Ação Sugerida</span>
+              <p className="text-sm text-foreground mt-1">
                 {actionLabel(activeChat.clientMemory.sales_intelligence.next_best_action)}
               </p>
             </div>
 
-            <div className="text-xs text-slate-500 text-center">
+            <div className="text-xs text-muted-foreground text-center">
               Total de conversas: {activeChat.clientMemory.interaction_summary.total_conversations}
             </div>
           </div>
 
-          <div className="h-px bg-slate-800/50 w-full" />
+          <div className="h-px bg-muted w-full" />
 
           {/* Responsável */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               <User className="w-4 h-4" />
               Responsável
             </h4>
             <select
               value={activeChat.assignedUserId || ''}
               onChange={(e) => onAssignUser(e.target.value || null)}
-              className="w-full bg-slate-950/50 border border-slate-800 rounded-lg p-3 text-sm text-slate-300 focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 outline-none transition-all"
+              className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:ring-1 focus:ring-ring/50 focus:border-ring/50 outline-none transition-all"
             >
               <option value="">Não atribuído</option>
               {teamMembers.map((member) => (
@@ -213,20 +213,20 @@ const ContactWorkspacePanel: React.FC<ContactWorkspacePanelProps> = ({
             </select>
           </div>
 
-          <div className="h-px bg-slate-800/50 w-full" />
+          <div className="h-px bg-muted w-full" />
 
           {/* Tags */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
               Tags
               <Popover open={isTagSelectorOpen} onOpenChange={setIsTagSelectorOpen}>
                 <PopoverTrigger asChild>
-                  <button className="text-cyan-500 hover:text-cyan-400 transition-colors">
+                  <button className="text-primary hover:text-primary/80 transition-colors">
                     <Plus className="w-4 h-4" />
                   </button>
                 </PopoverTrigger>
                 <PopoverContent
-                  className="w-72 p-0 bg-slate-900 border-slate-700"
+                  className="w-72 p-0 bg-card border-border"
                   align="end"
                 >
                   <TagSelector
@@ -251,30 +251,30 @@ const ContactWorkspacePanel: React.FC<ContactWorkspacePanelProps> = ({
                       }}
                       className="px-2.5 py-1 rounded-md border text-xs font-medium flex items-center gap-1.5 group hover:brightness-110 transition-all"
                     >
-                      <span className="text-slate-200">{tagDef?.label || tagKey}</span>
+                      <span className="text-foreground">{tagDef?.label || tagKey}</span>
                       <button
                         onClick={() => onToggleTag(tagKey)}
                         className="opacity-0 group-hover:opacity-100 transition-opacity"
                       >
-                        <X className="w-3 h-3 text-slate-400 hover:text-slate-200" />
+                        <X className="w-3 h-3 text-muted-foreground hover:text-foreground" />
                       </button>
                     </span>
                   );
                 })
               ) : (
-                <p className="text-xs text-slate-500 italic">Nenhuma tag adicionada</p>
+                <p className="text-xs text-muted-foreground italic">Nenhuma tag adicionada</p>
               )}
             </div>
           </div>
 
           {/* Notas Internas */}
           <div className="space-y-3">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
               Notas Internas
-              {isSavingNotes && <Loader2 className="w-3 h-3 animate-spin text-cyan-500" />}
+              {isSavingNotes && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
             </h4>
             <textarea
-              className="w-full bg-slate-950/50 border border-slate-800 rounded-lg p-3 text-sm text-slate-300 placeholder:text-slate-600 focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50 outline-none resize-none transition-all"
+              className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring/50 focus:border-ring/50 outline-none resize-none transition-all"
               rows={4}
               placeholder="Adicione observações sobre este contato..."
               value={notesValue}

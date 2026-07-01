@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
-import { 
-  UIConversation, 
+import {
+  UIConversation,
   UIMessage,
   DBMessage,
   DBConversation,
@@ -12,6 +12,7 @@ import {
   MessageType
 } from '@/types';
 import { toast } from 'sonner';
+import { MOCK_UI_CONVERSATIONS } from '@/lib/mockData';
 
 export function useConversations() {
   const [conversations, setConversations] = useState<UIConversation[]>([]);
@@ -93,16 +94,17 @@ export function useConversations() {
       setLoading(true);
       setError(null);
       const data = await api.fetchConversations();
-      
+      const resolved = data.length > 0 ? data : MOCK_UI_CONVERSATIONS;
+
       // Reset processed IDs on fresh fetch and populate with existing messages
       processedMessageIds.current.clear();
-      data.forEach(conv => {
+      resolved.forEach(conv => {
         conv.messages.forEach(msg => {
           processedMessageIds.current.add(msg.id);
         });
       });
-      
-      setConversations(data);
+
+      setConversations(resolved);
     } catch (err) {
       console.error('[useConversations] Error fetching:', err);
       setError('Erro ao carregar conversas');

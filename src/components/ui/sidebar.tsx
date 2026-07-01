@@ -203,8 +203,8 @@ export const SidebarLink = ({
       className={cn(
         "flex items-center justify-start gap-3 group/sidebar py-3 px-3 rounded-xl transition-all duration-200 relative overflow-hidden",
         isActive
-          ? "bg-slate-800/80 text-cyan-400 shadow-lg shadow-black/20 ring-1 ring-slate-700/50"
-          : "text-slate-400 hover:bg-slate-800/40 hover:text-slate-200",
+          ? "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground",
         className
       )}
       {...props}
@@ -214,7 +214,7 @@ export const SidebarLink = ({
       )}
       <span className={cn(
         "flex-shrink-0 transition-colors",
-        isActive ? "text-cyan-400" : "text-slate-500 group-hover/sidebar:text-slate-300"
+        isActive ? "text-primary" : "text-muted-foreground group-hover/sidebar:text-foreground"
       )}>
         {link.icon}
       </span>

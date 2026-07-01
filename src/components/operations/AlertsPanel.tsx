@@ -40,9 +40,9 @@ const componentLabels: Record<string, string> = {
 };
 
 const statusConfig = {
-  ok:      { icon: CheckCircle,    bg: 'bg-emerald-500/10 border-emerald-500/20', text: 'text-emerald-400', label: 'Operacional' },
-  warning: { icon: AlertTriangle,  bg: 'bg-amber-500/10  border-amber-500/20',   text: 'text-amber-400',   label: 'Atenção'     },
-  error:   { icon: XCircle,        bg: 'bg-red-500/10    border-red-500/20',      text: 'text-red-400',     label: 'Falha'       },
+  ok:      { icon: CheckCircle,    bg: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', label: 'Operacional' },
+  warning: { icon: AlertTriangle,  bg: 'bg-amber-50 border-amber-200',     text: 'text-amber-700',   label: 'Atenção'     },
+  error:   { icon: XCircle,        bg: 'bg-red-50 border-red-200',         text: 'text-red-700',     label: 'Falha'       },
 };
 
 const AlertsPanel: React.FC = () => {
@@ -67,8 +67,8 @@ const AlertsPanel: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5 flex items-center gap-3 animate-pulse">
-        <Loader2 className="w-4 h-4 text-slate-500 animate-spin" />
+      <div className="rounded-xl border border-border bg-card p-5 flex items-center gap-3 animate-pulse">
+        <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
         <span className="text-sm text-muted-foreground">Verificando sistema...</span>
       </div>
     );
@@ -89,7 +89,7 @@ const AlertsPanel: React.FC = () => {
   const OverallIcon = overallCfg.icon;
 
   return (
-    <div className={cn('rounded-xl border bg-slate-900/50 overflow-hidden', overallCfg.bg)}>
+    <div className={cn('rounded-xl border overflow-hidden', overallCfg.bg)}>
       {/* Summary row */}
       <div className="flex items-center justify-between px-5 py-4 gap-4">
         <div className="flex items-center gap-3">
@@ -107,7 +107,7 @@ const AlertsPanel: React.FC = () => {
           </span>
           <button
             onClick={fetchHealth}
-            className="p-1.5 rounded-lg hover:bg-slate-700/60 transition-colors text-slate-400 hover:text-foreground"
+            className="p-1.5 rounded-lg hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
             aria-label="Atualizar status"
           >
             <RefreshCw className="w-4 h-4" />
@@ -117,7 +117,7 @@ const AlertsPanel: React.FC = () => {
 
       {/* Progress bar */}
       <div className="h-px mx-5">
-        <div className="h-1 bg-slate-800 rounded-full overflow-hidden -mt-px">
+        <div className="h-1 bg-border rounded-full overflow-hidden -mt-px">
           <div
             className={cn(
               'h-full rounded-full transition-all duration-500',
@@ -168,7 +168,7 @@ const AlertsPanel: React.FC = () => {
       )}
 
       {issues.length === 0 && (
-        <p className="px-5 pb-4 text-xs text-emerald-400/70">
+        <p className="px-5 pb-4 text-xs text-emerald-700/70">
           Todos os componentes estão operacionais.
         </p>
       )}

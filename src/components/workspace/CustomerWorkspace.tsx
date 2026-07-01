@@ -36,10 +36,10 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
   onAssignUser,
 }) => {
   return (
-    <div className="w-64 xl:w-72 border-l border-slate-800 bg-slate-900/50 flex flex-col flex-shrink-0 overflow-hidden">
+    <div className="w-64 xl:w-72 border-l border-border bg-card flex flex-col flex-shrink-0 overflow-hidden">
       {/* Header */}
-      <div className="h-14 flex items-center px-4 border-b border-slate-800 flex-shrink-0">
-        <span className="text-xs font-bold text-white uppercase tracking-wider">Workspace do Cliente</span>
+      <div className="h-14 flex items-center px-4 border-b border-border flex-shrink-0">
+        <span className="text-xs font-bold text-foreground uppercase tracking-wider">Workspace do Cliente</span>
       </div>
 
       {/* Scrollable content — no tabs, all sections always visible */}
@@ -57,7 +57,7 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
           onAssignUser={onAssignUser}
         />
 
-        <div className="h-px bg-slate-800/60 mx-4" />
+        <div className="h-px bg-border mx-4" />
 
         {/* Seção: Histórico */}
         <HistoryCard
@@ -68,7 +68,7 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
           onNotesBlur={onNotesBlur}
         />
 
-        <div className="h-px bg-slate-800/60 mx-4" />
+        <div className="h-px bg-border mx-4" />
 
         {/* Seção: IA */}
         <AIPanel

@@ -55,7 +55,7 @@ const Settings: React.FC = () => {
         description={
           <>
             Central de controle da sua instância {companyName}.
-            {!isAdmin && <span className="ml-2 text-amber-400">(Somente leitura)</span>}
+            {!isAdmin && <span className="ml-2 text-amber-600">(Somente leitura)</span>}
           </>
         }
         actions={
@@ -65,13 +65,13 @@ const Settings: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={handleReopenOnboarding}
-                className="text-slate-400 hover:text-white gap-2"
+                className="text-muted-foreground hover:text-foreground gap-2"
               >
                 <RotateCcw className="w-4 h-4" />
                 Refazer Onboarding
               </Button>
             )}
-            <span className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs rounded-full font-mono flex items-center">
+            <span className="px-3 py-1 bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs rounded-full font-mono flex items-center">
               {isAdmin ? (
                 <>
                   <Shield className="w-3 h-3 mr-1" /> Admin
@@ -134,7 +134,7 @@ const Settings: React.FC = () => {
           )}
           
           {activeTab !== 'docs' && !isAdmin && (
-            <div className="flex items-center gap-2 text-sm text-amber-400">
+            <div className="flex items-center gap-2 text-sm text-amber-600">
               <Lock className="w-4 h-4" />
               Apenas administradores podem editar
             </div>

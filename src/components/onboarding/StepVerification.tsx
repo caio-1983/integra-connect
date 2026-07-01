@@ -157,32 +157,32 @@ export const StepVerification: React.FC<StepVerificationProps> = ({ onAllChecked
     switch (overallStatus) {
       case 'ok':
         return (
-          <div className="p-4 rounded-lg border border-green-500/30 bg-green-500/10 text-green-300">
+          <div className="p-4 rounded-lg border border-green-200 bg-green-50 text-green-700">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5" />
               <span className="font-medium">Sistema totalmente configurado!</span>
             </div>
-            <p className="text-sm mt-1 text-green-400/80">Você está pronto para começar a usar o sistema.</p>
+            <p className="text-sm mt-1 text-green-600">Você está pronto para começar a usar o sistema.</p>
           </div>
         );
       case 'warning':
         return (
-          <div className="p-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 text-yellow-300">
+          <div className="p-4 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-700">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5" />
               <span className="font-medium">Sistema funcional com pendências</span>
             </div>
-            <p className="text-sm mt-1 text-yellow-400/80">Algumas configurações opcionais estão pendentes.</p>
+            <p className="text-sm mt-1 text-yellow-600">Algumas configurações opcionais estão pendentes.</p>
           </div>
         );
       case 'error':
         return (
-          <div className="p-4 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300">
+          <div className="p-4 rounded-lg border border-red-200 bg-red-50 text-red-700">
             <div className="flex items-center gap-2">
               <XCircle className="w-5 h-5" />
               <span className="font-medium">Configuração necessária</span>
             </div>
-            <p className="text-sm mt-1 text-red-400/80">Complete os itens em vermelho para o sistema funcionar.</p>
+            <p className="text-sm mt-1 text-red-600">Complete os itens em vermelho para o sistema funcionar.</p>
           </div>
         );
       default:
@@ -206,7 +206,7 @@ export const StepVerification: React.FC<StepVerificationProps> = ({ onAllChecked
     
     return (
       <div className="space-y-2">
-        <h4 className="text-sm font-medium text-slate-400">{title}</h4>
+        <h4 className="text-sm font-medium text-muted-foreground">{title}</h4>
         <div className="space-y-2">
           {items.map((result, index) => (
             <motion.div
@@ -219,12 +219,12 @@ export const StepVerification: React.FC<StepVerificationProps> = ({ onAllChecked
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-sm text-white">
+                  <span className="font-medium text-sm text-foreground">
                     {componentLabels[result.component] || result.component}
                   </span>
                   {getStatusIcon(result.status)}
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5 truncate">
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
                   {result.message}
                 </p>
               </div>
@@ -243,16 +243,16 @@ export const StepVerification: React.FC<StepVerificationProps> = ({ onAllChecked
       className="space-y-6"
     >
       <div className="text-center">
-        <h3 className="text-xl font-semibold text-white">Verificação do Sistema</h3>
-        <p className="text-slate-400 text-sm mt-1">
+        <h3 className="text-xl font-semibold text-foreground">Verificação do Sistema</h3>
+        <p className="text-muted-foreground text-sm mt-1">
           Verificando se todos os componentes estão configurados corretamente
         </p>
       </div>
 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <Loader2 className="w-8 h-8 animate-spin text-violet-400" />
-          <p className="text-sm text-slate-400">Verificando sistema...</p>
+          <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+          <p className="text-sm text-muted-foreground">Verificando sistema...</p>
         </div>
       ) : (
         <>
@@ -270,7 +270,7 @@ export const StepVerification: React.FC<StepVerificationProps> = ({ onAllChecked
               size="sm"
               onClick={runHealthCheck}
               disabled={isLoading}
-              className="gap-2 border-violet-500/50 text-violet-400 hover:bg-violet-500/20 hover:text-violet-300"
+              className="gap-2 border-violet-200 text-violet-600 hover:bg-violet-50 hover:text-violet-700"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
               Verificar Novamente

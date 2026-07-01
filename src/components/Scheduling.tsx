@@ -18,12 +18,12 @@ const Scheduling: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Modals state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-  
+
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
 
@@ -135,7 +135,7 @@ const Scheduling: React.FC = () => {
     setSelectedDate(dateStr);
     setShowCreateModal(true);
   };
-  
+
   const handleSlotClick = (dateStr: string, time?: string) => {
       setSelectedDate(dateStr);
       if(time) setFormData(prev => ({ ...prev, time }));
@@ -252,13 +252,23 @@ const Scheduling: React.FC = () => {
     }
   };
 
+  const getEventTypeHeaderBg = (type: string) => {
+    switch (type) {
+      case 'demo':    return 'bg-cyan-50';
+      case 'meeting': return 'bg-violet-50';
+      case 'support': return 'bg-emerald-50';
+      case 'followup': return 'bg-orange-50';
+      default: return 'bg-muted';
+    }
+  };
+
   const getEventTypeColor = (type: string) => {
     switch (type) {
-        case 'demo': return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20 hover:bg-cyan-500/20';
-        case 'meeting': return 'bg-violet-500/10 text-violet-300 border-violet-500/20 hover:bg-violet-500/20';
-        case 'support': return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20 hover:bg-emerald-500/20';
-        case 'followup': return 'bg-orange-500/10 text-orange-300 border-orange-500/20 hover:bg-orange-500/20';
-        default: return 'bg-slate-700 text-slate-300 border-slate-600';
+        case 'demo': return 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100';
+        case 'meeting': return 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100';
+        case 'support': return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
+        case 'followup': return 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100';
+        default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -273,7 +283,7 @@ const Scheduling: React.FC = () => {
     return (
         <div className="grid grid-cols-7 flex-1 auto-rows-fr">
             {Array.from({ length: firstDay }).map((_, index) => (
-                <div key={`empty-${index}`} className="border-b border-r border-slate-800/50 bg-slate-950/30 min-h-[100px]" />
+                <div key={`empty-${index}`} className="border-b border-r border-border/50 bg-background min-h-[100px]" />
             ))}
             {Array.from({ length: days }).map((_, index) => {
                 const day = index + 1;
@@ -282,23 +292,23 @@ const Scheduling: React.FC = () => {
                 const isToday = formatDateStr(new Date()) === dateStr;
 
                 return (
-                    <div 
-                        key={day} 
+                    <div
+                        key={day}
                         onClick={() => handleDateClick(day)}
-                        className={`border-b border-r border-slate-800/50 p-2 min-h-[120px] cursor-pointer transition-colors hover:bg-slate-800/30 group relative ${isToday ? 'bg-cyan-950/10' : ''}`}
+                        className={`border-b border-r border-border/50 p-2 min-h-[120px] cursor-pointer transition-colors hover:bg-muted/50 group relative ${isToday ? 'bg-cyan-50' : ''}`}
                     >
-                        <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full mb-2 ${isToday ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/40' : 'text-slate-400 group-hover:text-white'}`}>
+                        <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full mb-2 ${isToday ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/40' : 'text-muted-foreground group-hover:text-foreground'}`}>
                             {day}
                         </span>
                         <div className="space-y-1">
                             {dayAppointments.map(app => (
-                                <div 
-                                    key={app.id} 
+                                <div
+                                    key={app.id}
                                     className={`text-[10px] px-2 py-1 rounded border truncate font-medium cursor-pointer relative ${getEventTypeColor(app.type)}`}
                                     onClick={(e) => handleAppointmentClick(app, e)}
                                 >
                                     {app.metadata?.source === 'nina_ai' && (
-                                      <Bot className="w-2.5 h-2.5 inline-block mr-0.5 text-cyan-400" />
+                                      <Bot className="w-2.5 h-2.5 inline-block mr-0.5 text-cyan-600" />
                                     )}
                                     {app.time} - {app.title}
                                 </div>
@@ -309,7 +319,7 @@ const Scheduling: React.FC = () => {
             })}
              {/* Fill remaining cells to keep grid structure */}
              {Array.from({ length: 42 - (days + firstDay) }).map((_, index) => (
-                <div key={`remaining-${index}`} className="border-b border-r border-slate-800/50 bg-slate-950/30" />
+                <div key={`remaining-${index}`} className="border-b border-r border-border/50 bg-background" />
             ))}
         </div>
     );
@@ -325,25 +335,25 @@ const Scheduling: React.FC = () => {
     const hours = Array.from({ length: 14 }).map((_, i) => i + 6); // 06:00 to 19:00
 
     return (
-        <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar bg-slate-900/30">
+        <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar bg-card">
             {/* Header Row */}
-            <div className="grid grid-cols-8 border-b border-slate-800 sticky top-0 bg-slate-900 z-10">
-                <div className="p-4 text-xs font-medium text-slate-500 border-r border-slate-800">GMT-3</div>
+            <div className="grid grid-cols-8 border-b border-border sticky top-0 bg-card z-10">
+                <div className="p-4 text-xs font-medium text-muted-foreground border-r border-border">GMT-3</div>
                 {weekDays.map((day, i) => {
                      const isToday = formatDateStr(new Date()) === formatDateStr(day);
                      return (
-                        <div key={i} className={`p-2 text-center border-r border-slate-800/50 ${isToday ? 'bg-cyan-950/20' : ''}`}>
-                            <div className={`text-xs uppercase font-semibold ${isToday ? 'text-cyan-400' : 'text-slate-500'}`}>
+                        <div key={i} className={`p-2 text-center border-r border-border/50 ${isToday ? 'bg-cyan-50' : ''}`}>
+                            <div className={`text-xs uppercase font-semibold ${isToday ? 'text-cyan-600' : 'text-muted-foreground'}`}>
                                 {day.toLocaleDateString('pt-BR', { weekday: 'short' })}
                             </div>
-                            <div className={`text-xl font-bold ${isToday ? 'text-cyan-500' : 'text-slate-300'}`}>
+                            <div className={`text-xl font-bold ${isToday ? 'text-cyan-500' : 'text-foreground'}`}>
                                 {day.getDate()}
                             </div>
                         </div>
                      )
                 })}
             </div>
-            
+
             {/* Time Grid */}
             <div className="flex-1">
                 {hours.map(hour => {
@@ -351,7 +361,7 @@ const Scheduling: React.FC = () => {
                     return (
                         <div key={hour} className="grid grid-cols-8 min-h-[80px]">
                             {/* Time Column */}
-                            <div className="border-r border-b border-slate-800/50 p-2 text-xs text-slate-500 text-right sticky left-0 bg-slate-900/30">
+                            <div className="border-r border-b border-border/50 p-2 text-xs text-muted-foreground text-right sticky left-0 bg-card">
                                 {timeStr}
                             </div>
                             {/* Days Columns */}
@@ -364,26 +374,26 @@ const Scheduling: React.FC = () => {
                                 });
 
                                 return (
-                                    <div 
-                                        key={i} 
+                                    <div
+                                        key={i}
                                         onClick={() => handleSlotClick(dateStr, timeStr)}
-                                        className={`border-r border-b border-slate-800/50 relative p-1 transition-colors hover:bg-slate-800/20 group cursor-pointer ${isToday ? 'bg-cyan-950/5' : ''}`}
+                                        className={`border-r border-b border-border/50 relative p-1 transition-colors hover:bg-muted/50 group cursor-pointer ${isToday ? 'bg-cyan-50' : ''}`}
                                     >
                                         {/* Add Button on Hover */}
                                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
-                                            <Plus className="w-4 h-4 text-slate-600" />
+                                            <Plus className="w-4 h-4 text-muted-foreground/30" />
                                         </div>
 
                                         {apps.map(app => (
-                                            <div 
-                                                key={app.id} 
+                                            <div
+                                                key={app.id}
                                                 className={`mb-1 p-2 rounded text-xs border cursor-pointer hover:brightness-110 relative z-10 shadow-sm ${getEventTypeColor(app.type)}`}
-                                                onClick={(e) => handleAppointmentClick(app, e)} 
+                                                onClick={(e) => handleAppointmentClick(app, e)}
                                                 style={{ minHeight: `${Math.max(40, (app.duration / 60) * 80)}px` }}
                                             >
                                                 <div className="font-bold truncate flex items-center gap-1">
                                                     {app.metadata?.source === 'nina_ai' && (
-                                                      <Bot className="w-3 h-3 text-cyan-400 flex-shrink-0" />
+                                                      <Bot className="w-3 h-3 text-cyan-600 flex-shrink-0" />
                                                     )}
                                                     {app.title}
                                                 </div>
@@ -406,11 +416,11 @@ const Scheduling: React.FC = () => {
     const dateStr = formatDateStr(currentDate);
 
     return (
-        <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar bg-slate-900/30">
-             <div className="p-4 border-b border-slate-800 bg-slate-900 sticky top-0 z-10">
-                <h3 className="text-xl font-bold text-white capitalize">{currentDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
+        <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar bg-card">
+             <div className="p-4 border-b border-border bg-card sticky top-0 z-10">
+                <h3 className="text-xl font-bold text-foreground capitalize">{currentDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
              </div>
-             
+
              <div className="flex-1 p-4">
                  {hours.map(hour => {
                     const timeStr = `${String(hour).padStart(2, '0')}:00`;
@@ -420,20 +430,20 @@ const Scheduling: React.FC = () => {
                     });
 
                     return (
-                        <div key={hour} className="flex border-b border-slate-800/50 min-h-[100px] group hover:bg-slate-900/40 transition-colors">
-                            <div className="w-20 py-4 pr-6 text-right text-sm font-medium text-slate-500 border-r border-slate-800/50">
+                        <div key={hour} className="flex border-b border-border/50 min-h-[100px] group hover:bg-muted/50 transition-colors">
+                            <div className="w-20 py-4 pr-6 text-right text-sm font-medium text-muted-foreground border-r border-border/50">
                                 {timeStr}
                             </div>
-                            <div 
+                            <div
                                 className="flex-1 p-2 relative cursor-pointer"
                                 onClick={() => handleSlotClick(dateStr, timeStr)}
                             >
                                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-10 pointer-events-none">
-                                    <Plus className="w-6 h-6 text-slate-700" />
+                                    <Plus className="w-6 h-6 text-muted-foreground/30" />
                                 </div>
                                 {apps.map(app => (
-                                    <div 
-                                        key={app.id} 
+                                    <div
+                                        key={app.id}
                                         className={`mb-2 p-3 rounded-lg border flex justify-between items-center shadow-md relative z-10 cursor-pointer hover:brightness-110 ${getEventTypeColor(app.type)}`}
                                         onClick={(e) => handleAppointmentClick(app, e)}
                                         style={{ minHeight: `${Math.max(60, (app.duration / 60) * 100)}px` }}
@@ -441,7 +451,7 @@ const Scheduling: React.FC = () => {
                                         <div>
                                             <div className="font-bold text-sm flex items-center gap-1.5">
                                                 {app.metadata?.source === 'nina_ai' && (
-                                                  <Bot className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                                                  <Bot className="w-3.5 h-3.5 text-cyan-600 flex-shrink-0" />
                                                 )}
                                                 {app.title}
                                             </div>
@@ -470,39 +480,39 @@ const Scheduling: React.FC = () => {
         actions={
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
             {/* View Switcher */}
-            <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
+            <div className="flex bg-muted p-1 rounded-lg border border-border">
               <button
                 onClick={() => setViewMode('month')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'month' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'month' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" /> Mês
               </button>
               <button
                 onClick={() => setViewMode('week')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'week' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'week' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 <Columns className="w-3.5 h-3.5" /> Semana
               </button>
               <button
                 onClick={() => setViewMode('day')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'day' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'day' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 <List className="w-3.5 h-3.5" /> Dia
               </button>
             </div>
 
             {/* Date Nav */}
-            <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-1">
-              <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors">
+            <div className="flex items-center bg-muted border border-border rounded-lg p-1">
+              <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors">
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <div className="flex flex-col items-center justify-center w-48 px-2 cursor-pointer" onClick={goToToday} title="Ir para hoje">
-                <span className="text-sm font-bold text-slate-200 capitalize">
+                <span className="text-sm font-bold text-foreground capitalize">
                   {viewMode === 'month' ? getMonthLabel() : viewMode === 'week' ? getWeekLabel() : getDayLabel()}
                 </span>
-                {viewMode === 'week' && <span className="text-[10px] text-slate-500">{currentDate.getFullYear()}</span>}
+                {viewMode === 'week' && <span className="text-[10px] text-muted-foreground">{currentDate.getFullYear()}</span>}
               </div>
-              <button onClick={() => navigateDate(1)} className="p-2 hover:bg-slate-800 rounded-md text-slate-400 hover:text-white transition-colors">
+              <button onClick={() => navigateDate(1)} className="p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors">
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
@@ -516,18 +526,18 @@ const Scheduling: React.FC = () => {
       />
 
       {/* Main Calendar Area */}
-      <div className="flex-1 bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden shadow-2xl flex flex-col relative">
+      <div className="flex-1 bg-card border border-border rounded-xl overflow-hidden shadow-2xl flex flex-col relative">
         {loading ? (
              <div className="flex-1 flex items-center justify-center">
-                 <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
              </div>
         ) : (
             <>
                 {viewMode === 'month' && (
                     <>
-                        <div className="grid grid-cols-7 border-b border-slate-800 bg-slate-900">
+                        <div className="grid grid-cols-7 border-b border-border bg-card">
                             {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                                <div key={day} className="py-3 text-center text-sm font-semibold text-slate-500 uppercase tracking-wider">
+                                <div key={day} className="py-3 text-center text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                                     {day}
                                 </div>
                             ))}
@@ -543,19 +553,19 @@ const Scheduling: React.FC = () => {
 
       {/* Create Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-white">Novo Agendamento</h3>
-                    <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white transition-colors">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="p-6 border-b border-border flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-foreground">Novo Agendamento</h3>
+                    <button onClick={() => setShowCreateModal(false)} className="text-muted-foreground hover:text-foreground transition-colors">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-                
+
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div className="space-y-2">
-                         <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Data Selecionada</label>
-                         <div className="flex items-center gap-2 text-white font-medium bg-slate-950 p-3 rounded-lg border border-slate-800">
+                         <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Data Selecionada</label>
+                         <div className="flex items-center gap-2 text-foreground font-medium bg-background p-3 rounded-lg border border-border">
                             <CalendarIcon className="w-4 h-4 text-cyan-500" />
                             {selectedDate?.split('-').reverse().join('/')}
                          </div>
@@ -563,21 +573,21 @@ const Scheduling: React.FC = () => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                             <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Horário</label>
+                             <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Horário</label>
                              <div className="relative">
-                                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                                <input 
-                                    type="time" 
-                                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <input
+                                    type="time"
+                                    className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none"
                                     value={formData.time}
                                     onChange={e => setFormData({...formData, time: e.target.value})}
                                 />
                              </div>
                         </div>
                         <div className="space-y-2">
-                             <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Duração</label>
-                             <select 
-                                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none appearance-none"
+                             <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Duração</label>
+                             <select
+                                className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
                                 value={formData.duration}
                                 onChange={e => setFormData({...formData, duration: parseInt(e.target.value)})}
                              >
@@ -592,9 +602,9 @@ const Scheduling: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                         <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Tipo</label>
-                         <select 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none appearance-none"
+                         <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Tipo</label>
+                         <select
+                            className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
                             value={formData.type}
                             onChange={e => setFormData({...formData, type: e.target.value})}
                          >
@@ -606,11 +616,11 @@ const Scheduling: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Título do Evento</label>
-                        <input 
+                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Título do Evento</label>
+                        <input
                             required
-                            type="text" 
-                            className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none placeholder:text-slate-600"
+                            type="text"
+                            className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground"
                             placeholder="Ex: Apresentação para Cliente X"
                             value={formData.title}
                             onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -618,11 +628,11 @@ const Scheduling: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Descrição</label>
+                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Descrição</label>
                         <div className="relative">
-                            <AlignLeft className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
-                            <textarea 
-                                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3 py-3 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none placeholder:text-slate-600 resize-none h-24"
+                            <AlignLeft className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                            <textarea
+                                className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-3 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground resize-none h-24"
                                 placeholder="Detalhes adicionais..."
                                 value={formData.description}
                                 onChange={(e) => setFormData({...formData, description: e.target.value})}
@@ -631,13 +641,13 @@ const Scheduling: React.FC = () => {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Contato Vinculado</label>
+                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Contato Vinculado</label>
                         <div className="relative">
-                            <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                            <select 
+                            <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <select
                                 value={selectedContactId || ''}
                                 onChange={(e) => setSelectedContactId(e.target.value || null)}
-                                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none appearance-none"
+                                className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
                             >
                                 <option value="">Selecionar contato (opcional)</option>
                                 {contacts.map(contact => (
@@ -647,25 +657,25 @@ const Scheduling: React.FC = () => {
                                 ))}
                             </select>
                         </div>
-                        <p className="text-xs text-slate-500">Vincule um contato existente ao evento</p>
+                        <p className="text-xs text-muted-foreground">Vincule um contato existente ao evento</p>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Participantes Adicionais</label>
+                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Participantes Adicionais</label>
                         <div className="relative">
-                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                            <input 
-                                type="text" 
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <input
+                                type="text"
                                 name="attendees"
-                                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none placeholder:text-slate-600"
+                                className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground"
                                 placeholder="Ex: João Silva, Maria Santos"
                             />
                         </div>
-                        <p className="text-xs text-slate-500">Separe os nomes por vírgula</p>
+                        <p className="text-xs text-muted-foreground">Separe os nomes por vírgula</p>
                     </div>
 
                     <div className="pt-4 flex gap-3">
-                        <Button type="button" variant="ghost" onClick={() => setShowCreateModal(false)} className="flex-1 border border-slate-700 hover:bg-slate-800">Cancelar</Button>
+                        <Button type="button" variant="ghost" onClick={() => setShowCreateModal(false)} className="flex-1">Cancelar</Button>
                         <Button type="submit" disabled={isSaving} className="flex-1">
                             {isSaving ? 'Salvando...' : 'Salvar'}
                         </Button>
@@ -677,10 +687,10 @@ const Scheduling: React.FC = () => {
 
       {/* Appointment Details Modal */}
       {selectedAppointment && (
-         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-             <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+             <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
                  {/* Header */}
-                 <div className={`p-6 border-b border-slate-800 relative overflow-hidden ${getEventTypeColor(selectedAppointment.type).replace('text-', 'bg-').replace('/10', '/5')}`}>
+                 <div className={`p-6 border-b border-border relative overflow-hidden ${getEventTypeHeaderBg(selectedAppointment.type)}`}>
                      <div className="absolute top-0 right-0 p-4 opacity-5">
                          <CalendarIcon className="w-32 h-32" />
                      </div>
@@ -691,18 +701,18 @@ const Scheduling: React.FC = () => {
                                     {selectedAppointment.type}
                                 </span>
                                 {selectedAppointment.metadata?.source === 'nina_ai' && (
-                                    <span className="px-2 py-1 rounded text-[10px] font-bold uppercase border bg-cyan-500/10 text-cyan-300 border-cyan-500/30 flex items-center gap-1">
+                                    <span className="px-2 py-1 rounded text-[10px] font-bold uppercase border bg-cyan-50 text-cyan-700 border-cyan-200 flex items-center gap-1">
                                         <Bot className="w-3 h-3" />
                                         Criado por IA
                                     </span>
                                 )}
                             </div>
-                            <button onClick={() => setSelectedAppointment(null)} className="p-1 rounded-full bg-black/20 text-white hover:bg-black/40 transition-colors">
+                            <button onClick={() => setSelectedAppointment(null)} className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
-                        <h3 className="text-2xl font-bold text-white mb-2">{selectedAppointment.title}</h3>
-                         <div className="flex items-center gap-4 text-sm text-slate-300">
+                        <h3 className="text-2xl font-bold text-foreground mb-2">{selectedAppointment.title}</h3>
+                         <div className="flex items-center gap-4 text-sm text-foreground">
                             <div className="flex items-center gap-1.5">
                                 <Clock className="w-4 h-4 text-cyan-500" />
                                 {selectedAppointment.time} - {calculateEndTime(selectedAppointment.time, selectedAppointment.duration)} ({selectedAppointment.duration}min)
@@ -719,8 +729,8 @@ const Scheduling: React.FC = () => {
                  <div className="p-6 space-y-6 flex-1">
                      {selectedAppointment.description && (
                          <div className="space-y-2">
-                             <h4 className="text-xs font-bold uppercase text-slate-500 tracking-wider">Descrição</h4>
-                             <p className="text-sm text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-lg border border-slate-800">
+                             <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Descrição</h4>
+                             <p className="text-sm text-foreground leading-relaxed bg-muted p-3 rounded-lg border border-border">
                                  {selectedAppointment.description}
                              </p>
                          </div>
@@ -728,14 +738,14 @@ const Scheduling: React.FC = () => {
 
                      {selectedAppointment.contact_id && (
                          <div className="space-y-2">
-                             <h4 className="text-xs font-bold uppercase text-slate-500 tracking-wider">Contato Vinculado</h4>
-                             <div className="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-lg border border-slate-700">
+                             <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Contato Vinculado</h4>
+                             <div className="flex items-center gap-2 bg-muted px-3 py-2 rounded-lg border border-border">
                                  <UserCircle className="w-5 h-5 text-cyan-500" />
                                  <div className="flex-1">
-                                     <span className="text-sm text-white font-medium">
+                                     <span className="text-sm text-foreground font-medium">
                                          {selectedAppointment.contact?.name || 'Contato'}
                                      </span>
-                                     <span className="text-xs text-slate-400 ml-2">
+                                     <span className="text-xs text-muted-foreground ml-2">
                                          {selectedAppointment.contact?.phone_number}
                                      </span>
                                  </div>
@@ -744,26 +754,26 @@ const Scheduling: React.FC = () => {
                      )}
 
                      <div className="space-y-2">
-                         <h4 className="text-xs font-bold uppercase text-slate-500 tracking-wider">Participantes</h4>
+                         <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Participantes</h4>
                          <div className="flex flex-wrap items-center gap-2">
                              {selectedAppointment.attendees && selectedAppointment.attendees.length > 0 ? (
                                  selectedAppointment.attendees.map((attendee, i) => (
-                                     <div key={i} className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-full border border-slate-700">
+                                     <div key={i} className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-full border border-border">
                                          <div className="w-5 h-5 rounded-full bg-cyan-600 flex items-center justify-center text-[10px] text-white font-bold">
                                              {attendee.charAt(0)}
                                          </div>
-                                         <span className="text-xs text-slate-200">{attendee}</span>
+                                         <span className="text-xs text-foreground">{attendee}</span>
                                      </div>
                                  ))
                              ) : (
-                                 <span className="text-sm text-slate-500">Nenhum participante adicional.</span>
+                                 <span className="text-sm text-muted-foreground">Nenhum participante adicional.</span>
                              )}
                          </div>
                      </div>
 
                      <div className="space-y-3">
                           <div className="flex gap-2">
-                              <Button 
+                              <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => handleDeleteAppointment(selectedAppointment.id)}
@@ -771,7 +781,7 @@ const Scheduling: React.FC = () => {
                               >
                                   Excluir
                               </Button>
-                              <Button 
+                              <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => {
@@ -783,9 +793,9 @@ const Scheduling: React.FC = () => {
                                   Editar
                               </Button>
                           </div>
-                          
-                          <Button 
-                             className="w-full shadow-lg shadow-cyan-500/20 py-3" 
+
+                          <Button
+                             className="w-full shadow-lg shadow-cyan-500/20 py-3"
                              size="lg"
                              onClick={() => {
                                  navigate(`/meeting/${selectedAppointment.id}`);
@@ -794,7 +804,7 @@ const Scheduling: React.FC = () => {
                               <Video className="w-5 h-5 mr-2" />
                               Entrar na Sala de Reunião
                           </Button>
-                          <p className="text-center text-xs text-slate-500">
+                          <p className="text-center text-xs text-muted-foreground">
                               A sala estará disponível 5 minutos antes do horário.
                           </p>
                       </div>
@@ -805,22 +815,22 @@ const Scheduling: React.FC = () => {
 
       {/* Edit Appointment Modal */}
       {showEditModal && selectedAppointment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-800 rounded-xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-card border border-border rounded-xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-800 bg-gradient-to-r from-cyan-950/30 to-slate-900">
+            <div className="flex items-center justify-between p-6 border-b border-border bg-card">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-cyan-500/10 rounded-lg">
-                  <Pencil className="w-5 h-5 text-cyan-400" />
+                <div className="p-2 bg-cyan-50 rounded-lg">
+                  <Pencil className="w-5 h-5 text-cyan-600" />
                 </div>
-                <h2 className="text-lg font-bold text-white">Editar Agendamento</h2>
+                <h2 className="text-lg font-bold text-foreground">Editar Agendamento</h2>
               </div>
-              <button 
+              <button
                 onClick={() => {
                   setShowEditModal(false);
                   setSelectedAppointment(null);
-                }} 
-                className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+                }}
+                className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -830,25 +840,25 @@ const Scheduling: React.FC = () => {
             <form onSubmit={handleEditSubmit} className="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Data</label>
+                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Data</label>
                   <div className="relative">
-                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <input 
-                      type="date" 
+                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="date"
                       required
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                      className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none"
                       value={editFormData.date}
                       onChange={e => setEditFormData({...editFormData, date: e.target.value})}
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Horário</label>
+                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Horário</label>
                   <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                    <input 
-                      type="time" 
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none"
+                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input
+                      type="time"
+                      className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none"
                       value={editFormData.time}
                       onChange={e => setEditFormData({...editFormData, time: e.target.value})}
                     />
@@ -858,9 +868,9 @@ const Scheduling: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Duração</label>
-                  <select 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none appearance-none"
+                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Duração</label>
+                  <select
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
                     value={editFormData.duration}
                     onChange={e => setEditFormData({...editFormData, duration: parseInt(e.target.value)})}
                   >
@@ -873,9 +883,9 @@ const Scheduling: React.FC = () => {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Tipo</label>
-                  <select 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none appearance-none"
+                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Tipo</label>
+                  <select
+                    className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
                     value={editFormData.type}
                     onChange={e => setEditFormData({...editFormData, type: e.target.value})}
                   >
@@ -888,11 +898,11 @@ const Scheduling: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Título do Evento</label>
-                <input 
+                <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Título do Evento</label>
+                <input
                   required
-                  type="text" 
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none placeholder:text-slate-600"
+                  type="text"
+                  className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground"
                   placeholder="Ex: Apresentação para Cliente X"
                   value={editFormData.title}
                   onChange={(e) => setEditFormData({...editFormData, title: e.target.value})}
@@ -900,11 +910,11 @@ const Scheduling: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Descrição</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Descrição</label>
                 <div className="relative">
-                  <AlignLeft className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
-                  <textarea 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3 py-3 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none placeholder:text-slate-600 resize-none h-24"
+                  <AlignLeft className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
+                  <textarea
+                    className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-3 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground resize-none h-24"
                     placeholder="Detalhes adicionais..."
                     value={editFormData.description}
                     onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
@@ -913,13 +923,13 @@ const Scheduling: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Contato Vinculado</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Contato Vinculado</label>
                 <div className="relative">
-                  <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <select 
+                  <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <select
                     value={editContactId || ''}
                     onChange={(e) => setEditContactId(e.target.value || null)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none appearance-none"
+                    className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
                   >
                     <option value="">Selecionar contato (opcional)</option>
                     {contacts.map(contact => (
@@ -932,29 +942,29 @@ const Scheduling: React.FC = () => {
               </div>
 
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-slate-500 tracking-wider">Participantes Adicionais</label>
+                <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Participantes Adicionais</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                  <input 
-                    type="text" 
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white focus:ring-1 focus:ring-cyan-500 outline-none placeholder:text-slate-600"
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground"
                     placeholder="Ex: João Silva, Maria Santos"
                     value={editFormData.attendees}
                     onChange={(e) => setEditFormData({...editFormData, attendees: e.target.value})}
                   />
                 </div>
-                <p className="text-xs text-slate-500">Separe os nomes por vírgula</p>
+                <p className="text-xs text-muted-foreground">Separe os nomes por vírgula</p>
               </div>
 
               <div className="pt-4 flex gap-3">
-                <Button 
-                  type="button" 
-                  variant="ghost" 
+                <Button
+                  type="button"
+                  variant="ghost"
                   onClick={() => {
                     setShowEditModal(false);
                     setSelectedAppointment(null);
-                  }} 
-                  className="flex-1 border border-slate-700 hover:bg-slate-800"
+                  }}
+                  className="flex-1"
                 >
                   Cancelar
                 </Button>

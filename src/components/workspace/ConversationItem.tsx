@@ -11,9 +11,9 @@ interface ConversationItemProps {
 }
 
 const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color: string }> = {
-  nina:   { icon: Bot,   color: 'bg-violet-500/20 text-violet-400 border-violet-500/30' },
-  human:  { icon: User,  color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-  paused: { icon: Pause, color: 'bg-amber-500/20 text-amber-400 border-amber-500/30' },
+  nina:   { icon: Bot,   color: 'bg-violet-50 text-violet-700 border-violet-200' },
+  human:  { icon: User,  color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  paused: { icon: Pause, color: 'bg-amber-50 text-amber-700 border-amber-200' },
 };
 
 const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName }) => {
@@ -31,36 +31,36 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
       onClick={onClick}
       className={cn(
         'w-full flex items-start gap-3 p-3.5 text-left transition-all duration-150',
-        'border-b border-slate-800/40 border-l-2 hover:bg-slate-800/40',
-        isSelected ? 'bg-slate-800/60 border-l-cyan-500' : 'border-l-transparent',
+        'border-b border-border/40 border-l-2 hover:bg-muted/50',
+        isSelected ? 'bg-muted/60 border-l-primary' : 'border-l-transparent',
       )}
     >
       {/* Avatar */}
       <div className="relative flex-shrink-0 mt-0.5">
-        <div className="w-9 h-9 rounded-full p-0.5 bg-gradient-to-tr from-slate-700 to-slate-900">
+        <div className="w-9 h-9 rounded-full p-0.5 bg-gradient-to-tr from-slate-200 to-slate-100">
           <img
             src={conversation.contactAvatar}
             alt={conversation.contactName}
-            className="w-full h-full rounded-full object-cover border border-slate-800"
+            className="w-full h-full rounded-full object-cover border border-border"
           />
         </div>
         {conversation.unreadCount > 0 ? (
-          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-cyan-500 border-2 border-slate-900 rounded-full animate-pulse" />
+          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-primary border-2 border-background rounded-full animate-pulse" />
         ) : (
-          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-slate-600 border-2 border-slate-900 rounded-full" />
+          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-muted-foreground/30 border-2 border-background rounded-full" />
         )}
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline justify-between mb-0.5 gap-1">
-          <span className={cn('text-xs font-semibold truncate', isSelected ? 'text-white' : 'text-slate-300')}>
+          <span className={cn('text-xs font-semibold truncate', isSelected ? 'text-foreground' : 'text-foreground/80')}>
             {conversation.contactName}
           </span>
-          <span className="text-[10px] text-slate-500 font-medium flex-shrink-0">{conversation.lastMessageTime}</span>
+          <span className="text-[10px] text-muted-foreground font-medium flex-shrink-0">{conversation.lastMessageTime}</span>
         </div>
 
-        <p className="text-[11px] text-slate-500 truncate mb-1.5">{lastMsgPreview}</p>
+        <p className="text-[11px] text-muted-foreground truncate mb-1.5">{lastMsgPreview}</p>
 
         <div className="flex items-center gap-1.5">
           <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 flex-shrink-0', color)}>
@@ -68,7 +68,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
             {statusLabel}
           </span>
           {conversation.tags.slice(0, 1).map(tag => (
-            <span key={tag} className="px-1.5 py-0.5 bg-slate-800/80 border border-slate-700 text-slate-400 text-[10px] rounded font-medium truncate max-w-[60px]">
+            <span key={tag} className="px-1.5 py-0.5 bg-muted border border-border text-muted-foreground text-[10px] rounded font-medium truncate max-w-[60px]">
               {tag}
             </span>
           ))}

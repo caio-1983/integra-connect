@@ -19,9 +19,9 @@ interface ImmediateActionsProps {
 }
 
 const urgencyConfig = {
-  high:   { dot: 'bg-red-500',    label: 'bg-red-500/10 text-red-400 border-red-500/20'    },
-  medium: { dot: 'bg-amber-500',  label: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-  low:    { dot: 'bg-slate-500',  label: 'bg-slate-700 text-slate-400 border-slate-600'    },
+  high:   { dot: 'bg-red-500',    label: 'bg-red-50 text-red-700 border-red-200'       },
+  medium: { dot: 'bg-amber-500',  label: 'bg-amber-50 text-amber-700 border-amber-200' },
+  low:    { dot: 'bg-muted-foreground', label: 'bg-muted text-muted-foreground border-border' },
 };
 
 const typeIcon: Record<ActionItem['type'], React.ElementType> = {
@@ -35,13 +35,13 @@ const typeIcon: Record<ActionItem['type'], React.ElementType> = {
 const ImmediateActions: React.FC<ImmediateActionsProps> = ({ items, loading = false }) => {
   if (loading) {
     return (
-      <div className="rounded-xl border border-slate-800 bg-slate-900/50 divide-y divide-slate-800/60 animate-pulse">
+      <div className="rounded-xl border border-border bg-card divide-y divide-border animate-pulse">
         {[1, 2, 3].map(i => (
           <div key={i} className="flex items-center gap-4 p-4">
-            <div className="w-9 h-9 rounded-lg bg-slate-800 flex-shrink-0" />
+            <div className="w-9 h-9 rounded-lg bg-muted flex-shrink-0" />
             <div className="flex-1 space-y-2">
-              <div className="h-3 w-32 bg-slate-800 rounded" />
-              <div className="h-2.5 w-48 bg-slate-800/60 rounded" />
+              <div className="h-3 w-32 bg-muted rounded" />
+              <div className="h-2.5 w-48 bg-muted/60 rounded" />
             </div>
           </div>
         ))}
@@ -60,7 +60,7 @@ const ImmediateActions: React.FC<ImmediateActionsProps> = ({ items, loading = fa
   }
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900/50 divide-y divide-slate-800/60 overflow-hidden">
+    <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
       {items.map((item) => {
         const ItemIcon = typeIcon[item.type];
         const urgency = urgencyConfig[item.urgency];
@@ -70,11 +70,11 @@ const ImmediateActions: React.FC<ImmediateActionsProps> = ({ items, loading = fa
             key={item.id}
             className={cn(
               'flex items-center gap-4 px-4 py-3.5 transition-colors duration-150',
-              'hover:bg-slate-800/40 group',
+              'hover:bg-muted/50 group',
             )}
           >
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-slate-800 border border-slate-700/50 flex-shrink-0 group-hover:border-slate-600 transition-colors">
-              <ItemIcon className="w-4 h-4 text-slate-400" />
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-muted border border-border flex-shrink-0 transition-colors">
+              <ItemIcon className="w-4 h-4 text-muted-foreground" />
             </div>
 
             <div className="flex-1 min-w-0">
