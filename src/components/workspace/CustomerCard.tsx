@@ -3,6 +3,8 @@ import { Phone, Mail, User, Plus, X } from 'lucide-react';
 import { UIConversation, TagDefinition } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TagSelector } from '@/components/TagSelector';
+import { CHANNEL_CONFIG } from '@/lib/channelConfig';
+import { cn } from '@/lib/utils';
 
 interface CustomerCardProps {
   conversation: UIConversation;
@@ -33,17 +35,27 @@ const CustomerCard: React.FC<CustomerCardProps> = ({
   onAssignUser,
 }) => {
   const stage = conversation.clientMemory.lead_profile.lead_stage;
+  const channelCfg = CHANNEL_CONFIG[conversation.primaryChannel];
+  const ChannelIcon = channelCfg.icon;
 
   return (
     <div className="flex flex-col gap-5">
       {/* Avatar + identity */}
       <div className="flex flex-col items-center text-center px-4 pt-2">
-        <div className="w-14 h-14 rounded-full p-0.5 bg-gradient-to-tr from-cyan-500 to-teal-600 shadow-sm mb-2.5">
-          <img
-            src={conversation.contactAvatar}
-            alt={conversation.contactName}
-            className="w-full h-full rounded-full object-cover border-2 border-background"
-          />
+        <div className="relative mb-2.5">
+          <div className="w-14 h-14 rounded-full p-0.5 bg-gradient-to-tr from-cyan-500 to-teal-600 shadow-sm">
+            <img
+              src={conversation.contactAvatar}
+              alt={conversation.contactName}
+              className="w-full h-full rounded-full object-cover border-2 border-background"
+            />
+          </div>
+          <span
+            title={channelCfg.label}
+            className={cn('absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full border flex items-center justify-center bg-background', channelCfg.color)}
+          >
+            <ChannelIcon className="w-2.5 h-2.5" />
+          </span>
         </div>
         <h3 className="text-sm font-bold text-foreground mb-0.5">{conversation.contactName}</h3>
         <p className="text-[11px] text-muted-foreground">{STAGE_LABELS[stage] || stage}</p>
@@ -75,14 +87,14 @@ const CustomerCard: React.FC<CustomerCardProps> = ({
           </div>
         )}
 
-        {/* Canal: WhatsApp — always present */}
+        {/* Canal predominante desta conversa */}
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-            <span className="text-[10px]">📱</span>
+          <div className={cn('w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 border', channelCfg.color)}>
+            <ChannelIcon className="w-3 h-3" />
           </div>
           <div>
             <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Canal</p>
-            <p className="text-xs text-foreground font-medium">WhatsApp</p>
+            <p className="text-xs text-foreground font-medium">{channelCfg.label}</p>
           </div>
         </div>
       </div>

@@ -17,6 +17,7 @@ import {
   Company,
   Task,
   TimelineEntry,
+  ChannelType,
 } from '@/types';
 
 // ──────────────────────────────────────────────
@@ -37,7 +38,8 @@ const msg = (
   hour: number,
   min: number,
   from: FromType,
-  status: 'read' | 'delivered' | 'sent' = 'read'
+  status: 'read' | 'delivered' | 'sent' = 'read',
+  channel?: ChannelType
 ): UIMessage => ({
   id,
   content,
@@ -48,6 +50,7 @@ const msg = (
   fromType: from,
   mediaUrl: null,
   whatsappMessageId: null,
+  channel,
 });
 
 const mem = (
@@ -490,6 +493,11 @@ export const MOCK_UI_CONVERSATIONS: UIConversation[] = [
     lastMessage: 'Quanto custa o plano para 3 atendentes?',
     lastMessageTime: '8min',
     unreadCount: 3,
+    // Sprint 008 — unified history example: this same customer moved
+    // WhatsApp -> Instagram -> Webchat -> WhatsApp; primaryChannel reflects
+    // the current predominant channel while individual messages below keep
+    // their own real channel (see msg() calls c1m15-c1m17).
+    primaryChannel: 'whatsapp',
     tags: ['Novo Lead', 'Orçamento', 'Demo Agendada'],
     notes: 'Cliente prefere contato pela manhã. Demo agendada para amanhã às 14h. Integração com ContaAzul é pré-requisito.',
     clientMemory: mem(
@@ -521,9 +529,9 @@ export const MOCK_UI_CONVERSATIONS: UIConversation[] = [
       msg('c1m12', 'Ótimo! E quanto custa o plano anual?', 9, 21, 'user'),
       msg('c1m13', 'O Plano Profissional anual sai por R$ 397/mês (cobrado anualmente). No plano mensal fica R$ 497/mês. A maioria dos clientes prefere o anual pela economia de 20%.', 9, 21, 'nina'),
       msg('c1m14', 'Entendido. Vou pensar e te respondo depois da demo.', 9, 22, 'user'),
-      msg('c1m15', 'Ah, me esqueci: tem suporte em português?', 9, 25, 'user', 'delivered'),
-      msg('c1m16', 'E a IA responde fora do horário comercial?', 9, 26, 'user', 'delivered'),
-      msg('c1m17', 'Quanto custa o plano para 3 atendentes?', 9, 27, 'user', 'sent'),
+      msg('c1m15', 'Ah, me esqueci: tem suporte em português? (te chamei aqui pelo Instagram mesmo)', 9, 25, 'user', 'delivered', 'instagram'),
+      msg('c1m16', 'E a IA responde fora do horário comercial? Testando o chat do site agora.', 9, 26, 'user', 'delivered', 'webchat'),
+      msg('c1m17', 'Quanto custa o plano para 3 atendentes?', 9, 27, 'user', 'sent', 'whatsapp'),
     ],
   },
 
@@ -543,6 +551,7 @@ export const MOCK_UI_CONVERSATIONS: UIConversation[] = [
     lastMessage: 'Você também! 🙏',
     lastMessageTime: '22min',
     unreadCount: 0,
+    primaryChannel: 'whatsapp',
     tags: ['Suporte', 'Cliente', 'Resolvido'],
     notes: 'Configurar renovação automática de token de WhatsApp Business a cada 90 dias. Enviado relatório dos 7 clientes afetados por email.',
     clientMemory: mem(
@@ -601,6 +610,7 @@ export const MOCK_UI_CONVERSATIONS: UIConversation[] = [
     lastMessage: 'Preciso confirmar com minha equipe, te retorno até amanhã.',
     lastMessageTime: '2h',
     unreadCount: 0,
+    primaryChannel: 'whatsapp',
     tags: ['Aguardando Retorno', 'Proposta', 'Negociação'],
     notes: 'Sempre solicitar aprovação interna antes de gerar contrato. Reunião de fechamento agendada para quinta às 15h. Diretoria analisa o Plano Business.',
     clientMemory: mem(
@@ -656,6 +666,7 @@ export const MOCK_UI_CONVERSATIONS: UIConversation[] = [
     lastMessage: 'Muito obrigada pelo atendimento! Ficou ótimo.',
     lastMessageTime: 'Ontem',
     unreadCount: 0,
+    primaryChannel: 'whatsapp',
     tags: ['Resolvido', 'Cliente VIP', 'Onboarding'],
     notes: 'Onboarding concluído. Tags configuradas: Consulta, Urgente, Cobrança, Trabalhista, Cível. Kickoff agendado para revisão de fluxos.',
     clientMemory: mem(
@@ -714,6 +725,7 @@ export const MOCK_UI_CONVERSATIONS: UIConversation[] = [
     lastMessage: 'Vou cancelar meu contrato se não resolverem hoje!',
     lastMessageTime: '5min',
     unreadCount: 5,
+    primaryChannel: 'whatsapp',
     tags: ['VIP', 'Cobrança', 'SLA Vencido', 'Urgente'],
     notes: 'URGENTE — Cliente VIP há 2 anos. Cobrado indevidamente. Estorno em atraso (8 dias úteis). Escalar para gerência imediatamente. Compensar com 1 mês gratuito já aprovado.',
     clientMemory: mem(
@@ -772,6 +784,7 @@ export const MOCK_UI_CONVERSATIONS: UIConversation[] = [
     lastMessage: 'Boa tarde! Gostaria de conhecer a plataforma para clínicas.',
     lastMessageTime: '15min',
     unreadCount: 1,
+    primaryChannel: 'instagram',
     tags: ['Saúde', 'Demo Agendada', 'Empresa'],
     notes: null,
     clientMemory: mem(
@@ -827,6 +840,7 @@ export const MOCK_UI_CONVERSATIONS: UIConversation[] = [
     lastMessage: 'A proposta foi enviada para nossa diretoria. Aguardando aprovação.',
     lastMessageTime: '2d',
     unreadCount: 0,
+    primaryChannel: 'facebook',
     tags: ['Proposta', 'Empresa', 'Aguardando Equipe'],
     notes: 'Contrato pode ser em nome da holding (não da Lumina diretamente). SLA 99,9% já nos termos. Relatório por departamento sem custo extra. Reunião de fechamento agendada para daqui a 7 dias.',
     clientMemory: mem(
@@ -883,6 +897,7 @@ export const MOCK_UI_CONVERSATIONS: UIConversation[] = [
     lastMessage: 'Você ainda está aí?',
     lastMessageTime: '35min',
     unreadCount: 2,
+    primaryChannel: 'whatsapp',
     tags: ['Cancelamento', 'Retenção', 'Urgente'],
     notes: 'Atendimento iniciado pela IA. Problema real: erro de calibração de prompts da semana passada (já corrigido em 30/06). Compensação aprovada: 2 meses grátis + consultoria 2h. Prazo de 15 dias para provar melhoria.',
     clientMemory: mem(
@@ -940,6 +955,7 @@ export const MOCK_UI_CONVERSATIONS: UIConversation[] = [
     lastMessage: 'Interessante! Me manda mais informações por favor.',
     lastMessageTime: '1h',
     unreadCount: 0,
+    primaryChannel: 'telegram',
     tags: ['Lead', 'E-commerce', 'Prospecto'],
     notes: null,
     clientMemory: mem(
@@ -993,6 +1009,7 @@ export const MOCK_UI_CONVERSATIONS: UIConversation[] = [
     lastMessage: 'Consigo fechar se vier com 15% de desconto no anual.',
     lastMessageTime: '12min',
     unreadCount: 4,
+    primaryChannel: 'webchat',
     tags: ['Negociação', 'Hot Lead', 'Indicação', 'Enterprise'],
     notes: 'Indicação do Carlos Mendes. 8 farmácias com IA customizada por filial. Orçamento da diretoria: R$ 2.800/mês. Proposta atual: R$ 3.200 (com suporte 24/7). Sem suporte 24h: R$ 3.000. Com 15% de desconto no anual: R$ 2.720/mês. Precisar de aprovação da Sarah para fechar abaixo de R$ 3.000.',
     clientMemory: mem(
@@ -1064,6 +1081,13 @@ export const MOCK_PEOPLE: Person[] = [
     status: 'lead',
     createdAt: '2026-06-01T08:00:00.000Z',
     updatedAt: '2026-07-01T09:30:00.000Z',
+    // Sprint 008 — unified history example: same customer, three messaging
+    // channels linked to this single Person, never duplicated.
+    channelIdentities: [
+      { channel: 'whatsapp', externalId: '+5511984321567', externalLabel: '+55 11 98432-1567', linkedAt: '2026-06-01T08:00:00.000Z' },
+      { channel: 'instagram', externalId: 'joao.silva.ig', externalLabel: '@joao.silva.ig', linkedAt: '2026-06-20T14:00:00.000Z' },
+      { channel: 'webchat', externalId: 'webchat-session-ct1', linkedAt: '2026-07-01T09:00:00.000Z' },
+    ],
   },
   {
     id: 'ct2',
@@ -1553,6 +1577,7 @@ export const MOCK_TIMELINE_ENTRIES: TimelineEntry[] = [
     createdByType: 'human',
     createdByName: 'Felipe Mendonça',
     createdAt: '2026-07-01T09:15:00.000Z',
+    source: 'human',
   },
   {
     id: 'tl2',
@@ -1565,6 +1590,7 @@ export const MOCK_TIMELINE_ENTRIES: TimelineEntry[] = [
     createdByType: 'human',
     createdByName: 'Felipe Mendonça',
     createdAt: '2026-07-01T09:00:00.000Z',
+    source: 'human',
   },
   {
     id: 'tl3',
@@ -1575,6 +1601,7 @@ export const MOCK_TIMELINE_ENTRIES: TimelineEntry[] = [
     conversationId: 'conv1',
     createdByType: 'nina',
     createdAt: '2026-07-01T09:12:00.000Z',
+    source: 'ai',
   },
   {
     id: 'tl4',
@@ -1585,6 +1612,8 @@ export const MOCK_TIMELINE_ENTRIES: TimelineEntry[] = [
     conversationId: 'conv1',
     createdByType: 'system',
     createdAt: '2026-07-01T09:12:00.000Z',
+    channel: 'whatsapp',
+    source: 'system',
   },
   {
     id: 'tl5',
@@ -1595,6 +1624,7 @@ export const MOCK_TIMELINE_ENTRIES: TimelineEntry[] = [
     createdByType: 'human',
     createdByName: 'Felipe Mendonça',
     createdAt: '2026-06-30T15:00:00.000Z',
+    source: 'human',
   },
   {
     id: 'tl6',
@@ -1606,6 +1636,7 @@ export const MOCK_TIMELINE_ENTRIES: TimelineEntry[] = [
     createdByType: 'human',
     createdByName: 'Felipe Mendonça',
     createdAt: '2026-06-30T14:30:00.000Z',
+    source: 'human',
   },
   {
     id: 'tl7',
@@ -1617,6 +1648,7 @@ export const MOCK_TIMELINE_ENTRIES: TimelineEntry[] = [
     createdByType: 'human',
     createdByName: 'Felipe Mendonça',
     createdAt: '2026-06-25T10:00:00.000Z',
+    source: 'human',
   },
   {
     id: 'tl8',
@@ -1626,5 +1658,7 @@ export const MOCK_TIMELINE_ENTRIES: TimelineEntry[] = [
     personId: 'ct1',
     createdByType: 'system',
     createdAt: '2026-06-20T14:00:00.000Z',
+    channel: 'instagram',
+    source: 'system',
   },
 ];

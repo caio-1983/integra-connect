@@ -2,6 +2,7 @@ import React from 'react';
 import { Bot, User, Pause } from 'lucide-react';
 import { UIConversation, ConversationStatus } from '@/types';
 import { cn } from '@/lib/utils';
+import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { WorkspaceActions } from './WorkspaceActions';
 
 interface ConversationHeaderProps {
@@ -25,6 +26,8 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   const statusLabel =
     conversation.status === 'nina' ? sdrName :
     conversation.status === 'human' ? 'Humano' : 'Pausado';
+  const channelCfg = CHANNEL_CONFIG[conversation.primaryChannel];
+  const ChannelIcon = channelCfg.icon;
 
   return (
     <div className="h-14 px-4 flex items-center justify-between bg-card border-b border-border shrink-0 gap-4">
@@ -43,6 +46,13 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
             <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 flex-shrink-0', color)}>
               <StatusIcon className="w-2.5 h-2.5" />
               {statusLabel}
+            </span>
+            <span
+              title={channelCfg.label}
+              className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 flex-shrink-0', channelCfg.color)}
+            >
+              <ChannelIcon className="w-2.5 h-2.5" />
+              {channelCfg.label}
             </span>
           </div>
           <p className="text-xs text-primary font-medium truncate">{conversation.contactPhone}</p>

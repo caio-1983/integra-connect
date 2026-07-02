@@ -1,3 +1,7 @@
+// ============= Channel Types (Sprint 008) =============
+export * from './channel';
+import type { ChannelType, ChannelIdentity, TimelineSource } from './channel';
+
 // ============= Legacy Types (for backward compatibility) =============
 export enum MessageType {
   TEXT = 'text',
@@ -290,6 +294,11 @@ export interface UIConversation {
   messages: UIMessage[];
   clientMemory: ClientMemory;
   notes: string | null;
+  /** Predominant/most-recent channel for this thread. A conversation can
+   *  transit multiple channels over its lifetime (e.g. WhatsApp -> Instagram
+   *  -> Webchat -> WhatsApp) while remaining a single unified thread — see
+   *  UIMessage.channel for the per-message channel. */
+  primaryChannel: ChannelType;
 }
 
 export interface UIMessage {
@@ -302,6 +311,8 @@ export interface UIMessage {
   fromType: MessageFromType;
   mediaUrl: string | null;
   whatsappMessageId: string | null;
+  /** Channel this specific message arrived/was sent through. */
+  channel?: ChannelType;
 }
 
 // ============= Utility Functions =============
@@ -336,7 +347,8 @@ export function transformDBToUIConversation(
     tags: [...(conv.tags || []), ...(conv.contact?.tags || [])],
     messages: sortedMessages.map(transformDBToUIMessage),
     clientMemory: conv.contact?.client_memory || getDefaultClientMemory(),
-    notes: conv.contact?.notes || null
+    notes: conv.contact?.notes || null,
+    primaryChannel: 'whatsapp',
   };
 }
 
@@ -350,7 +362,8 @@ export function transformDBToUIMessage(msg: DBMessage): UIMessage {
     status: mapDBMessageStatus(msg.status),
     fromType: msg.from_type,
     mediaUrl: msg.media_url,
-    whatsappMessageId: msg.whatsapp_message_id
+    whatsappMessageId: msg.whatsapp_message_id,
+    channel: 'whatsapp',
   };
 }
 
@@ -383,7 +396,7 @@ function formatRelativeTime(dateStr: string): string {
   if (diffHours < 24) return `${diffHours}h`;
   if (diffDays === 1) return 'Ontem';
   if (diffDays < 7) return `${diffDays}d`;
-  
+
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
@@ -413,6 +426,10 @@ export interface Person {
   status: 'lead' | 'customer' | 'churned';
   createdAt: string;
   updatedAt: string;
+  /** Known messaging-channel identities for this person, used to resolve
+   *  inbound events from any channel to this same unique customer record
+   *  (never create a duplicate Person for a channel already linked here). */
+  channelIdentities?: ChannelIdentity[];
 }
 
 export interface Company {
@@ -481,6 +498,10 @@ export interface TimelineEntry {
   createdByType: 'human' | 'nina' | 'system';
   createdByName?: string;
   createdAt: string;
+  /** Messaging channel this entry relates to, when applicable (e.g. type === 'message'). */
+  channel?: ChannelType;
+  /** Origin of the action — structural prep for AI/Automation sprints. */
+  source?: TimelineSource;
 }
 
 export interface AIIntegrationPoint {

@@ -13,13 +13,19 @@ import {
 } from '@/types';
 import { toast } from 'sonner';
 import { MOCK_UI_CONVERSATIONS } from '@/lib/mockData';
+import { resolveChannelIdentityToPersonId, subscribeToInboundEvents } from '@/services/channel-service';
 
 export function useConversations() {
   const [conversations, setConversations] = useState<UIConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(true);
-  
+  // True when Supabase returned no real conversations and we're serving
+  // MOCK_UI_CONVERSATIONS instead — only then do we listen for simulated
+  // channel events (see channel-service.ts). Real Supabase-backed tenants
+  // never activate this path.
+  const [usingMockFallback, setUsingMockFallback] = useState(false);
+
   // Track processed message IDs to prevent duplicates across re-renders
   const processedMessageIds = useRef(new Set<string>());
   
@@ -95,6 +101,7 @@ export function useConversations() {
       setError(null);
       const data = await api.fetchConversations();
       const resolved = data.length > 0 ? data : MOCK_UI_CONVERSATIONS;
+      setUsingMockFallback(data.length === 0);
 
       // Reset processed IDs on fresh fetch and populate with existing messages
       processedMessageIds.current.clear();
@@ -360,6 +367,53 @@ export function useConversations() {
       }
     };
   }, [fetchConversations, fetchAndAddConversation]);
+
+  // Simulated multi-channel inbound events (Sprint 008 — Omnichannel).
+  // Only active while serving mock data; never touches the Supabase path
+  // above. Appends the simulated message to whichever conversation the
+  // event's contact resolves to (via channel-service's mock contact
+  // matching), keeping a single unified thread per customer even as the
+  // channel varies.
+  useEffect(() => {
+    if (!usingMockFallback) return;
+
+    const unsubscribe = subscribeToInboundEvents((event) => {
+      const personId = resolveChannelIdentityToPersonId(event.channel, event.contactExternalId);
+      if (!personId) {
+        console.log('[ChannelBus] No known contact for inbound event, skipping:', event);
+        return;
+      }
+
+      const uiMessage: UIMessage = {
+        id: event.id,
+        content: event.content,
+        timestamp: new Date(event.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        direction: MessageDirection.INCOMING,
+        type: event.type === 'image' ? MessageType.IMAGE : event.type === 'audio' ? MessageType.AUDIO : MessageType.TEXT,
+        status: 'sent',
+        fromType: 'user',
+        mediaUrl: null,
+        whatsappMessageId: null,
+        channel: event.channel,
+      };
+
+      setConversations(prev =>
+        prev.map(conv => {
+          if (conv.contactId !== personId) return conv;
+          return {
+            ...conv,
+            messages: [...conv.messages, uiMessage],
+            lastMessage: event.content,
+            lastMessageTime: 'Agora',
+            unreadCount: conv.unreadCount + 1,
+            primaryChannel: event.channel,
+          };
+        })
+      );
+    });
+
+    return unsubscribe;
+  }, [usingMockFallback]);
 
   // Send message
   const sendMessage = useCallback(async (conversationId: string, content: string) => {

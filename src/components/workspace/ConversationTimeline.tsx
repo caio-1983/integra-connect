@@ -1,14 +1,19 @@
 import React, { useRef, useState } from 'react';
 import { MessageSquare, Bot, User, Check, CheckCheck, Play, Pause } from 'lucide-react';
-import { UIMessage, MessageDirection, MessageType } from '@/types';
+import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn } from '@/lib/utils';
+import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 
 interface ConversationTimelineProps {
   messages: UIMessage[];
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  /** Conversation's predominant channel — used to detect when a message
+   *  arrived through a different channel and surface a "via {label}" hint,
+   *  proving the thread stays unified even as the channel varies. */
+  primaryChannel: ChannelType;
 }
 
-const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, messagesEndRef }) => {
+const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, messagesEndRef, primaryChannel }) => {
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [audioDurations, setAudioDurations] = useState<Record<string, number>>({});
   const [audioProgress, setAudioProgress] = useState<Record<string, number>>({});
@@ -123,6 +128,10 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
 
       {messages.map((msg) => {
         const isOutgoing = msg.direction === MessageDirection.OUTGOING;
+        const msgChannel = msg.channel ?? primaryChannel;
+        const showChannelHint = msgChannel !== primaryChannel;
+        const channelCfg = CHANNEL_CONFIG[msgChannel];
+        const ChannelIcon = channelCfg.icon;
         return (
           <div
             key={msg.id}
@@ -132,6 +141,12 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
             )}
           >
             <div className={cn('flex flex-col max-w-[75%]', isOutgoing ? 'items-end' : 'items-start')}>
+              {showChannelHint && (
+                <span className={cn('flex items-center gap-1 mb-1 px-1.5 py-0.5 rounded text-[10px] font-medium border', channelCfg.color)}>
+                  <ChannelIcon className="w-2.5 h-2.5" />
+                  via {channelCfg.label}
+                </span>
+              )}
               <div className={cn(
                 'px-4 py-2.5 rounded-2xl shadow-sm text-sm leading-relaxed',
                 isOutgoing

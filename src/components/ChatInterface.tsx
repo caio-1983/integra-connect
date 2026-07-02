@@ -146,6 +146,7 @@ const ChatInterface: React.FC = () => {
             <ConversationTimeline
               messages={activeChat.messages}
               messagesEndRef={messagesEndRef}
+              primaryChannel={activeChat.primaryChannel}
             />
           </div>
 

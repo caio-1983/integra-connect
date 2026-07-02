@@ -2,6 +2,7 @@ import React from 'react';
 import { Bot, User, Pause } from 'lucide-react';
 import { MessageType, UIConversation, ConversationStatus } from '@/types';
 import { cn } from '@/lib/utils';
+import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 
 interface ConversationItemProps {
   conversation: UIConversation;
@@ -19,6 +20,8 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
 const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel = conversation.status === 'nina' ? sdrName : conversation.status === 'human' ? 'Humano' : 'Pausado';
+  const channelCfg = CHANNEL_CONFIG[conversation.primaryChannel];
+  const ChannelIcon = channelCfg.icon;
 
   const lastMsgType = conversation.messages[conversation.messages.length - 1]?.type;
   const lastMsgPreview =
@@ -44,6 +47,12 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
             className="w-full h-full rounded-full object-cover border border-border"
           />
         </div>
+        <span
+          title={channelCfg.label}
+          className={cn('absolute -top-0.5 -left-0.5 w-3.5 h-3.5 rounded-full border flex items-center justify-center bg-background', channelCfg.color)}
+        >
+          <ChannelIcon className="w-2 h-2" />
+        </span>
         {conversation.unreadCount > 0 ? (
           <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-primary border-2 border-background rounded-full animate-pulse" />
         ) : (

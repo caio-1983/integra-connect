@@ -15,6 +15,8 @@ import CRMPeople from './components/crm/CRMPeople';
 import CRMCompanies from './components/crm/CRMCompanies';
 import CRMDeals from './components/crm/CRMDeals';
 import CRMTasks from './components/crm/CRMTasks';
+import ChannelManagement from './components/ChannelManagement';
+import WebchatWidgetSettings from './components/WebchatWidgetSettings';
 
 import { CompanySettingsProvider } from './hooks/useCompanySettings';
 import { AuthProvider } from './hooks/useAuth';
@@ -88,6 +90,9 @@ const App: React.FC = () => {
               <Route path="/crm/companies" element={<CRMCompanies />} />
               <Route path="/crm/deals" element={<CRMDeals />} />
               <Route path="/crm/tasks" element={<CRMTasks />} />
+              {/* Omnichannel — Sprint 008 */}
+              <Route path="/settings/channels" element={<ChannelManagement />} />
+              <Route path="/settings/webchat-widget" element={<WebchatWidgetSettings />} />
             </Route>
             
             {/* Catch all - redirect to dashboard */}

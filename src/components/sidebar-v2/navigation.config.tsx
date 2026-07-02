@@ -10,6 +10,8 @@ import {
   Landmark,
   HandCoins,
   CheckSquare,
+  Radio,
+  Globe,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -85,6 +87,8 @@ export const sidebarNavigation: SidebarSectionConfig[] = [
     title: 'Administração',
     items: [
       { id: 'settings', label: 'Configurações', href: '/settings', icon: SettingsIcon },
+      { id: 'channels', label: 'Gestão de Canais', href: '/settings/channels', icon: Radio },
+      { id: 'webchat-widget', label: 'Widget Webchat', href: '/settings/webchat-widget', icon: Globe },
     ],
   },
 ];
