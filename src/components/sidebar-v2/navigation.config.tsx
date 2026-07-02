@@ -6,6 +6,10 @@ import {
   TrendingUp,
   Building2,
   CalendarDays,
+  UserRound,
+  Landmark,
+  HandCoins,
+  CheckSquare,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -64,6 +68,16 @@ export const sidebarNavigation: SidebarSectionConfig[] = [
       { id: 'pipeline',   label: 'Comercial',   href: '/pipeline',   icon: Briefcase     },
       { id: 'scheduling', label: 'Agenda',       href: '/scheduling', icon: CalendarDays  },
       { id: 'dashboard',  label: 'Indicadores', href: '/dashboard',  icon: TrendingUp    },
+    ],
+  },
+  {
+    id: 'crm',
+    title: 'CRM',
+    items: [
+      { id: 'crm-people',    label: 'Pessoas',   href: '/crm/people',    icon: UserRound   },
+      { id: 'crm-companies', label: 'Empresas',  href: '/crm/companies', icon: Landmark    },
+      { id: 'crm-deals',    label: 'Negócios',  href: '/crm/deals',     icon: HandCoins   },
+      { id: 'crm-tasks',    label: 'Tarefas',   href: '/crm/tasks',     icon: CheckSquare },
     ],
   },
   {

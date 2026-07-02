@@ -4,6 +4,10 @@ import {
   MOCK_CONTACTS_EXTENDED,
   MOCK_DEALS_EXTENDED,
   MOCK_APPOINTMENTS_EXTENDED,
+  MOCK_PEOPLE,
+  MOCK_COMPANIES,
+  MOCK_TASKS,
+  MOCK_TIMELINE_ENTRIES,
 } from './lib/mockData';
 
 export const STATS: StatMetric[] = [
@@ -79,3 +83,6 @@ export const MOCK_KANBAN_COLUMNS: KanbanColumn[] = [
 ];
 
 export const MOCK_DEALS: Deal[] = MOCK_DEALS_EXTENDED;
+
+// CRM — Sprint 007
+export { MOCK_PEOPLE, MOCK_COMPANIES, MOCK_TASKS, MOCK_TIMELINE_ENTRIES };

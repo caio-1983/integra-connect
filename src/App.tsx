@@ -11,6 +11,10 @@ import Kanban from './components/Kanban';
 import Operations from './components/Operations';
 import Auth from './pages/Auth';
 import ProtectedRoute from './components/ProtectedRoute';
+import CRMPeople from './components/crm/CRMPeople';
+import CRMCompanies from './components/crm/CRMCompanies';
+import CRMDeals from './components/crm/CRMDeals';
+import CRMTasks from './components/crm/CRMTasks';
 
 import { CompanySettingsProvider } from './hooks/useCompanySettings';
 import { AuthProvider } from './hooks/useAuth';
@@ -79,6 +83,11 @@ const App: React.FC = () => {
               <Route path="/scheduling" element={<Scheduling />} />
               <Route path="/team" element={<Team />} />
               <Route path="/settings" element={<Settings />} />
+              {/* CRM — Sprint 007 */}
+              <Route path="/crm/people" element={<CRMPeople />} />
+              <Route path="/crm/companies" element={<CRMCompanies />} />
+              <Route path="/crm/deals" element={<CRMDeals />} />
+              <Route path="/crm/tasks" element={<CRMTasks />} />
             </Route>
             
             {/* Catch all - redirect to dashboard */}

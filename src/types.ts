@@ -392,6 +392,103 @@ function formatMessageTime(dateStr: string): string {
   return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+// ============= CRM Types (Sprint 007) =============
+
+export interface Person {
+  id: string;
+  name: string;
+  company?: string;
+  companyId?: string;
+  document?: string;
+  email: string;
+  phones: string[];
+  whatsapp: string;
+  city?: string;
+  state?: string;
+  ownerId?: string;
+  ownerName?: string;
+  origin?: string;
+  tags: string[];
+  notes?: string;
+  status: 'lead' | 'customer' | 'churned';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Company {
+  id: string;
+  razaoSocial: string;
+  nomeFantasia?: string;
+  cnpj?: string;
+  segmento?: string;
+  porte?: 'mei' | 'pequena' | 'media' | 'grande' | 'enterprise';
+  city?: string;
+  state?: string;
+  ownerId?: string;
+  ownerName?: string;
+  website?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  contactIds?: string[];
+  dealIds?: string[];
+}
+
+export type TaskStatus = 'pending' | 'in_progress' | 'completed';
+export type TaskPriority = 'low' | 'medium' | 'high';
+export type TaskOrigin = 'conversation' | 'deal' | 'person';
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  ownerId?: string;
+  ownerName?: string;
+  dueDate?: string;
+  priority: TaskPriority;
+  status: TaskStatus;
+  origin: TaskOrigin;
+  originId: string;
+  personId?: string;
+  personName?: string;
+  dealId?: string;
+  dealTitle?: string;
+  companyId?: string;
+  companyName?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TimelineEntryType =
+  | 'message'
+  | 'note'
+  | 'stage_change'
+  | 'return'
+  | 'task'
+  | 'ai_action'
+  | 'transfer'
+  | 'important_change';
+
+export interface TimelineEntry {
+  id: string;
+  type: TimelineEntryType;
+  content: string;
+  metadata?: Record<string, any>;
+  personId?: string;
+  dealId?: string;
+  conversationId?: string;
+  taskId?: string;
+  createdByType: 'human' | 'nina' | 'system';
+  createdByName?: string;
+  createdAt: string;
+}
+
+export interface AIIntegrationPoint {
+  type: 'conversation_summary' | 'next_steps' | 'intent_detection' | 'deal_suggestion' | 'task_suggestion' | 'followup_recommendation';
+  status: 'pending' | 'ready';
+  data?: Record<string, any>;
+}
+
 function getDefaultClientMemory(): ClientMemory {
   return {
     last_updated: null,
