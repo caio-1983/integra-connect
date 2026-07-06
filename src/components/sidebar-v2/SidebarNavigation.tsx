@@ -2,6 +2,7 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { SidebarSection } from './SidebarSection';
 import { sidebarNavigation } from './navigation.config';
+import { useUnreadMessagesCount } from '@/hooks/useUnreadMessagesCount';
 
 /**
  * Navegação global da plataforma.
@@ -13,11 +14,13 @@ import { sidebarNavigation } from './navigation.config';
 export const SidebarNavigation: React.FC = () => {
   const location = useLocation();
   const currentPath = location.pathname === '/' ? '/dashboard' : location.pathname;
+  const unreadCount = useUnreadMessagesCount();
+  const badges = { chat: unreadCount };
 
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
       {sidebarNavigation.map((section) => (
-        <SidebarSection key={section.id} section={section} currentPath={currentPath} />
+        <SidebarSection key={section.id} section={section} currentPath={currentPath} badges={badges} />
       ))}
     </div>
   );

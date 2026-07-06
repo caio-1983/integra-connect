@@ -3,7 +3,7 @@ import { UIConversation, TagDefinition } from '@/types';
 import { MOCK_PEOPLE, MOCK_COMPANIES, MOCK_DEALS, MOCK_TASKS, MOCK_TIMELINE_ENTRIES, MOCK_APPOINTMENTS } from '@/constants';
 import { CustomerCard } from './CustomerCard';
 import { HistoryCard } from './HistoryCard';
-import { AIPanel } from './AIPanel';
+import { CopilotPanel } from './CopilotPanel';
 import { CompanyBlock } from '@/components/crm/CompanyBlock';
 import { DealSummary } from '@/components/crm/DealSummary';
 import { RetornosBlock } from '@/components/crm/RetornosBlock';
@@ -29,6 +29,7 @@ interface CustomerWorkspaceProps {
   onCreateTag: (tag: { key: string; label: string; color: string; category: string }) => void;
   onNotesBlur: () => void;
   onAssignUser: (userId: string | null) => void;
+  onInsertToComposer: (text: string) => void;
 }
 
 // Collapsible section wrapper
@@ -72,6 +73,7 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
   onCreateTag,
   onNotesBlur,
   onAssignUser,
+  onInsertToComposer,
 }) => {
   // Look up CRM data by contactId
   const contactId = conversation.contactId;
@@ -86,7 +88,7 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
     <div className="w-64 xl:w-72 border-l border-border bg-card flex flex-col flex-shrink-0 overflow-hidden">
       {/* Header */}
       <div className="h-14 flex items-center px-4 border-b border-border flex-shrink-0">
-        <span className="text-xs font-bold text-foreground uppercase tracking-wider">Workspace do Cliente</span>
+        <span className="text-xs font-bold text-foreground uppercase tracking-wider">Detalhamento</span>
       </div>
 
       {/* Scrollable content — no tabs, all sections in scroll */}
@@ -173,10 +175,11 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
 
         <div className="h-px bg-border mx-4 my-1" />
 
-        {/* ── 8. IA ── */}
-        <AIPanel
+        {/* ── 8. IA / COPILOT ── */}
+        <CopilotPanel
           conversation={conversation}
           sdrName={sdrName}
+          onInsertToComposer={onInsertToComposer}
         />
 
         {/* Bottom padding */}

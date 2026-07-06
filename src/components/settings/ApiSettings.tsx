@@ -2,6 +2,7 @@ import React, { useState, useEffect, forwardRef, useImperativeHandle, useRef } f
 import { Save, MessageSquare, Mic, Eye, EyeOff, Copy, Check, Loader2, Send, ChevronDown, Volume2, Download, Upload, FileAudio, HelpCircle } from 'lucide-react';
 import { Button } from '../Button';
 import { supabase } from '@/integrations/supabase/client';
+import { extractEdgeFunctionError } from '@/lib/edgeFunctionError';
 import { toast } from 'sonner';
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
@@ -274,7 +275,7 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
         }
       });
 
-      if (error) throw error;
+      if (error) throw new Error(await extractEdgeFunctionError(error, 'Erro ao gerar áudio'));
 
       if (data?.success && data?.audioBase64) {
         // Create audio URL from base64
@@ -338,7 +339,7 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
         }
       });
 
-      if (error) throw error;
+      if (error) throw new Error(await extractEdgeFunctionError(error, 'Erro ao enviar mensagem de teste'));
 
       if (data?.success) {
         toast.success('Mensagem enviada com sucesso! ✅', {
@@ -395,7 +396,7 @@ const ApiSettings = forwardRef<ApiSettingsRef>((props, ref) => {
         }
       });
 
-      if (error) throw error;
+      if (error) throw new Error(await extractEdgeFunctionError(error, 'Erro ao simular recebimento de áudio'));
 
       if (data?.success) {
         setAudioSimulateResult({

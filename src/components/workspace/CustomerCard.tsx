@@ -65,15 +65,17 @@ const CustomerCard: React.FC<CustomerCardProps> = ({
       <div className="px-4 space-y-2.5">
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Contato</p>
 
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-            <Phone className="w-3 h-3 text-muted-foreground" />
+        {!conversation.contactPhone.endsWith('@g.us') && (
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+              <Phone className="w-3 h-3 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Telefone</p>
+              <p className="text-xs text-foreground font-medium">{conversation.contactPhone}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Telefone</p>
-            <p className="text-xs text-foreground font-medium">{conversation.contactPhone}</p>
-          </div>
-        </div>
+        )}
 
         {conversation.contactEmail && (
           <div className="flex items-center gap-2">

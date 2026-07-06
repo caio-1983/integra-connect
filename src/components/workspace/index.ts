@@ -9,4 +9,6 @@ export { WorkspaceActions } from './WorkspaceActions';
 export { CustomerWorkspace } from './CustomerWorkspace';
 export { CustomerCard } from './CustomerCard';
 export { HistoryCard } from './HistoryCard';
-export { AIPanel } from './AIPanel';
+export { CopilotPanel } from './CopilotPanel';
+export { NewConversationDialog } from './NewConversationDialog';
+export { GroupParticipantsModal } from './GroupParticipantsModal';

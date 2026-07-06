@@ -2,6 +2,9 @@
 export * from './channel';
 import type { ChannelType, ChannelIdentity, TimelineSource } from './channel';
 
+// ============= WhatsApp Instance Types (Sprint 012) =============
+export * from './whatsappInstance';
+
 // ============= Legacy Types (for backward compatibility) =============
 export enum MessageType {
   TEXT = 'text',

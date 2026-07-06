@@ -8,6 +8,8 @@ import type { SidebarItemConfig } from './navigation.config';
 interface SidebarItemProps {
   item: SidebarItemConfig;
   isActive: boolean;
+  /** Contagem exibida como círculo vermelho no canto do ícone (ex.: mensagens não lidas). Omitido/0 não renderiza nada. */
+  badgeCount?: number;
 }
 
 /**
@@ -21,9 +23,10 @@ interface SidebarItemProps {
  *   Focus:    anel violet-500/30.
  *   Active:   bg-violet-50 (#F5F3FF), texto violet-700, barra esquerda 3px violet-600.
  */
-export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive }) => {
+export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, badgeCount }) => {
   const { open, animate } = useSidebar();
   const Icon = item.icon;
+  const showBadge = !!badgeCount && badgeCount > 0;
 
   return (
     <Link
@@ -43,14 +46,24 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive }) => {
         <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-violet-600" />
       )}
 
-      <Icon
-        className={cn(
-          'h-5 w-5 flex-shrink-0 transition-colors',
-          isActive
-            ? 'text-violet-600'
-            : 'text-slate-400 group-hover/item:text-slate-600',
+      <span className="relative flex-shrink-0">
+        <Icon
+          className={cn(
+            'h-5 w-5 transition-colors',
+            isActive
+              ? 'text-violet-600'
+              : 'text-slate-400 group-hover/item:text-slate-600',
+          )}
+        />
+        {showBadge && (
+          <span
+            className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white"
+            aria-label={`${badgeCount} não lidas`}
+          >
+            {badgeCount > 99 ? '99+' : badgeCount}
+          </span>
         )}
-      />
+      </span>
 
       <motion.span
         animate={{

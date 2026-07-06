@@ -12,6 +12,11 @@ import {
   CheckSquare,
   Radio,
   Globe,
+  Bot,
+  BookOpen,
+  Wrench,
+  FlaskConical,
+  SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -80,6 +85,17 @@ export const sidebarNavigation: SidebarSectionConfig[] = [
       { id: 'crm-companies', label: 'Empresas',  href: '/crm/companies', icon: Landmark    },
       { id: 'crm-deals',    label: 'Negócios',  href: '/crm/deals',     icon: HandCoins   },
       { id: 'crm-tasks',    label: 'Tarefas',   href: '/crm/tasks',     icon: CheckSquare },
+    ],
+  },
+  {
+    id: 'ia',
+    title: 'IA',
+    items: [
+      { id: 'ia-agentes',           label: 'Agentes',              href: '/ia/agentes',              icon: Bot               },
+      { id: 'ia-base-conhecimento', label: 'Base de Conhecimento', href: '/ia/base-de-conhecimento', icon: BookOpen          },
+      { id: 'ia-ferramentas',       label: 'Ferramentas',          href: '/ia/ferramentas',          icon: Wrench            },
+      { id: 'ia-testes',            label: 'Testes',                href: '/ia/testes',                icon: FlaskConical      },
+      { id: 'ia-configuracoes',     label: 'Configurações',         href: '/ia/configuracoes',         icon: SlidersHorizontal },
     ],
   },
   {

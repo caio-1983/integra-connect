@@ -4,6 +4,26 @@ import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 
+const WAVE_BARS = 28;
+
+/** Deterministic pseudo-waveform (0.18–1 heights) seeded by the message id, so
+ *  every voice note gets a stable, distinct shape — the visual signature of a
+ *  voice message — without needing the real amplitude data. xorshift over an
+ *  FNV-1a hash of the id keeps it cheap and repeatable across renders. */
+function waveformBars(seed: string): number[] {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const bars: number[] = [];
+  for (let i = 0; i < WAVE_BARS; i++) {
+    h ^= h << 13; h ^= h >>> 17; h ^= h << 5;
+    bars.push(0.18 + ((h >>> 0) % 1000) / 1000 * 0.82);
+  }
+  return bars;
+}
+
 interface ConversationTimelineProps {
   messages: UIMessage[];
   messagesEndRef: React.RefObject<HTMLDivElement>;
@@ -17,7 +37,10 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [audioDurations, setAudioDurations] = useState<Record<string, number>>({});
   const [audioProgress, setAudioProgress] = useState<Record<string, number>>({});
+  const [audioSpeed, setAudioSpeed] = useState<Record<string, number>>({});
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
+
+  const SPEED_LABEL: Record<number, string> = { 1: '1×', 1.5: '1,5×', 2: '2×' };
 
   const formatAudioTime = (seconds: number): string => {
     if (!seconds || isNaN(seconds)) return '0:00';
@@ -45,6 +68,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
       const isPlaying = playingAudioId === msg.id;
       const duration = audioDurations[msg.id] || 0;
       const progress = audioProgress[msg.id] || 0;
+      const speed = audioSpeed[msg.id] || 1;
 
       const togglePlay = () => {
         const audio = audioRefs.current[msg.id];
@@ -54,52 +78,96 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
           setPlayingAudioId(null);
         } else {
           Object.values(audioRefs.current).forEach(a => a.pause());
+          audio.playbackRate = speed;
           audio.play();
           setPlayingAudioId(msg.id);
         }
       };
 
+      const cycleSpeed = () => {
+        const next = speed === 1 ? 1.5 : speed === 1.5 ? 2 : 1;
+        setAudioSpeed(prev => ({ ...prev, [msg.id]: next }));
+        const audio = audioRefs.current[msg.id];
+        if (audio) audio.playbackRate = next;
+      };
+
+      const isOut = msg.direction === MessageDirection.OUTGOING;
+      const bars = waveformBars(msg.id);
+      const playedFraction = duration ? progress / duration : 0;
+
+      const seek = (clientX: number, el: HTMLElement) => {
+        const audio = audioRefs.current[msg.id];
+        if (!audio || !duration) return;
+        const rect = el.getBoundingClientRect();
+        audio.currentTime = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width)) * duration;
+      };
+
       return (
-        <div className="flex items-center gap-3 min-w-[200px] py-1">
+        <div className="flex items-center gap-3 min-w-[228px] py-0.5">
           {msg.mediaUrl && (
             <audio
               ref={el => { if (el) audioRefs.current[msg.id] = el; }}
               src={msg.mediaUrl}
-              onLoadedMetadata={(e) => setAudioDurations(prev => ({ ...prev, [msg.id]: e.currentTarget.duration }))}
-              onTimeUpdate={(e) => setAudioProgress(prev => ({ ...prev, [msg.id]: e.currentTarget.currentTime }))}
-              onEnded={() => setPlayingAudioId(null)}
+              onLoadedMetadata={(e) => {
+                // Read synchronously — React nulls e.currentTarget once the
+                // handler returns, and the setState updater runs after that.
+                const d = e.currentTarget.duration;
+                setAudioDurations(prev => ({ ...prev, [msg.id]: Number.isFinite(d) ? d : 0 }));
+              }}
+              onTimeUpdate={(e) => {
+                const t = e.currentTarget.currentTime;
+                setAudioProgress(prev => ({ ...prev, [msg.id]: t }));
+              }}
+              onEnded={() => { setPlayingAudioId(null); setAudioProgress(prev => ({ ...prev, [msg.id]: 0 })); }}
             />
           )}
           <button
             onClick={togglePlay}
             disabled={!msg.mediaUrl}
+            aria-label={isPlaying ? 'Pausar áudio' : 'Reproduzir áudio'}
             className={cn(
-              'flex items-center justify-center w-9 h-9 rounded-full transition-all shadow-sm',
-              msg.direction === MessageDirection.OUTGOING
-                ? 'bg-white text-cyan-600 hover:bg-cyan-50 disabled:opacity-50'
-                : 'bg-primary text-white hover:bg-primary/90 disabled:opacity-50',
+              'flex items-center justify-center w-9 h-9 rounded-full transition-all shadow-sm shrink-0 active:scale-95 disabled:opacity-50',
+              isOut ? 'bg-white text-slate-800 hover:bg-white/90' : 'bg-primary text-white hover:bg-primary/90',
             )}
           >
-            {isPlaying ? <Pause className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 ml-0.5 fill-current" />}
+            {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 ml-0.5 fill-current" />}
           </button>
-          <div className="flex-1 flex flex-col gap-1 justify-center">
-            <div
-              className={cn('h-1.5 rounded-full overflow-hidden cursor-pointer', msg.direction === MessageDirection.OUTGOING ? 'bg-white/30' : 'bg-border')}
-              onClick={(e) => {
-                const audio = audioRefs.current[msg.id];
-                if (!audio || !duration) return;
-                const rect = e.currentTarget.getBoundingClientRect();
-                audio.currentTime = ((e.clientX - rect.left) / rect.width) * duration;
-              }}
-            >
-              <div
-                className={cn('h-full rounded-full transition-all', msg.direction === MessageDirection.OUTGOING ? 'bg-white' : 'bg-primary')}
-                style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
-              />
-            </div>
-            <span className={cn('text-[10px] font-medium', msg.direction === MessageDirection.OUTGOING ? 'text-white/70' : 'text-muted-foreground')}>
-              {formatAudioTime(progress)} / {formatAudioTime(duration)}
+          <div
+            className="flex-1 flex items-center gap-[2px] h-6 cursor-pointer"
+            onClick={(e) => seek(e.clientX, e.currentTarget)}
+          >
+            {bars.map((bh, i) => {
+              const played = i / WAVE_BARS <= playedFraction;
+              return (
+                <span
+                  key={i}
+                  className={cn(
+                    'w-[3px] rounded-full transition-colors duration-150',
+                    isOut
+                      ? played ? 'bg-white' : 'bg-white/35'
+                      : played ? 'bg-primary' : 'bg-muted-foreground/25',
+                  )}
+                  style={{ height: `${Math.round(bh * 100)}%` }}
+                />
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className={cn('text-[10px] font-medium tabular-nums', isOut ? 'text-white/70' : 'text-muted-foreground')}>
+              {formatAudioTime(progress > 0 ? progress : duration)}
             </span>
+            {(isPlaying || progress > 0) && (
+              <button
+                onClick={cycleSpeed}
+                aria-label={`Velocidade ${SPEED_LABEL[speed]}`}
+                className={cn(
+                  'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums leading-none transition-colors',
+                  isOut ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-muted-foreground/15 text-muted-foreground hover:bg-muted-foreground/25',
+                )}
+              >
+                {SPEED_LABEL[speed]}
+              </button>
+            )}
           </div>
         </div>
       );

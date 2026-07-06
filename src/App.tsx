@@ -17,6 +17,11 @@ import CRMDeals from './components/crm/CRMDeals';
 import CRMTasks from './components/crm/CRMTasks';
 import ChannelManagement from './components/ChannelManagement';
 import WebchatWidgetSettings from './components/WebchatWidgetSettings';
+import AIAgentsPage from './components/ai/AIAgentsPage';
+import AIKnowledgeBasePage from './components/ai/AIKnowledgeBasePage';
+import AIToolsPage from './components/ai/AIToolsPage';
+import AIPlaygroundPage from './components/ai/AIPlaygroundPage';
+import AISettingsPage from './components/ai/AISettingsPage';
 
 import { CompanySettingsProvider } from './hooks/useCompanySettings';
 import { AuthProvider } from './hooks/useAuth';
@@ -93,6 +98,12 @@ const App: React.FC = () => {
               {/* Omnichannel — Sprint 008 */}
               <Route path="/settings/channels" element={<ChannelManagement />} />
               <Route path="/settings/webchat-widget" element={<WebchatWidgetSettings />} />
+              {/* IA — Sprint 009 */}
+              <Route path="/ia/agentes" element={<AIAgentsPage />} />
+              <Route path="/ia/base-de-conhecimento" element={<AIKnowledgeBasePage />} />
+              <Route path="/ia/ferramentas" element={<AIToolsPage />} />
+              <Route path="/ia/testes" element={<AIPlaygroundPage />} />
+              <Route path="/ia/configuracoes" element={<AISettingsPage />} />
             </Route>
             
             {/* Catch all - redirect to dashboard */}

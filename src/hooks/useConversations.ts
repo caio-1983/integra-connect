@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
+import { sendConversationReply } from '@/services/whatsappConnectionService';
 import {
   UIConversation,
   UIMessage,
@@ -12,19 +13,12 @@ import {
   MessageType
 } from '@/types';
 import { toast } from 'sonner';
-import { MOCK_UI_CONVERSATIONS } from '@/lib/mockData';
-import { resolveChannelIdentityToPersonId, subscribeToInboundEvents } from '@/services/channel-service';
 
 export function useConversations() {
   const [conversations, setConversations] = useState<UIConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(true);
-  // True when Supabase returned no real conversations and we're serving
-  // MOCK_UI_CONVERSATIONS instead — only then do we listen for simulated
-  // channel events (see channel-service.ts). Real Supabase-backed tenants
-  // never activate this path.
-  const [usingMockFallback, setUsingMockFallback] = useState(false);
 
   // Track processed message IDs to prevent duplicates across re-renders
   const processedMessageIds = useRef(new Set<string>());
@@ -100,18 +94,16 @@ export function useConversations() {
       setLoading(true);
       setError(null);
       const data = await api.fetchConversations();
-      const resolved = data.length > 0 ? data : MOCK_UI_CONVERSATIONS;
-      setUsingMockFallback(data.length === 0);
 
       // Reset processed IDs on fresh fetch and populate with existing messages
       processedMessageIds.current.clear();
-      resolved.forEach(conv => {
+      data.forEach(conv => {
         conv.messages.forEach(msg => {
           processedMessageIds.current.add(msg.id);
         });
       });
 
-      setConversations(resolved);
+      setConversations(data);
     } catch (err) {
       console.error('[useConversations] Error fetching:', err);
       setError('Erro ao carregar conversas');
@@ -158,71 +150,78 @@ export function useConversations() {
               return prev; // Return prev, async fetch will update state
             }
 
-            return prev.map(conv => {
-              if (conv.id === newMessage.conversation_id) {
-                const uiMessage = transformDBToUIMessage(newMessage);
-                
-                // Check if message already exists by ID
-                const existsById = conv.messages.some(m => m.id === uiMessage.id);
-                if (existsById) {
-                  console.log('[Realtime] Message already exists by ID in conversation, skipping');
-                  return conv;
-                }
+            const conv = prev.find(c => c.id === newMessage.conversation_id);
+            if (!conv) {
+              return prev;
+            }
 
-                // Check if message already exists by whatsapp_message_id (for deduplication)
-                if (newMessage.whatsapp_message_id) {
-                  const existsByWAId = conv.messages.some(m => 
-                    m.whatsappMessageId === newMessage.whatsapp_message_id
-                  );
-                  if (existsByWAId) {
-                    console.log('[Realtime] Message already exists by whatsapp_message_id, skipping');
-                    return conv;
-                  }
-                }
+            const uiMessage = transformDBToUIMessage(newMessage);
 
-                // Check for temp message with same content and fromType (optimistic update)
-                const tempMessageIndex = conv.messages.findIndex(m => 
-                  m.id.startsWith('temp-') && 
-                  m.content === uiMessage.content &&
-                  m.fromType === uiMessage.fromType
-                );
-                
-                if (tempMessageIndex !== -1) {
-                  // Replace temp message with real one from database
-                  console.log('[Realtime] Replacing temp message with real message');
-                  const updatedMessages = [...conv.messages];
-                  updatedMessages[tempMessageIndex] = uiMessage;
-                  
-                  // Track the new real ID
-                  processedMessageIds.current.add(uiMessage.id);
-                  
-                  return {
-                    ...conv,
-                    messages: updatedMessages,
-                    lastMessage: newMessage.content || '',
-                    lastMessageTime: 'Agora'
-                  };
-                }
+            // Check if message already exists by ID
+            const existsById = conv.messages.some(m => m.id === uiMessage.id);
+            if (existsById) {
+              console.log('[Realtime] Message already exists by ID in conversation, skipping');
+              return prev;
+            }
 
-                // Normal flow for truly new messages (from contacts, Nina, etc)
-                console.log('[Realtime] Adding new message:', uiMessage.id);
-                
-                // Track this message as processed
-                processedMessageIds.current.add(uiMessage.id);
-                
-                return {
-                  ...conv,
-                  messages: [...conv.messages, uiMessage],
-                  lastMessage: newMessage.content || '',
-                  lastMessageTime: 'Agora',
-                  // Increment unread if it's from user
-                  unreadCount: newMessage.from_type === 'user' 
-                    ? conv.unreadCount + 1 
-                    : conv.unreadCount
-                };
+            // Check if message already exists by whatsapp_message_id (for deduplication)
+            if (newMessage.whatsapp_message_id) {
+              const existsByWAId = conv.messages.some(m =>
+                m.whatsappMessageId === newMessage.whatsapp_message_id
+              );
+              if (existsByWAId) {
+                console.log('[Realtime] Message already exists by whatsapp_message_id, skipping');
+                return prev;
               }
-              return conv;
-            });
+            }
+
+            // Check for temp message with same content and fromType (optimistic update)
+            const tempMessageIndex = conv.messages.findIndex(m =>
+              m.id.startsWith('temp-') &&
+              m.content === uiMessage.content &&
+              m.fromType === uiMessage.fromType
+            );
+
+            let updatedConv: UIConversation;
+
+            if (tempMessageIndex !== -1) {
+              // Replace temp message with real one from database
+              console.log('[Realtime] Replacing temp message with real message');
+              const updatedMessages = [...conv.messages];
+              updatedMessages[tempMessageIndex] = uiMessage;
+
+              // Track the new real ID
+              processedMessageIds.current.add(uiMessage.id);
+
+              updatedConv = {
+                ...conv,
+                messages: updatedMessages,
+                lastMessage: newMessage.content || '',
+                lastMessageTime: 'Agora'
+              };
+            } else {
+              // Normal flow for truly new messages (from contacts, Nina, etc)
+              console.log('[Realtime] Adding new message:', uiMessage.id);
+
+              // Track this message as processed
+              processedMessageIds.current.add(uiMessage.id);
+
+              updatedConv = {
+                ...conv,
+                messages: [...conv.messages, uiMessage],
+                lastMessage: newMessage.content || '',
+                lastMessageTime: 'Agora',
+                // Increment unread if it's from user
+                unreadCount: newMessage.from_type === 'user'
+                  ? conv.unreadCount + 1
+                  : conv.unreadCount
+              };
+            }
+
+            // Move the updated conversation to the top of the queue (WhatsApp-style),
+            // preserving the relative order of the remaining conversations.
+            const others = prev.filter(c => c.id !== newMessage.conversation_id);
+            return [updatedConv, ...others];
           });
         }
       )
@@ -368,53 +367,6 @@ export function useConversations() {
     };
   }, [fetchConversations, fetchAndAddConversation]);
 
-  // Simulated multi-channel inbound events (Sprint 008 — Omnichannel).
-  // Only active while serving mock data; never touches the Supabase path
-  // above. Appends the simulated message to whichever conversation the
-  // event's contact resolves to (via channel-service's mock contact
-  // matching), keeping a single unified thread per customer even as the
-  // channel varies.
-  useEffect(() => {
-    if (!usingMockFallback) return;
-
-    const unsubscribe = subscribeToInboundEvents((event) => {
-      const personId = resolveChannelIdentityToPersonId(event.channel, event.contactExternalId);
-      if (!personId) {
-        console.log('[ChannelBus] No known contact for inbound event, skipping:', event);
-        return;
-      }
-
-      const uiMessage: UIMessage = {
-        id: event.id,
-        content: event.content,
-        timestamp: new Date(event.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-        direction: MessageDirection.INCOMING,
-        type: event.type === 'image' ? MessageType.IMAGE : event.type === 'audio' ? MessageType.AUDIO : MessageType.TEXT,
-        status: 'sent',
-        fromType: 'user',
-        mediaUrl: null,
-        whatsappMessageId: null,
-        channel: event.channel,
-      };
-
-      setConversations(prev =>
-        prev.map(conv => {
-          if (conv.contactId !== personId) return conv;
-          return {
-            ...conv,
-            messages: [...conv.messages, uiMessage],
-            lastMessage: event.content,
-            lastMessageTime: 'Agora',
-            unreadCount: conv.unreadCount + 1,
-            primaryChannel: event.channel,
-          };
-        })
-      );
-    });
-
-    return unsubscribe;
-  }, [usingMockFallback]);
-
   // Send message
   const sendMessage = useCallback(async (conversationId: string, content: string) => {
     if (!content.trim()) return;
@@ -434,22 +386,24 @@ export function useConversations() {
     };
 
     setConversations(prev => {
-      return prev.map(conv => {
-        if (conv.id === conversationId) {
-          return {
-            ...conv,
-            messages: [...conv.messages, tempMessage],
-            lastMessage: content,
-            lastMessageTime: 'Agora'
-          };
-        }
-        return conv;
-      });
+      const conv = prev.find(c => c.id === conversationId);
+      if (!conv) return prev;
+
+      const updatedConv = {
+        ...conv,
+        messages: [...conv.messages, tempMessage],
+        lastMessage: content,
+        lastMessageTime: 'Agora'
+      };
+
+      // Bump the conversation to the top of the queue (WhatsApp-style).
+      const others = prev.filter(c => c.id !== conversationId);
+      return [updatedConv, ...others];
     });
 
     try {
       // The realtime handler will detect and replace the temp message automatically
-      await api.sendMessage(conversationId, content);
+      await sendConversationReply(conversationId, content);
     } catch (err) {
       console.error('[useConversations] Error sending message:', err);
       toast.error('Erro ao enviar mensagem');
@@ -471,30 +425,32 @@ export function useConversations() {
 
   // Update conversation status
   const updateStatus = useCallback(async (
-    conversationId: string, 
+    conversationId: string,
     status: 'nina' | 'human' | 'paused'
   ) => {
+    // Optimistic, always-applied update — mirrors sendMessage's pattern. Mock
+    // fallback conversations (e.g. "conv1") don't exist as real Supabase rows,
+    // so persistence below is best-effort and must not block the local state.
+    setConversations(prev => {
+      return prev.map(conv => {
+        if (conv.id === conversationId) {
+          return { ...conv, status };
+        }
+        return conv;
+      });
+    });
+
+    const statusLabels = {
+      nina: 'IA ativada',
+      human: 'Atendimento humano ativado',
+      paused: 'Conversa pausada'
+    };
+
     try {
       await api.updateConversationStatus(conversationId, status);
-      
-      setConversations(prev => {
-        return prev.map(conv => {
-          if (conv.id === conversationId) {
-            return { ...conv, status };
-          }
-          return conv;
-        });
-      });
-
-      const statusLabels = {
-        nina: 'IA ativada',
-        human: 'Atendimento humano ativado',
-        paused: 'Conversa pausada'
-      };
       toast.success(statusLabels[status]);
     } catch (err) {
-      console.error('[useConversations] Error updating status:', err);
-      toast.error('Erro ao atualizar status');
+      console.error('[useConversations] Error persisting status (kept local update):', err);
     }
   }, []);
 
@@ -553,6 +509,27 @@ export function useConversations() {
     }
   }, [conversations]);
 
+  // Append a message without touching Supabase/Edge Functions — used by the
+  // Sprint 009 AI simulation loop (customer + AI-generated messages).
+  const appendLocalMessage = useCallback((conversationId: string, message: UIMessage) => {
+    setConversations(prev => {
+      const conv = prev.find(c => c.id === conversationId);
+      if (!conv) return prev;
+
+      const updatedConv = {
+        ...conv,
+        messages: [...conv.messages, message],
+        lastMessage: message.content,
+        lastMessageTime: 'Agora',
+        unreadCount: message.direction === MessageDirection.INCOMING ? conv.unreadCount + 1 : conv.unreadCount,
+      };
+
+      // Bump the conversation to the top of the queue (WhatsApp-style).
+      const others = prev.filter(c => c.id !== conversationId);
+      return [updatedConv, ...others];
+    });
+  }, []);
+
   return {
     conversations,
     loading,
@@ -562,6 +539,7 @@ export function useConversations() {
     updateStatus,
     markAsRead,
     assignConversation,
+    appendLocalMessage,
     refetch: fetchConversations
   };
 }

@@ -11,6 +11,7 @@ interface ConversationQueueProps {
   onSelect: (id: string) => void;
   loading: boolean;
   sdrName: string;
+  onNewConversation: () => void;
 }
 
 function applyFilter(conversations: UIConversation[], filter: QueueFilter, query: string): UIConversation[] {
@@ -43,7 +44,7 @@ function buildCounts(conversations: UIConversation[]): Record<QueueFilter, numbe
 }
 
 const ConversationQueue: React.FC<ConversationQueueProps> = ({
-  conversations, selectedId, onSelect, loading, sdrName,
+  conversations, selectedId, onSelect, loading, sdrName, onNewConversation,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<QueueFilter>('all');
@@ -58,9 +59,9 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">Fila Operacional</h2>
           <button
-            disabled
-            title="Em breve: Nova conversa"
-            className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground/40 cursor-not-allowed opacity-50"
+            onClick={onNewConversation}
+            title="Nova conversa"
+            className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
             <Plus className="w-3.5 h-3.5" />
           </button>

@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# AI Runtime backend (Sprint 010) — never commit real secrets
+backend/.env
+backend/node_modules
+backend/dist
+
+# Supabase CLI local state
+supabase/.temp
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -3,6 +3,7 @@ import { Loader2, MessageSquare } from 'lucide-react';
 import { ConversationStatus, TagDefinition } from '../types';
 import { useConversations } from '../hooks/useConversations';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
+import { useAgentRuntime } from '@/ai/hooks/useAgentRuntime';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
 import {
@@ -11,13 +12,16 @@ import {
   ConversationTimeline,
   MessageComposer,
   CustomerWorkspace,
+  NewConversationDialog,
 } from './workspace';
 
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, updateStatus, markAsRead, assignConversation } = useConversations();
+  const { conversations, loading, sendMessage, updateStatus, markAsRead, assignConversation, appendLocalMessage, refetch } = useConversations();
   const { sdrName, companyName } = useCompanySettings();
+  const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [newConversationOpen, setNewConversationOpen] = useState(false);
   const [inputText, setInputText] = useState('');
   const [showCustomerWorkspace, setShowCustomerWorkspace] = useState(true);
   const [availableTags, setAvailableTags] = useState<TagDefinition[]>([]);
@@ -28,21 +32,34 @@ const ChatInterface: React.FC = () => {
 
   const activeChat = conversations.find(c => c.id === selectedChatId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const didInitRef = useRef(false);
 
   useEffect(() => {
     api.fetchTagDefinitions().then(setAvailableTags).catch(console.error);
     api.fetchTeam().then(setTeamMembers).catch(console.error);
   }, []);
 
+  // Seleção inicial única — depois que o usuário desseleciona (Esc), nenhuma
+  // conversa deve voltar a ser selecionada automaticamente (como no WhatsApp Web).
   useEffect(() => {
+    if (didInitRef.current || conversations.length === 0) return;
     const urlParams = new URLSearchParams(window.location.search);
     const conversationParam = urlParams.get('conversation');
-    if (conversationParam && conversations.some(c => c.id === conversationParam)) {
-      setSelectedChatId(conversationParam);
-    } else if (conversations.length > 0 && !selectedChatId) {
-      setSelectedChatId(conversations[0].id);
-    }
-  }, [conversations, selectedChatId]);
+    const initialId = conversationParam && conversations.some(c => c.id === conversationParam)
+      ? conversationParam
+      : conversations[0].id;
+    setSelectedChatId(initialId);
+    didInitRef.current = true;
+  }, [conversations]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || isTagSelectorOpen) return;
+      setSelectedChatId(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isTagSelectorOpen]);
 
   useEffect(() => {
     if (selectedChatId && (activeChat?.unreadCount ?? 0) > 0) {
@@ -108,6 +125,16 @@ const ChatInterface: React.FC = () => {
     await updateStatus(activeChat.id, status);
   };
 
+  const handleSimulateCustomerMessage = async (content: string) => {
+    if (!activeChat) return;
+    await simulateCustomerMessage(activeChat, content);
+  };
+
+  const handleConversationStarted = async (conversationId: string) => {
+    await refetch();
+    setSelectedChatId(conversationId);
+  };
+
   if (loading) {
     return (
       <div className="flex h-full bg-background items-center justify-center">
@@ -129,6 +156,13 @@ const ChatInterface: React.FC = () => {
         onSelect={setSelectedChatId}
         loading={loading}
         sdrName={sdrName}
+        onNewConversation={() => setNewConversationOpen(true)}
+      />
+
+      <NewConversationDialog
+        open={newConversationOpen}
+        onOpenChange={setNewConversationOpen}
+        onConversationStarted={handleConversationStarted}
       />
 
       {/* Coluna 2 — Conversa */}
@@ -140,6 +174,7 @@ const ChatInterface: React.FC = () => {
             showCustomerPanel={showCustomerWorkspace}
             onStatusChange={handleStatusChange}
             onToggleCustomerPanel={() => setShowCustomerWorkspace(v => !v)}
+            onSimulateCustomerMessage={handleSimulateCustomerMessage}
           />
 
           <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar relative z-0">
@@ -202,6 +237,7 @@ const ChatInterface: React.FC = () => {
           onToggleTag={handleToggleTag}
           onCreateTag={handleCreateTag}
           onNotesBlur={handleNotesBlur}
+          onInsertToComposer={(text) => setInputText(text)}
           onAssignUser={(userId) => {
             assignConversation(activeChat.id, userId);
             toast.success('Conversa atribuída.');

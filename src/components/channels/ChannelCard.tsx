@@ -71,12 +71,6 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({ channel }) => {
         </div>
       </div>
 
-      {channel === 'whatsapp' && (
-        <p className="text-[10px] text-muted-foreground">
-          Credenciais técnicas ficam em Configurações → APIs. Aqui você gerencia apenas as regras operacionais deste canal.
-        </p>
-      )}
-
       <div className="flex items-center gap-2 mt-auto pt-1">
         {status.connected ? (
           <Button variant="outline" size="sm" onClick={handleDisconnect} disabled={busy} className="flex-1">

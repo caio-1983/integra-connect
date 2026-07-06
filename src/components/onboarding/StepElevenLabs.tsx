@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
+import { extractEdgeFunctionError } from '@/lib/edgeFunctionError';
 import { toast } from 'sonner';
 
 interface StepElevenLabsProps {
@@ -113,7 +114,7 @@ export const StepElevenLabs: React.FC<StepElevenLabsProps> = ({
         },
       });
 
-      if (error) throw error;
+      if (error) throw new Error(await extractEdgeFunctionError(error, 'Erro ao testar voz'));
 
       if (data?.success && data?.audioBase64) {
         // Create audio from base64

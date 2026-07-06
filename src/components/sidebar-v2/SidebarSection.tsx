@@ -7,6 +7,8 @@ import type { SidebarSectionConfig } from './navigation.config';
 interface SidebarSectionProps {
   section: SidebarSectionConfig;
   currentPath: string;
+  /** Contagens de badge por id de item (ex.: { chat: 3 }). */
+  badges?: Record<string, number>;
 }
 
 /**
@@ -15,7 +17,7 @@ interface SidebarSectionProps {
  * Rótulo: 11px, medium, uppercase, tracking-wider, cinza suave.
  * Colapsado: divisor fino substitui o rótulo.
  */
-export const SidebarSection: React.FC<SidebarSectionProps> = ({ section, currentPath }) => {
+export const SidebarSection: React.FC<SidebarSectionProps> = ({ section, currentPath, badges }) => {
   const { open, animate } = useSidebar();
   const showLabel = !animate || open;
 
@@ -42,6 +44,7 @@ export const SidebarSection: React.FC<SidebarSectionProps> = ({ section, current
             isActive={
               currentPath === item.href || currentPath.startsWith(`${item.href}/`)
             }
+            badgeCount={badges?.[item.id]}
           />
         ))}
       </nav>
