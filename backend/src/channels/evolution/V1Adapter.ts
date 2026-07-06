@@ -1,4 +1,4 @@
-import type { CreateInstanceParams, EvolutionAdapter, QrResult, SendTextResult } from './types.js';
+import type { CreateInstanceParams, EvolutionAdapter, QrResult, SendMediaParams, SendTextResult } from './types.js';
 
 /** Evolution API v1.x — flat/snake_case payloads (verified against source tag 1.8.2). */
 export const v1Adapter: EvolutionAdapter = {
@@ -28,6 +28,20 @@ export const v1Adapter: EvolutionAdapter = {
 
   sendTextBody(params: { number: string; text: string }): Record<string, unknown> {
     return { number: params.number, textMessage: { text: params.text } };
+  },
+
+  // v1: media params nested under `mediaMessage` (mirrors the sendText nesting).
+  sendMediaBody(params: SendMediaParams): Record<string, unknown> {
+    return {
+      number: params.number,
+      mediaMessage: {
+        mediatype: params.mediatype,
+        mimetype: params.mimetype,
+        media: params.media,
+        fileName: params.fileName,
+        caption: params.caption,
+      },
+    };
   },
 
   parseQr(response: unknown): QrResult {

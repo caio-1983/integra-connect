@@ -16,7 +16,7 @@ import {
 } from './workspace';
 
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, updateStatus, markAsRead, assignConversation, appendLocalMessage, refetch } = useConversations();
+  const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, assignConversation, appendLocalMessage, refetch } = useConversations();
   const { sdrName, companyName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
 
@@ -120,6 +120,14 @@ const ChatInterface: React.FC = () => {
     await sendMessage(activeChat.id, content);
   };
 
+  const handleSendMedia = async (file: File) => {
+    if (!activeChat) return;
+    // Any text in the composer rides along as the attachment's caption.
+    const caption = inputText.trim();
+    setInputText('');
+    await sendMediaMessage(activeChat.id, file, caption || undefined);
+  };
+
   const handleStatusChange = async (status: ConversationStatus) => {
     if (!activeChat) return;
     await updateStatus(activeChat.id, status);
@@ -189,6 +197,7 @@ const ChatInterface: React.FC = () => {
             value={inputText}
             onChange={setInputText}
             onSend={handleSendMessage}
+            onAttach={handleSendMedia}
             isNinaActive={activeChat.status === 'nina'}
             sdrName={sdrName}
           />

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
-import { sendConversationReply } from '@/services/whatsappConnectionService';
+import { sendConversationReply, sendConversationMediaReply } from '@/services/whatsappConnectionService';
 import {
   UIConversation,
   UIMessage,
@@ -13,6 +13,31 @@ import {
   MessageType
 } from '@/types';
 import { toast } from 'sonner';
+
+/** Reads a File as bare base64 (strips the `data:...;base64,` prefix the backend doesn't want). */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('Erro ao ler arquivo'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/** UIMessage.type for a file, from its MIME (video/document fall back to TEXT —
+ *  the timeline renders those as a download chip when mediaUrl is present). */
+function uiTypeForMime(mime: string): MessageType {
+  if (mime.startsWith('image/')) return MessageType.IMAGE;
+  if (mime.startsWith('audio/')) return MessageType.AUDIO;
+  return MessageType.TEXT;
+}
+
+/** 20 MB cap — base64 of this stays under the backend's 32 MB body limit. */
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
 export function useConversations() {
   const [conversations, setConversations] = useState<UIConversation[]>([]);
@@ -423,6 +448,59 @@ export function useConversations() {
     }
   }, []);
 
+  const sendMediaMessage = useCallback(async (conversationId: string, file: File, caption?: string) => {
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      toast.error('Arquivo muito grande (máx. 20 MB).');
+      return;
+    }
+
+    const mimeType = file.type || 'application/octet-stream';
+    const trimmedCaption = caption?.trim() || undefined;
+    // Must equal what the backend stores (caption ?? fileName) so the realtime
+    // INSERT replaces this temp message instead of duplicating it.
+    const content = trimmedCaption ?? file.name;
+    const objectUrl = URL.createObjectURL(file);
+
+    const tempId = `temp-${Date.now()}`;
+    const tempMessage: UIMessage = {
+      id: tempId,
+      content,
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      direction: MessageDirection.OUTGOING,
+      type: uiTypeForMime(mimeType),
+      status: 'sent',
+      fromType: 'human',
+      mediaUrl: objectUrl,
+      whatsappMessageId: null,
+    };
+
+    setConversations(prev => {
+      const conv = prev.find(c => c.id === conversationId);
+      if (!conv) return prev;
+      const updatedConv = {
+        ...conv,
+        messages: [...conv.messages, tempMessage],
+        lastMessage: content,
+        lastMessageTime: 'Agora',
+      };
+      return [updatedConv, ...prev.filter(c => c.id !== conversationId)];
+    });
+
+    try {
+      const base64 = await fileToBase64(file);
+      await sendConversationMediaReply(conversationId, { base64, mimeType, fileName: file.name, caption: trimmedCaption });
+      // The realtime INSERT replaces the temp message with the real row.
+    } catch (err) {
+      console.error('[useConversations] Error sending attachment:', err);
+      toast.error('Erro ao enviar anexo');
+      setConversations(prev => prev.map(conv =>
+        conv.id === conversationId
+          ? { ...conv, messages: conv.messages.filter(m => m.id !== tempId) }
+          : conv,
+      ));
+    }
+  }, []);
+
   // Update conversation status
   const updateStatus = useCallback(async (
     conversationId: string,
@@ -536,6 +614,7 @@ export function useConversations() {
     error,
     realtimeConnected,
     sendMessage,
+    sendMediaMessage,
     updateStatus,
     markAsRead,
     assignConversation,

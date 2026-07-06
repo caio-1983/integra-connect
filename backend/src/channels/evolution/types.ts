@@ -24,6 +24,17 @@ export interface SendTextResult {
   providerMessageId?: string;
 }
 
+/** Outbound media send params (image/video/audio/document). `media` is base64
+ *  (no data: prefix) or a public URL — Evolution accepts either. */
+export interface SendMediaParams {
+  number: string;
+  mediatype: 'image' | 'video' | 'audio' | 'document';
+  mimetype: string;
+  media: string;
+  fileName?: string;
+  caption?: string;
+}
+
 /**
  * Per-version payload/endpoint differences live behind this interface. The
  * `EvolutionClient` detects the major version once and delegates to the
@@ -34,6 +45,7 @@ export interface EvolutionAdapter {
   createInstanceBody(params: CreateInstanceParams): Record<string, unknown>;
   setWebhookBody(params: { url: string; events: string[] }): Record<string, unknown>;
   sendTextBody(params: { number: string; text: string }): Record<string, unknown>;
+  sendMediaBody(params: SendMediaParams): Record<string, unknown>;
   parseQr(response: unknown): QrResult;
   parseSendResult(response: unknown): SendTextResult;
 }

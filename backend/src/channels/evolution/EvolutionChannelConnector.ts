@@ -1,4 +1,4 @@
-import type { ChannelConnector } from '../ChannelConnector.js';
+import type { ChannelConnector, OutboundMediaPayload } from '../ChannelConnector.js';
 import { parseInbound, parseStatusUpdate } from './inboundParser.js';
 import { getEvolutionClient } from './evolutionClientInstance.js';
 
@@ -54,5 +54,16 @@ export const evolutionChannelConnector: ChannelConnector = {
 
   async sendText(instance: string, to: string, text: string) {
     return getEvolutionClient().sendText(instance, to, text);
+  },
+
+  async sendMedia(instance: string, to: string, media: OutboundMediaPayload) {
+    return getEvolutionClient().sendMedia(instance, {
+      number: to,
+      mediatype: media.mediatype,
+      mimetype: media.mimetype,
+      media: media.base64,
+      fileName: media.fileName,
+      caption: media.caption,
+    });
   },
 };

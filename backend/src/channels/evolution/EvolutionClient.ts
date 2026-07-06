@@ -1,5 +1,5 @@
 import type {
-  ConnectionStateResult, CreateInstanceParams, EvolutionAdapter, QrResult, RawContact, RawFetchedInstance, RawGroupInfo, SendTextResult,
+  ConnectionStateResult, CreateInstanceParams, EvolutionAdapter, QrResult, RawContact, RawFetchedInstance, RawGroupInfo, SendMediaParams, SendTextResult,
 } from './types.js';
 import { v1Adapter } from './V1Adapter.js';
 import { v2Adapter } from './V2Adapter.js';
@@ -120,6 +120,15 @@ export class EvolutionClient {
   async sendText(instanceName: string, number: string, text: string): Promise<SendTextResult> {
     const adapter = await this.getAdapter();
     const response = await this.request<unknown>('POST', `/message/sendText/${instanceName}`, adapter.sendTextBody({ number, text }));
+    return adapter.parseSendResult(response);
+  }
+
+  /** POST /message/sendMedia/{instance} — sends image/video/audio/document.
+   *  `media` is base64 (no data: prefix) or a public URL; v1/v2 body differences
+   *  are handled by the adapter. */
+  async sendMedia(instanceName: string, params: Omit<SendMediaParams, 'number'> & { number: string }): Promise<SendTextResult> {
+    const adapter = await this.getAdapter();
+    const response = await this.request<unknown>('POST', `/message/sendMedia/${instanceName}`, adapter.sendMediaBody(params));
     return adapter.parseSendResult(response);
   }
 

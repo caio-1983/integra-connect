@@ -1,6 +1,7 @@
 import { aiEventBus, type AppEvent } from '../runtime/EventBus.js';
 import { logger } from '../logger/Logger.js';
 import { conversationRepository } from '../persistence/ConversationRepository.js';
+import { getConnector } from '../channels/connectorRegistry.js';
 import { runAgentChat } from '../runtime/AgentRuntime.js';
 import {
   ChannelEvents,
@@ -125,6 +126,61 @@ export async function requestManualReply(conversationId: string, content: string
     type: ChannelEvents.OutboundMessageRequested,
     payload: outbound as unknown as Record<string, unknown>,
     timestamp: new Date(),
+  });
+}
+
+export interface ManualMediaReply {
+  base64: string;
+  mimeType: string;
+  fileName?: string;
+  caption?: string;
+}
+
+/** image/* → image, video/* → video, audio/* → audio, everything else → document. */
+function mediaKindFromMime(mime: string): 'image' | 'video' | 'audio' | 'document' {
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('video/')) return 'video';
+  if (mime.startsWith('audio/')) return 'audio';
+  return 'document';
+}
+
+/**
+ * Human operator's media reply (attachment) from the Workspace composer. Unlike
+ * text (which flows through the OutboundMessageRequested event so the AI path
+ * can share it), media is always human-initiated, so it's handled directly:
+ * store our own copy → send via the resolved connector → persist the outbound
+ * row (which the frontend renders via realtime). Still provider-agnostic — the
+ * connector is resolved from the registry, never Evolution directly.
+ */
+export async function requestManualMediaReply(conversationId: string, media: ManualMediaReply): Promise<void> {
+  const info = await conversationRepository.getConversationChannelInfo(conversationId);
+  if (!info) {
+    throw new Error('Conversa sem instância associada (anterior a este recurso, ou contato não encontrado).');
+  }
+
+  const connector = getConnector('evolution');
+  if (!connector) throw new Error('Conector de canal indisponível.');
+
+  const kind = mediaKindFromMime(media.mimeType);
+  // Store our own copy first (for the timeline), then send. A send failure
+  // leaves only an orphan file (harmless) and no DB row, so nothing broken shows.
+  const mediaUrl = await conversationRepository.storeOutboundMedia(conversationId, media.base64, media.mimeType, media.fileName);
+
+  const { providerMessageId } = await connector.sendMedia(info.instance, info.to, {
+    mediatype: kind,
+    mimetype: media.mimeType,
+    base64: media.base64,
+    fileName: media.fileName,
+    caption: media.caption,
+  });
+
+  await conversationRepository.insertOutboundMediaMessage({
+    conversationId,
+    providerMessageId,
+    content: media.caption ?? media.fileName ?? '',
+    mediaUrl,
+    mediaType: media.mimeType,
+    dbType: kind,
   });
 }
 

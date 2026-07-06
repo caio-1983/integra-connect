@@ -120,6 +120,18 @@ export async function sendConversationReply(conversationId: string, content: str
   await handle<{ accepted: true }>(res);
 }
 
+export interface SendMediaReplyInput { base64: string; mimeType: string; fileName?: string; caption?: string; }
+
+/** Sends a human operator's media reply (attachment). base64 has no data: prefix. */
+export async function sendConversationMediaReply(conversationId: string, media: SendMediaReplyInput): Promise<void> {
+  const res = await fetch(`${base()}/v1/conversations/${encodeURIComponent(conversationId)}/reply-media`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify(media),
+  });
+  await handle<{ accepted: true }>(res);
+}
+
 export interface StartConversationResult { conversationId: string; contactId: string; created: boolean; }
 
 /** "Nova Conversa" — finds or creates the contact/conversation ahead of the first message. */

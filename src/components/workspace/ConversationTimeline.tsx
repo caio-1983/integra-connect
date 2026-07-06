@@ -265,12 +265,16 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
                 {renderMessageContent(msg)}
               </div>
 
-              <div className="flex items-center mt-1 gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity px-1">
-                {isOutgoing && msg.fromType === 'nina'  && <Bot  className="w-3 h-3 text-violet-500" />}
-                {isOutgoing && msg.fromType === 'human' && <User className="w-3 h-3 text-primary" />}
-                <span className="text-[10px] text-muted-foreground font-medium">{msg.timestamp}</span>
+              <div className="flex items-center mt-1 gap-1.5 px-1">
+                {/* Author icon + time stay subtle until hover; the read receipt
+                    below is always at full opacity so "visualizado" reads clearly. */}
+                <span className="flex items-center gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
+                  {isOutgoing && msg.fromType === 'nina'  && <Bot  className="w-3 h-3 text-violet-500" />}
+                  {isOutgoing && msg.fromType === 'human' && <User className="w-3 h-3 text-primary" />}
+                  <span className="text-[10px] text-muted-foreground font-medium">{msg.timestamp}</span>
+                </span>
                 {isOutgoing && (
-                  msg.status === 'read'      ? <CheckCheck className="w-3.5 h-3.5 text-primary" /> :
+                  msg.status === 'read'      ? <CheckCheck className="w-4 h-4 text-sky-500" /> :
                   msg.status === 'delivered' ? <CheckCheck className="w-3.5 h-3.5 text-muted-foreground" /> :
                                               <Check      className="w-3.5 h-3.5 text-muted-foreground" />
                 )}

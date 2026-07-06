@@ -1,11 +1,32 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
-import { requestManualReply, startConversation } from '../conversation/ConversationService.js';
+import { requestManualReply, requestManualMediaReply, startConversation } from '../conversation/ConversationService.js';
 import { evolutionConnectionService } from '../channels/evolution/EvolutionConnectionService.js';
 
 const paramsSchema = z.object({ conversationId: z.string().min(1) });
 const bodySchema = z.object({ content: z.string().min(1) });
+
+// 32 MB cap: base64 inflates a file by ~33%, so this admits real WhatsApp media
+// (images/short videos/documents) while bounding memory per request.
+const MEDIA_BODY_LIMIT = 32 * 1024 * 1024;
+const mediaBodySchema = z.object({
+  base64: z.string().min(1),
+  mimeType: z.string().min(1),
+  fileName: z.string().optional(),
+  caption: z.string().optional(),
+});
+
+const mediaBodyJsonSchema = {
+  type: 'object',
+  required: ['base64', 'mimeType'],
+  properties: {
+    base64: { type: 'string', minLength: 1, description: 'Conteúdo do arquivo em base64 (sem o prefixo data:).' },
+    mimeType: { type: 'string', minLength: 1, description: 'MIME type do arquivo.', example: 'image/png' },
+    fileName: { type: 'string', description: 'Nome original do arquivo (rótulo do documento).' },
+    caption: { type: 'string', description: 'Legenda opcional enviada junto da mídia.' },
+  },
+} as const;
 
 const conversationParamsJsonSchema = {
   type: 'object',
@@ -103,6 +124,33 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     } catch (error) {
       request.log.error(error);
       return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao enviar resposta.' });
+    }
+  });
+
+  app.post('/v1/conversations/:conversationId/reply-media', {
+    preHandler: authMiddleware,
+    bodyLimit: MEDIA_BODY_LIMIT,
+    validatorCompiler: noopValidator,
+    schema: {
+      tags: ['conversations'],
+      summary: 'Send a human operator media reply (image/video/audio/document)',
+      security: [{ bearerAuth: [] }],
+      params: conversationParamsJsonSchema,
+      body: mediaBodyJsonSchema,
+    },
+  }, async (request, reply) => {
+    const paramsResult = paramsSchema.safeParse(request.params);
+    if (!paramsResult.success) return reply.code(400).send({ error: 'conversationId obrigatório' });
+
+    const bodyResult = mediaBodySchema.safeParse(request.body);
+    if (!bodyResult.success) return reply.code(400).send({ error: 'base64 e mimeType obrigatórios' });
+
+    try {
+      await requestManualMediaReply(paramsResult.data.conversationId, bodyResult.data);
+      return reply.code(202).send({ accepted: true });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao enviar anexo.' });
     }
   });
 }

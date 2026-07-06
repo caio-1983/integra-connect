@@ -1,4 +1,4 @@
-import type { CreateInstanceParams, EvolutionAdapter, QrResult, SendTextResult } from './types.js';
+import type { CreateInstanceParams, EvolutionAdapter, QrResult, SendMediaParams, SendTextResult } from './types.js';
 
 /** Evolution API v2.x — nested `webhook` object / flat sendText (verified against source `main`). */
 export const v2Adapter: EvolutionAdapter = {
@@ -33,6 +33,18 @@ export const v2Adapter: EvolutionAdapter = {
 
   sendTextBody(params: { number: string; text: string }): Record<string, unknown> {
     return { number: params.number, text: params.text };
+  },
+
+  // v2: flat payload (verified against source `main` — same shape as sendText).
+  sendMediaBody(params: SendMediaParams): Record<string, unknown> {
+    return {
+      number: params.number,
+      mediatype: params.mediatype,
+      mimetype: params.mimetype,
+      media: params.media,
+      fileName: params.fileName,
+      caption: params.caption,
+    };
   },
 
   parseQr(response: unknown): QrResult {

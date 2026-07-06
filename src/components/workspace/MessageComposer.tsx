@@ -7,12 +7,21 @@ interface MessageComposerProps {
   value: string;
   onChange: (value: string) => void;
   onSend: () => void;
+  /** Sends a picked file as a WhatsApp attachment (any composer text rides as caption). */
+  onAttach?: (file: File) => void;
   isNinaActive: boolean;
   sdrName: string;
 }
 
-const MessageComposer: React.FC<MessageComposerProps> = ({ value, onChange, onSend, isNinaActive, sdrName }) => {
+const MessageComposer: React.FC<MessageComposerProps> = ({ value, onChange, onSend, onAttach, isNinaActive, sdrName }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onAttach) onAttach(file);
+    e.target.value = ''; // allow re-picking the same file
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -44,7 +53,22 @@ const MessageComposer: React.FC<MessageComposerProps> = ({ value, onChange, onSe
         {/* Attachment actions */}
         <div className="flex items-center gap-0.5 pb-1">
           <EmojiPicker onSelect={insertEmoji} />
-          <button type="button" disabled title="Em breve: Anexo"         className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><Paperclip className="w-4 h-4" /></button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+            onChange={handleFileChange}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            title="Anexar arquivo"
+            aria-label="Anexar arquivo"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Paperclip className="w-4 h-4" />
+          </button>
           <button type="button" disabled title="Em breve: Sugestão IA"   className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><Bot      className="w-4 h-4" /></button>
           <button type="button" disabled title="Em breve: Nota interna"  className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><FileText className="w-4 h-4" /></button>
           <button type="button" disabled title="Em breve: Gravar áudio"  className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><Mic      className="w-4 h-4" /></button>

@@ -304,6 +304,52 @@ class ConversationRepository {
     return { inserted: true };
   }
 
+  /** Uploads an outbound attachment to the shared public media bucket and
+   *  returns its public URL (for our own timeline display). Throws on failure —
+   *  unlike the inbound path, a human is waiting on the send, so a storage
+   *  error should surface rather than silently degrade. */
+  async storeOutboundMedia(conversationId: string, base64: string, mimeType: string, fileName?: string): Promise<string> {
+    const supabase = getSupabase();
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    const path = `${conversationId}/out-${unique}.${mediaExtension(mimeType, fileName)}`;
+    const buffer = Buffer.from(base64, 'base64');
+
+    const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, buffer, { contentType: mimeType, upsert: true });
+    if (error) throw new Error(`[repo] failed to upload outbound media: ${error.message}`);
+    return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+
+  /** Inserts a human operator's outbound media message (image/video/audio/
+   *  document) so it renders in the timeline exactly like an inbound one. */
+  async insertOutboundMediaMessage(input: {
+    conversationId: string;
+    providerMessageId?: string;
+    content: string;
+    mediaUrl: string;
+    mediaType: string;
+    dbType: 'audio' | 'image' | 'video' | 'document';
+  }): Promise<InsertMessageResult> {
+    const supabase = getSupabase();
+    const { error } = await supabase.from('messages').insert({
+      conversation_id: input.conversationId,
+      whatsapp_message_id: input.providerMessageId ?? null,
+      content: input.content,
+      type: input.dbType,
+      media_url: input.mediaUrl,
+      media_type: input.mediaType,
+      from_type: 'human',
+      status: 'sent',
+      sent_at: new Date().toISOString(),
+    });
+
+    if (error) {
+      if ((error as { code?: string }).code === '23505') return { inserted: false };
+      throw new Error(`[repo] failed to insert outbound media message: ${error.message}`);
+    }
+    await this.touchConversation(input.conversationId);
+    return { inserted: true };
+  }
+
   /** Updates a previously-sent outbound message's delivery status by its
    * provider message id — the only link we have back to a specific row,
    * since Evolution's status webhook doesn't carry our conversationId. */
