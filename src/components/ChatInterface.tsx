@@ -147,9 +147,9 @@ const ChatInterface: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full bg-background rounded-tl-2xl overflow-hidden border-t border-l border-border">
+    <div className="flex h-full bg-background overflow-hidden border-t border-l border-border">
 
-      {/* Coluna 1 — Fila Operacional */}
+      {/* Coluna 1 — Conversas */}
       <ConversationQueue
         conversations={conversations}
         selectedId={selectedChatId}

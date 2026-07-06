@@ -21,11 +21,16 @@ export interface InboundWebhookReceivedPayload {
   rawBody: unknown;
 }
 
-/** Inline media carried by an inbound message (audio only this pass — no transcription, just playback). */
+/** Media kinds carried by an inbound message (preview/playback only — no transcription/OCR). */
+export type InboundMediaKind = 'audio' | 'image' | 'video' | 'document' | 'sticker';
+
+/** Inline media carried by an inbound message. */
 export interface InboundMedia {
-  kind: 'audio';
+  kind: InboundMediaKind;
   mimeType: string;
   base64: string;
+  /** Original file name, for documents (shown as the download label). */
+  fileName?: string;
 }
 
 /** Normalized, channel-agnostic inbound message (Evolution specifics already stripped). */

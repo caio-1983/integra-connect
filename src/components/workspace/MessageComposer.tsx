@@ -1,6 +1,7 @@
-import React from 'react';
-import { Smile, Paperclip, Mic, FileText, Bot, Send } from 'lucide-react';
+import React, { useRef } from 'react';
+import { Paperclip, Mic, FileText, Bot, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EmojiPicker } from './EmojiPicker';
 
 interface MessageComposerProps {
   value: string;
@@ -11,6 +12,8 @@ interface MessageComposerProps {
 }
 
 const MessageComposer: React.FC<MessageComposerProps> = ({ value, onChange, onSend, isNinaActive, sdrName }) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -18,12 +21,29 @@ const MessageComposer: React.FC<MessageComposerProps> = ({ value, onChange, onSe
     }
   };
 
+  /** Inserts an emoji at the caret (or replacing the selection), then restores
+   *  focus + caret so typing continues naturally. Falls back to append if the
+   *  textarea ref isn't available. */
+  const insertEmoji = (emoji: string) => {
+    const ta = textareaRef.current;
+    const start = ta?.selectionStart ?? value.length;
+    const end = ta?.selectionEnd ?? value.length;
+    onChange(value.slice(0, start) + emoji + value.slice(end));
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      const pos = start + emoji.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
   return (
     <div className="px-4 py-3 bg-card border-t border-border flex-shrink-0">
       <div className="flex items-end gap-2">
         {/* Attachment actions */}
         <div className="flex items-center gap-0.5 pb-1">
-          <button type="button" disabled title="Em breve: Emoji"         className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><Smile    className="w-4 h-4" /></button>
+          <EmojiPicker onSelect={insertEmoji} />
           <button type="button" disabled title="Em breve: Anexo"         className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><Paperclip className="w-4 h-4" /></button>
           <button type="button" disabled title="Em breve: Sugestão IA"   className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><Bot      className="w-4 h-4" /></button>
           <button type="button" disabled title="Em breve: Nota interna"  className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><FileText className="w-4 h-4" /></button>
@@ -33,6 +53,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({ value, onChange, onSe
         {/* Input */}
         <div className="flex-1 bg-background rounded-xl border border-border focus-within:ring-1 focus-within:ring-ring/30 focus-within:border-ring/50 transition-all">
           <textarea
+            ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             onKeyDown={handleKeyDown}

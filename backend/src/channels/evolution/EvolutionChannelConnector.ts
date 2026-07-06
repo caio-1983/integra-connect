@@ -31,15 +31,17 @@ export const evolutionChannelConnector: ChannelConnector = {
         const subject = await resolveGroupSubject(message.instance, message.externalContactId);
         if (subject) message.contactName = subject;
       }
-      // Audio arrives as an encrypted URL — decrypt to base64 here (async, so
-      // kept out of the pure parser). A failure leaves the "🎤 Mensagem de voz"
-      // text placeholder in place rather than dropping the message.
-      if (message.pendingAudio) {
+      // Media (audio/image/video/document/sticker) arrives as an encrypted URL
+      // — decrypt to base64 here (async, so kept out of the pure parser). A
+      // failure leaves the text/placeholder in place rather than dropping the
+      // message. getBase64FromMedia is generic across all media types.
+      if (message.pendingMedia) {
+        const { kind, mimeType, fileName } = message.pendingMedia;
         const result = await getEvolutionClient().getBase64FromMedia(message.instance, message.providerMessageId);
         if (result?.base64) {
-          message.media = { kind: 'audio', mimeType: result.mimetype || message.pendingAudio.mimeType, base64: result.base64 };
+          message.media = { kind, mimeType: result.mimetype || mimeType, base64: result.base64, fileName };
         }
-        delete message.pendingAudio;
+        delete message.pendingMedia;
       }
       return { kind: 'message', data: message };
     }

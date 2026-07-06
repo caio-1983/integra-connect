@@ -1,10 +1,11 @@
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Contact, 
-  StatMetric, 
-  TeamMember, 
-  Appointment, 
+import {
+  Contact,
+  StatMetric,
+  TeamMember,
+  Appointment,
   Deal,
+  ContactTask,
   DBConversation,
   DBMessage,
   UIConversation,
@@ -750,6 +751,64 @@ export const api = {
     }
   },
   
+  /**
+   * Tasks (public.tasks) — to-dos assigned to an attendant for a contact.
+   * Returns [] gracefully if the table doesn't exist yet (run
+   * supabase/create_tasks_table.sql first).
+   */
+  fetchTasksByContact: async (contactId: string): Promise<ContactTask[]> => {
+    // `tasks` isn't in the generated Supabase types yet (new table) — cast to
+    // bypass the typed table union until types are regenerated.
+    const { data, error } = await (supabase as any)
+      .from('tasks')
+      .select('id, title, status, due_date, assignee_id, assignee:team_members(name)')
+      .eq('contact_id', contactId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[API] Error fetching tasks:', error);
+      return [];
+    }
+
+    return ((data || []) as any[]).map((t) => ({
+      id: t.id as string,
+      title: t.title as string,
+      status: (t.status as 'pending' | 'done') ?? 'pending',
+      dueDate: (t.due_date as string) ?? undefined,
+      assigneeId: (t.assignee_id as string) ?? undefined,
+      assigneeName: (t.assignee as { name?: string } | null)?.name ?? undefined,
+    }));
+  },
+
+  createTask: async (task: {
+    title: string;
+    contactId: string;
+    assigneeId?: string | null;
+    dueDate?: string | null;
+  }): Promise<void> => {
+    const userId = await getCurrentUserId();
+    const { error } = await (supabase as any).from('tasks').insert({
+      title: task.title,
+      contact_id: task.contactId,
+      assignee_id: task.assigneeId || null,
+      due_date: task.dueDate || null,
+      status: 'pending',
+      user_id: userId,
+    });
+    if (error) {
+      console.error('[API] Error creating task:', error);
+      throw error;
+    }
+  },
+
+  setTaskStatus: async (id: string, status: 'pending' | 'done'): Promise<void> => {
+    const { error } = await (supabase as any).from('tasks').update({ status }).eq('id', id);
+    if (error) {
+      console.error('[API] Error updating task status:', error);
+      throw error;
+    }
+  },
+
   /**
    * Fetch pipeline/deals with real data
    */

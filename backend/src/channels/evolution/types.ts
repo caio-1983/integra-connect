@@ -92,11 +92,16 @@ export interface InstanceSummary {
   profilePicture?: string;
 }
 
-/** Inline media carried by an inbound message (audio only this pass — no transcription, just playback). */
+/** Media kinds we ingest from inbound messages (playback/preview only — no transcription/OCR). */
+export type InboundMediaKind = 'audio' | 'image' | 'video' | 'document' | 'sticker';
+
+/** Inline media carried by an inbound message. */
 export interface NormalizedInboundMedia {
-  kind: 'audio';
+  kind: InboundMediaKind;
   mimeType: string;
   base64: string;
+  /** Original file name, for documents (shown as the download label). */
+  fileName?: string;
 }
 
 /** Channel-agnostic shape produced by inboundParser and consumed by the ChannelOrchestrator. */
@@ -109,11 +114,11 @@ export interface NormalizedInbound {
   text: string;
   tsSec?: number;
   media?: NormalizedInboundMedia;
-  /** Set by the parser when an audio message arrived WITHOUT inline base64
-   *  (the normal case — Evolution ships an encrypted `.enc` URL, not the audio
-   *  itself, even with webhook.base64=true). The connector resolves this to
-   *  `media` by calling getBase64FromMedia — kept out of the pure parser. */
-  pendingAudio?: { mimeType: string };
+  /** Set by the parser when media arrived WITHOUT inline base64 (the normal
+   *  case — Evolution ships an encrypted `.enc` URL, not the bytes themselves,
+   *  even with webhook.base64=true). The connector resolves this to `media` by
+   *  calling getBase64FromMedia — kept out of the pure parser. */
+  pendingMedia?: { kind: InboundMediaKind; mimeType: string; fileName?: string };
   /** Group messages are persisted (visible in the queue) but never auto-replied to by the AI — see ConversationService. */
   isGroup?: boolean;
 }

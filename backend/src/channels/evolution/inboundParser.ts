@@ -1,6 +1,24 @@
-import type { NormalizedInbound, NormalizedInboundMedia, NormalizedStatusUpdate } from './types.js';
+import type { InboundMediaKind, NormalizedInbound, NormalizedInboundMedia, NormalizedStatusUpdate } from './types.js';
 import type { MessageDeliveryStatus } from '../../types/messageStatus.js';
 import { logger } from '../../logger/Logger.js';
+
+/** Fallback text shown when a media message has no caption, so it's never dropped. */
+const MEDIA_PLACEHOLDER: Record<InboundMediaKind, string> = {
+  audio: '🎤 Mensagem de voz',
+  image: '📷 Imagem',
+  video: '🎥 Vídeo',
+  document: '📄 Documento',
+  sticker: '💟 Figurinha',
+};
+
+/** Default mimetype per kind when Evolution omits it. */
+const DEFAULT_MIME: Record<InboundMediaKind, string> = {
+  audio: 'audio/ogg',
+  image: 'image/jpeg',
+  video: 'video/mp4',
+  document: 'application/octet-stream',
+  sticker: 'image/webp',
+};
 
 /**
  * Shared across v1 and v2 — the inbound webhook envelope is near-identical
@@ -28,38 +46,59 @@ export function parseInbound(rawBody: unknown): NormalizedInbound | null {
   // so the contact name shown is whoever sent the first tracked message.
   const isGroup = remoteJid.endsWith('@g.us');
 
-  const audio = data.message?.audioMessage;
+  // Media detection — audio/image/video/document/sticker. A document sent with
+  // a caption arrives wrapped in `documentWithCaptionMessage`; unwrap it.
+  const msg = data.message ?? {};
+  const documentNode = msg.documentMessage ?? msg.documentWithCaptionMessage?.message?.documentMessage;
+  const mediaNode: { kind: InboundMediaKind; node: Record<string, any> } | null =
+    msg.audioMessage   ? { kind: 'audio',    node: msg.audioMessage }
+    : msg.imageMessage ? { kind: 'image',    node: msg.imageMessage }
+    : msg.videoMessage ? { kind: 'video',    node: msg.videoMessage }
+    : documentNode     ? { kind: 'document', node: documentNode }
+    : msg.stickerMessage ? { kind: 'sticker', node: msg.stickerMessage }
+    : null;
+
+  const caption: string | undefined =
+    msg.imageMessage?.caption ?? msg.videoMessage?.caption ?? documentNode?.caption;
 
   const text: string | undefined =
-    data.message?.conversation ??
-    data.message?.extendedTextMessage?.text ??
-    data.message?.imageMessage?.caption ??
-    data.message?.videoMessage?.caption ??
-    (audio ? '🎤 Mensagem de voz' : undefined);
+    msg.conversation ??
+    msg.extendedTextMessage?.text ??
+    caption ??
+    (mediaNode ? MEDIA_PLACEHOLDER[mediaNode.kind] : undefined);
 
-  if (!text || !instance || !key.id) return null; // text or a supported media placeholder only
+  if (!text || !instance || !key.id) {
+    // Diagnostic: a message arrived but produced no text/media we handle — log
+    // its type keys so an unrecognized WhatsApp message type (e.g. location,
+    // contact card, poll) can be identified and added rather than silently dropped.
+    if (data.message && !key.fromMe) {
+      logger.info({ instance, messageTypes: Object.keys(data.message) }, '[evolution] inbound message dropped — no handled text/media');
+    }
+    return null;
+  }
 
   // Individual: bare phone digits (unchanged). Group: the full JID kept as-is
   // — it's what gets stored as the "contact"'s phone_number and later reused
   // verbatim as the `to` when sending a reply (Evolution accepts a JID there).
   const externalContactId = isGroup ? remoteJid : remoteJid.replace(/@s\.whatsapp\.net$/, '').replace(/@.*$/, '');
 
-  // Playback only this pass (no transcription). Confirmed against the live
-  // v2.3.7 server: audio arrives as an ENCRYPTED `.enc` URL (mediaKey/
+  // Preview/playback only (no transcription/OCR). Confirmed against the live
+  // v2.3.7 server: media arrives as an ENCRYPTED `.enc` URL (mediaKey/
   // fileEncSha256/directPath) — NOT inline base64, even with webhook.base64=true.
-  // So the common path is `pendingAudio`, which the connector resolves by
+  // So the common path is `pendingMedia`, which the connector resolves by
   // calling Evolution's getBase64FromMedia (decrypts + returns base64). The
-  // inline-base64 branch is kept as a fast path in case a future config does
-  // embed it.
+  // inline-base64 branch is kept as a fast path in case a future config embeds it.
   let media: NormalizedInboundMedia | undefined;
-  let pendingAudio: { mimeType: string } | undefined;
-  if (audio) {
-    const mimeType: string = audio.mimetype ?? 'audio/ogg';
-    const base64: string | undefined = data.base64 ?? data.message?.base64 ?? audio.base64;
+  let pendingMedia: { kind: InboundMediaKind; mimeType: string; fileName?: string } | undefined;
+  if (mediaNode) {
+    const mimeType: string = mediaNode.node.mimetype ?? DEFAULT_MIME[mediaNode.kind];
+    const fileName: string | undefined =
+      mediaNode.kind === 'document' ? (mediaNode.node.fileName ?? mediaNode.node.title ?? undefined) : undefined;
+    const base64: string | undefined = data.base64 ?? data.message?.base64 ?? mediaNode.node.base64;
     if (base64) {
-      media = { kind: 'audio', mimeType, base64 };
+      media = { kind: mediaNode.kind, mimeType, base64, fileName };
     } else {
-      pendingAudio = { mimeType };
+      pendingMedia = { kind: mediaNode.kind, mimeType, fileName };
     }
   }
 
@@ -72,7 +111,7 @@ export function parseInbound(rawBody: unknown): NormalizedInbound | null {
     text: String(text),
     tsSec: typeof data.messageTimestamp === 'number' ? data.messageTimestamp : undefined,
     media,
-    pendingAudio,
+    pendingMedia,
     isGroup: isGroup || undefined,
   };
 }

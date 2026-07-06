@@ -1,10 +1,31 @@
 import React, { useRef, useState } from 'react';
-import { MessageSquare, Bot, User, Check, CheckCheck, Play, Pause } from 'lucide-react';
+import { MessageSquare, Bot, User, Check, CheckCheck, Play, Pause, Paperclip, Download } from 'lucide-react';
 import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 
 const WAVE_BARS = 28;
+
+/** Splits text on URLs (capturing group keeps the URLs) so message text with a
+ *  link renders the link as a clickable anchor instead of dead text. */
+const URL_SPLIT_RE = /(https?:\/\/[^\s]+)/g;
+function linkify(text: string): React.ReactNode {
+  return text.split(URL_SPLIT_RE).map((part, i) =>
+    /^https?:\/\//.test(part) ? (
+      <a
+        key={i}
+        href={part}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline underline-offset-2 break-all hover:opacity-80"
+      >
+        {part}
+      </a>
+    ) : (
+      <React.Fragment key={i}>{part}</React.Fragment>
+    ),
+  );
+}
 
 /** Deterministic pseudo-waveform (0.18–1 heights) seeded by the message id, so
  *  every voice note gets a stable, distinct shape — the visual signature of a
@@ -173,7 +194,25 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
       );
     }
 
-    return <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>;
+    // Document/video (image & audio are handled above) reach here with a
+    // mediaUrl but no dedicated player — render a downloadable attachment chip.
+    // The kind emoji is already carried in `content` (📄 Documento / 🎥 Vídeo).
+    if (msg.mediaUrl) {
+      return (
+        <a
+          href={msg.mediaUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 rounded-lg border border-border/50 bg-black/5 dark:bg-white/5 px-3 py-2 hover:bg-black/10 dark:hover:bg-white/10 transition-colors max-w-full"
+        >
+          <Paperclip className="w-4 h-4 shrink-0 opacity-70" />
+          <span className="text-sm truncate flex-1 min-w-0">{msg.content || 'Arquivo'}</span>
+          <Download className="w-3.5 h-3.5 shrink-0 opacity-70" />
+        </a>
+      );
+    }
+
+    return <p className="leading-relaxed whitespace-pre-wrap">{linkify(msg.content)}</p>;
   };
 
   if (messages.length === 0) {

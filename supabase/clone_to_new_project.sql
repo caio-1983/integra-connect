@@ -980,10 +980,12 @@ CREATE TRIGGER update_appointments_updated_at
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Triggers de negócio
+-- NÃO recriar auto_create_deal_on_contact: criava um lead para TODO contato
+-- inserido, inundando o CRM com a agenda importada. Lead agora é criado só no
+-- inbound (ConversationRepository.createLeadForContact). A função é mantida
+-- abaixo por compatibilidade, mas sem trigger. Remover explicitamente caso
+-- exista de um clone anterior:
 DROP TRIGGER IF EXISTS auto_create_deal_on_contact ON public.contacts;
-CREATE TRIGGER auto_create_deal_on_contact
-  AFTER INSERT ON public.contacts
-  FOR EACH ROW EXECUTE FUNCTION public.create_deal_for_new_contact();
 
 DROP TRIGGER IF EXISTS update_conversation_last_message_trigger ON public.messages;
 CREATE TRIGGER update_conversation_last_message_trigger

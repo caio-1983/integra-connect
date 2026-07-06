@@ -1,16 +1,15 @@
 import React from 'react';
 import { UIConversation, TagDefinition } from '@/types';
-import { MOCK_PEOPLE, MOCK_COMPANIES, MOCK_DEALS, MOCK_TASKS, MOCK_TIMELINE_ENTRIES, MOCK_APPOINTMENTS } from '@/constants';
+import { MOCK_PEOPLE, MOCK_COMPANIES, MOCK_TIMELINE_ENTRIES } from '@/constants';
 import { CustomerCard } from './CustomerCard';
 import { HistoryCard } from './HistoryCard';
 import { CopilotPanel } from './CopilotPanel';
 import { CompanyBlock } from '@/components/crm/CompanyBlock';
-import { DealSummary } from '@/components/crm/DealSummary';
-import { RetornosBlock } from '@/components/crm/RetornosBlock';
-import { TaskList } from '@/components/crm/TaskList';
+import { AgendamentoBlock } from '@/components/crm/AgendamentoBlock';
+import { TarefasBlock } from '@/components/crm/TarefasBlock';
 import { Timeline } from '@/components/crm/Timeline';
 import {
-  Building2, TrendingUp, CalendarCheck, CheckSquare,
+  Building2, CalendarCheck, CheckSquare,
   History, ChevronDown, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -79,9 +78,6 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
   const contactId = conversation.contactId;
   const person = MOCK_PEOPLE.find(p => p.id === contactId);
   const company = person?.companyId ? MOCK_COMPANIES.find(c => c.id === person.companyId) : undefined;
-  const deals = MOCK_DEALS.filter(d => d.contactId === contactId);
-  const tasks = MOCK_TASKS.filter(t => t.personId === contactId).slice(0, 4);
-  const appointments = MOCK_APPOINTMENTS.filter(a => a.contact_id === contactId);
   const timeline = MOCK_TIMELINE_ENTRIES.filter(e => e.personId === contactId).slice(0, 6);
 
   return (
@@ -108,45 +104,26 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
 
         <div className="h-px bg-border mx-4 my-1" />
 
-        {/* ── 2. EMPRESA ── */}
+        {/* ── 2. AGENDAMENTO (persistência real via /scheduling) ── */}
+        <WorkspaceSection title="Agendamento" icon={CalendarCheck} defaultOpen={true}>
+          <AgendamentoBlock contactId={contactId} contactName={conversation.contactName} />
+        </WorkspaceSection>
+
+        <div className="h-px bg-border mx-4 my-1" />
+
+        {/* ── 3. TAREFAS (persistência real, designável a atendente) ── */}
+        <WorkspaceSection title="Tarefas" icon={CheckSquare} defaultOpen={true}>
+          <TarefasBlock contactId={contactId} teamMembers={teamMembers} />
+        </WorkspaceSection>
+
+        <div className="h-px bg-border mx-4 my-1" />
+
+        {/* ── 4. EMPRESA ── */}
         <WorkspaceSection title="Empresa" icon={Building2} defaultOpen={true}>
           <CompanyBlock
             company={company}
             companyName={person?.company ?? conversation.contactName}
           />
-        </WorkspaceSection>
-
-        <div className="h-px bg-border mx-4 my-1" />
-
-        {/* ── 3. NEGÓCIO ATUAL ── */}
-        <WorkspaceSection title="Negócio Atual" icon={TrendingUp} defaultOpen={true}>
-          <DealSummary
-            deals={deals}
-            contactId={contactId}
-            contactName={conversation.contactName}
-          />
-        </WorkspaceSection>
-
-        <div className="h-px bg-border mx-4 my-1" />
-
-        {/* ── 4. RETORNOS ── */}
-        <WorkspaceSection title="Retornos" icon={CalendarCheck} defaultOpen={true}>
-          <RetornosBlock appointments={appointments} />
-        </WorkspaceSection>
-
-        <div className="h-px bg-border mx-4 my-1" />
-
-        {/* ── 5. TAREFAS ── */}
-        <WorkspaceSection title="Tarefas" icon={CheckSquare} defaultOpen={true}>
-          {tasks.length === 0 ? (
-            <div className="px-4 py-2 text-xs text-muted-foreground text-center">
-              Nenhuma tarefa vinculada
-            </div>
-          ) : (
-            <div className="px-4">
-              <TaskList tasks={tasks} compact />
-            </div>
-          )}
         </WorkspaceSection>
 
         <div className="h-px bg-border mx-4 my-1" />

@@ -4,6 +4,8 @@ export { DealSummary } from './DealSummary';
 export { ContactSummary } from './ContactSummary';
 export { CompanyBlock } from './CompanyBlock';
 export { RetornosBlock } from './RetornosBlock';
+export { AgendamentoBlock } from './AgendamentoBlock';
+export { TarefasBlock } from './TarefasBlock';
 export { PeopleTable } from './PeopleTable';
 export { PersonSheet } from './PersonSheet';
 export { CompanyTable } from './CompanyTable';

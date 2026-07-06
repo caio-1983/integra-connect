@@ -302,6 +302,9 @@ export interface UIConversation {
    *  -> Webchat -> WhatsApp) while remaining a single unified thread — see
    *  UIMessage.channel for the per-message channel. */
   primaryChannel: ChannelType;
+  /** Evolution instance (WhatsApp number) that owns this conversation — used to
+   *  filter the queue when several numbers run at once. From conversations.metadata.instance. */
+  instance?: string;
 }
 
 export interface UIMessage {
@@ -352,6 +355,7 @@ export function transformDBToUIConversation(
     clientMemory: conv.contact?.client_memory || getDefaultClientMemory(),
     notes: conv.contact?.notes || null,
     primaryChannel: 'whatsapp',
+    instance: (conv.metadata as { instance?: string } | null)?.instance,
   };
 }
 
@@ -477,6 +481,16 @@ export interface Task {
   companyName?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Real task row (public.tasks) — a to-do assigned to an attendant for a contact. */
+export interface ContactTask {
+  id: string;
+  title: string;
+  status: 'pending' | 'done';
+  dueDate?: string;
+  assigneeId?: string;
+  assigneeName?: string;
 }
 
 export type TimelineEntryType =

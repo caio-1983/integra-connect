@@ -42,6 +42,13 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
     timestamp: new Date(),
   });
 
+  // Lead is created only when a real person makes contact (first inbound → new
+  // 1:1 conversation) — replaces the old contact-insert trigger that flooded
+  // the CRM with a lead per imported contact. Groups never become leads.
+  if (created && !msg.isGroup) {
+    await conversationRepository.createLeadForContact(contactId, msg.contactName ?? msg.externalContactId);
+  }
+
   // Groups are visible in the queue for manual handling, but the AI never
   // auto-replies in them — regardless of stored mode (defense in depth on
   // top of findOrCreateConversation defaulting new groups to 'human').

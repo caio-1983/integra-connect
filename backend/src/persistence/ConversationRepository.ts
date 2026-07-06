@@ -3,14 +3,46 @@ import type { InboundMedia } from '../channels/channelEvents.js';
 import { getSupabase } from './supabaseClient.js';
 import { logger } from '../logger/Logger.js';
 
-const AUDIO_BUCKET = 'audio-messages';
+// Reuses the existing public `audio-messages` bucket for ALL inbound media
+// (audio/image/video/document) — it's already public and provisioned, so no new
+// bucket or migration is needed. The name is historical; treat it as the shared
+// inbound-media bucket.
+const MEDIA_BUCKET = 'audio-messages';
 
-function audioExtension(mimeType: string): string {
-  if (mimeType.includes('ogg')) return 'ogg';
-  if (mimeType.includes('mpeg') || mimeType.includes('mp3')) return 'mp3';
-  if (mimeType.includes('wav')) return 'wav';
-  if (mimeType.includes('mp4') || mimeType.includes('m4a')) return 'm4a';
-  return 'bin';
+/** File extension for a stored media blob, from its mimetype (falls back to the
+ *  document's own file name extension, then 'bin'). */
+function mediaExtension(mimeType: string, fileName?: string): string {
+  const mt = mimeType.toLowerCase();
+  // audio
+  if (mt.includes('ogg')) return 'ogg';
+  if (mt.includes('mpeg') || mt.includes('mp3')) return 'mp3';
+  if (mt.includes('wav')) return 'wav';
+  if (mt.includes('m4a')) return 'm4a';
+  // image
+  if (mt.includes('jpeg') || mt.includes('jpg')) return 'jpg';
+  if (mt.includes('png')) return 'png';
+  if (mt.includes('webp')) return 'webp';
+  if (mt.includes('gif')) return 'gif';
+  // video (checked after audio/mp3 so audio 'mpeg' wins; 'mp4' can be either —
+  // callers pass the right mimetype per kind, and mp4 as a container is fine as .mp4)
+  if (mt.includes('mp4')) return 'mp4';
+  if (mt.includes('3gpp') || mt.includes('3gp')) return '3gp';
+  if (mt.includes('quicktime') || mt.includes('mov')) return 'mov';
+  // document
+  if (mt.includes('pdf')) return 'pdf';
+  const fromName = fileName?.includes('.') ? fileName.split('.').pop() : undefined;
+  return (fromName && fromName.length <= 5 ? fromName.toLowerCase() : 'bin');
+}
+
+/** Maps our media kind to the DB `messages.type` literal. */
+function mediaKindToDbType(kind: InboundMedia['kind']): 'audio' | 'image' | 'video' | 'document' {
+  switch (kind) {
+    case 'audio': return 'audio';
+    case 'image':
+    case 'sticker': return 'image';
+    case 'video': return 'video';
+    case 'document': return 'document';
+  }
 }
 
 /**
@@ -142,6 +174,41 @@ class ConversationRepository {
     return { instance, to };
   }
 
+  /** Creates a CRM lead (deal in the first active pipeline stage) for a contact
+   * who just made contact — replaces the old `auto_create_deal_on_contact`
+   * trigger, which fired for EVERY inserted contact and flooded the pipeline
+   * with leads for bulk-imported address-book entries. Now called only from the
+   * inbound path (someone actually messaged). Idempotent: skips if the contact
+   * already has any deal, and never throws (a CRM hiccup must not drop the
+   * message). */
+  async createLeadForContact(contactId: string, title: string): Promise<void> {
+    const supabase = getSupabase();
+    const { data: existing } = await supabase.from('deals').select('id').eq('contact_id', contactId).limit(1).maybeSingle();
+    if (existing) return;
+
+    const { data: stage } = await supabase
+      .from('pipeline_stages')
+      .select('id')
+      .eq('is_active', true)
+      .order('position')
+      .limit(1)
+      .maybeSingle();
+    if (!stage) {
+      logger.warn({ contactId }, '[repo] no active pipeline stage — lead not created');
+      return;
+    }
+
+    const { error } = await supabase.from('deals').insert({
+      contact_id: contactId,
+      title: title || 'Novo Lead',
+      stage: 'new',
+      stage_id: stage.id,
+      priority: 'medium',
+      user_id: null,
+    });
+    if (error) logger.warn({ contactId, err: error.message }, '[repo] failed to create lead');
+  }
+
   /** Best-effort name lookup for phone numbers we already know as contacts —
    * used to enrich a WhatsApp group's participant list (people who've never
    * messaged us directly just show as a phone number). */
@@ -156,25 +223,25 @@ class ConversationRepository {
     return result;
   }
 
-  /** Uploads inbound media to the (already public) `audio-messages` bucket and
+  /** Uploads inbound media to the (already public) shared media bucket and
    * returns its public URL — bypasses RLS via the service-role client, same as
    * every other write here. Returns null (never throws) on failure, so a
    * storage hiccup degrades to a text-only placeholder instead of dropping
    * the whole inbound message. */
-  private async uploadInboundAudio(conversationId: string, providerMessageId: string, media: InboundMedia): Promise<string | null> {
+  private async uploadInboundMedia(conversationId: string, providerMessageId: string, media: InboundMedia): Promise<string | null> {
     const supabase = getSupabase();
-    const path = `${conversationId}/${providerMessageId}.${audioExtension(media.mimeType)}`;
+    const path = `${conversationId}/${providerMessageId}.${mediaExtension(media.mimeType, media.fileName)}`;
     const buffer = Buffer.from(media.base64, 'base64');
 
-    const { error } = await supabase.storage.from(AUDIO_BUCKET).upload(path, buffer, {
+    const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, buffer, {
       contentType: media.mimeType,
       upsert: true,
     });
     if (error) {
-      logger.warn({ err: error.message, path }, '[repo] failed to upload inbound audio');
+      logger.warn({ err: error.message, path, kind: media.kind }, '[repo] failed to upload inbound media');
       return null;
     }
-    return supabase.storage.from(AUDIO_BUCKET).getPublicUrl(path).data.publicUrl;
+    return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
   /** Returns inserted:false on unique-violation (dedup by whatsapp_message_id), matching the legacy webhook's idempotency. */
@@ -189,14 +256,14 @@ class ConversationRepository {
     const sentAt = input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString();
 
     const mediaUrl = input.media
-      ? await this.uploadInboundAudio(input.conversationId, input.providerMessageId, input.media)
+      ? await this.uploadInboundMedia(input.conversationId, input.providerMessageId, input.media)
       : null;
 
     const { error } = await supabase.from('messages').insert({
       conversation_id: input.conversationId,
       whatsapp_message_id: input.providerMessageId,
       content: input.content,
-      type: mediaUrl ? 'audio' : 'text',
+      type: mediaUrl ? mediaKindToDbType(input.media!.kind) : 'text',
       media_url: mediaUrl,
       media_type: mediaUrl ? input.media!.mimeType : null,
       from_type: 'user',
@@ -293,13 +360,10 @@ class ConversationRepository {
    *     (this is the exact bug this replaced: including `name: null` in that
    *     upsert clobbered real names whenever only a picture was available).
    *   - has neither: `ignoreDuplicates` insert-only, never touches an existing row.
-   * `contacts` has an AFTER INSERT trigger that auto-creates a CRM deal for
-   * every new contact — desired for organic inbound messages, but not for a
-   * bulk agenda import (would flood the pipeline with leads for people who
-   * never reached out), so deals just auto-created for contacts that didn't
-   * exist before this call are removed immediately after. A contact that
-   * already existed is only ever UPDATEd here (no trigger fire), so its
-   * deals — if any — are never touched by this cleanup.
+   * Importing does NOT create CRM leads: leads are created only when a contact
+   * actually messages (see createLeadForContact), so the imported address book
+   * never floods the pipeline. (Previously an AFTER INSERT trigger created a
+   * lead per contact — removed.)
    */
   async bulkImportContacts(contacts: ImportContactInput[]): Promise<BulkImportContactsResult> {
     if (contacts.length === 0) return { imported: 0, updated: 0 };
@@ -339,18 +403,7 @@ class ConversationRepository {
       if (error) throw new Error(`[repo] failed to insert bare contacts: ${error.message}`);
     }
 
-    const newPhoneNumbers = phoneNumbers.filter((p) => !existing.has(p));
-    let imported = 0;
-    if (newPhoneNumbers.length > 0) {
-      const { data: newContacts } = await supabase.from('contacts').select('id').in('phone_number', newPhoneNumbers);
-      const newContactIds = (newContacts ?? []).map((c) => c.id as string);
-      imported = newContactIds.length;
-      if (newContactIds.length > 0) {
-        const { error: deleteError } = await supabase.from('deals').delete().in('contact_id', newContactIds).eq('stage', 'new');
-        if (deleteError) logger.warn({ err: deleteError.message }, '[repo] failed to clean up auto-created deals from contact import');
-      }
-    }
-
+    const imported = phoneNumbers.filter((p) => !existing.has(p)).length;
     return { imported, updated: phoneNumbers.length - imported };
   }
 

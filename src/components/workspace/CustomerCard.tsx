@@ -1,5 +1,5 @@
 import React from 'react';
-import { Phone, Mail, User, Plus, X } from 'lucide-react';
+import { User, Plus, X } from 'lucide-react';
 import { UIConversation, TagDefinition } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TagSelector } from '@/components/TagSelector';
@@ -61,43 +61,14 @@ const CustomerCard: React.FC<CustomerCardProps> = ({
         <p className="text-[11px] text-muted-foreground">{STAGE_LABELS[stage] || stage}</p>
       </div>
 
-      {/* Contact data */}
-      <div className="px-4 space-y-2.5">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Contato</p>
-
-        {!conversation.contactPhone.endsWith('@g.us') && (
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-              <Phone className="w-3 h-3 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Telefone</p>
-              <p className="text-xs text-foreground font-medium">{conversation.contactPhone}</p>
-            </div>
-          </div>
-        )}
-
-        {conversation.contactEmail && (
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-              <Mail className="w-3 h-3 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Email</p>
-              <p className="text-xs text-foreground font-medium truncate max-w-[160px]">{conversation.contactEmail}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Canal predominante desta conversa */}
+      {/* Canal predominante desta conversa */}
+      <div className="px-4 space-y-2">
+        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Canal</p>
         <div className="flex items-center gap-2">
           <div className={cn('w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 border', channelCfg.color)}>
             <ChannelIcon className="w-3 h-3" />
           </div>
-          <div>
-            <p className="text-[10px] text-muted-foreground leading-none mb-0.5">Canal</p>
-            <p className="text-xs text-foreground font-medium">{channelCfg.label}</p>
-          </div>
+          <p className="text-xs text-foreground font-medium">{channelCfg.label}</p>
         </div>
       </div>
 
