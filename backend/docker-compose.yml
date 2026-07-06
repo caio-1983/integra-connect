@@ -1,0 +1,27 @@
+services:
+  ai-runtime:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-runtime
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8787
+      ALLOWED_ORIGIN: ${ALLOWED_ORIGIN}
+      GATEWAY_API_KEY: ${GATEWAY_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      EVOLUTION_WEBHOOK_SECRET: ${EVOLUTION_WEBHOOK_SECRET}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    ports:
+      - "8787:8787"
