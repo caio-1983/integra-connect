@@ -114,7 +114,7 @@ const Dashboard: React.FC = () => {
       <SystemHealthCard />
 
       <PageHeader
-        title="Dashboard"
+        title="Resultados"
         description={`Visão geral da performance da sua IA ${period === 'today' ? 'hoje' : `nos últimos ${periodLabels[period].toLowerCase()}`}.`}
         actions={periodFilter}
       />

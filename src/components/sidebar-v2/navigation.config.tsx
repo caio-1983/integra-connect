@@ -59,9 +59,11 @@ export interface SidebarSectionConfig {
  * Estrutura: OPERAÇÃO → 5 módulos | ADMINISTRAÇÃO → Configurações.
  *
  * Renomeações aplicadas (sem alterar rotas):
- *   Agenda      → Operações   (/operations — Sprint 003)
+ *   Agenda      → Visão Geral (/operations — Sprint 003)
  *   Conversas   → Atendimento (/chat)
- *   Painel      → Indicadores (/dashboard)
+ *   Clientes    → Contatos    (/contacts)
+ *   Comercial   → Vendas      (/pipeline)
+ *   Painel      → Resultados  (/dashboard)
  *
  * Rota /scheduling mantida intacta para acesso direto ao módulo de agenda.
  */
@@ -70,12 +72,12 @@ export const sidebarNavigation: SidebarSectionConfig[] = [
     id: 'operacao',
     title: 'Operação',
     items: [
-      { id: 'operations', label: 'Operações',   href: '/operations', icon: Building2     },
+      { id: 'operations', label: 'Visão Geral',  href: '/operations', icon: Building2     },
       { id: 'chat',       label: 'Atendimento', href: '/chat',       icon: MessageSquare },
-      { id: 'contacts',   label: 'Clientes',    href: '/contacts',   icon: Users         },
-      { id: 'pipeline',   label: 'Comercial',   href: '/pipeline',   icon: Briefcase     },
+      { id: 'contacts',   label: 'Contatos',    href: '/contacts',   icon: Users         },
+      { id: 'pipeline',   label: 'Vendas',      href: '/pipeline',   icon: Briefcase     },
       { id: 'scheduling', label: 'Agenda',       href: '/scheduling', icon: CalendarDays  },
-      { id: 'dashboard',  label: 'Indicadores', href: '/dashboard',  icon: TrendingUp    },
+      { id: 'dashboard',  label: 'Resultados',  href: '/dashboard',  icon: TrendingUp    },
     ],
   },
   {

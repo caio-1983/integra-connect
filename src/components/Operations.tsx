@@ -139,7 +139,7 @@ const Operations: React.FC = () => {
   return (
     <PageContainer>
       <PageHeader
-        title="Operações"
+        title="Visão Geral"
         description="Centro de operações do atendimento em tempo real."
         actions={refreshAction}
       />
