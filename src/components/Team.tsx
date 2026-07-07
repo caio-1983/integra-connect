@@ -15,7 +15,9 @@ const selectClass = 'w-full bg-background border border-border rounded-lg p-2.5 
 const inlineSelectClass = 'w-32 px-3 py-1.5 bg-background border border-border rounded-md text-sm text-foreground cursor-pointer hover:border-ring/50 transition-colors outline-none';
 
 const Team: React.FC = () => {
-  const { isAdmin } = useCompanySettings();
+  const { isAdmin, canManageUsers } = useCompanySettings();
+  /** Managers can touch agent/manager rows; only admins can touch admin rows. */
+  const canEditRow = (targetRole: string) => isAdmin || (canManageUsers && targetRole !== 'admin');
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [teams, setTeams] = useState<TeamType[]>([]);
   const [functions, setFunctions] = useState<TeamFunction[]>([]);
@@ -224,7 +226,7 @@ const Team: React.FC = () => {
               <Settings className="w-4 h-4 mr-2" />
               Configurar
             </Button>
-            {isAdmin && (
+            {canManageUsers && (
               <Button onClick={() => setShowModal(true)}>
                 <UserPlus className="w-4 h-4 mr-2" />
                 Convidar Usuário
@@ -277,7 +279,7 @@ const Team: React.FC = () => {
           <div className="flex flex-col items-center justify-center p-12">
             <Users className="w-12 h-12 text-muted-foreground/30 mb-4" />
             <p className="text-muted-foreground mb-4">Nenhum membro cadastrado ainda.</p>
-            {isAdmin && (
+            {canManageUsers && (
               <Button onClick={() => setShowModal(true)}>
                 <UserPlus className="w-4 h-4 mr-2" />
                 Convidar Primeiro Membro
@@ -314,86 +316,104 @@ const Team: React.FC = () => {
                       <span className="text-sm text-muted-foreground">{member.email}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={member.role}
-                        onChange={(e) => handleUpdateMember(member.id, 'role', e.target.value)}
-                        className={inlineSelectClass}
-                      >
-                        <option value="agent">Atendente</option>
-                        <option value="manager">Gerente</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                      {canEditRow(member.role) ? (
+                        <select
+                          value={member.role}
+                          onChange={(e) => handleUpdateMember(member.id, 'role', e.target.value)}
+                          className={inlineSelectClass}
+                        >
+                          <option value="agent">Atendente</option>
+                          <option value="manager">Gerente</option>
+                          {isAdmin && <option value="admin">Admin</option>}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-foreground">{roleLabel(member.role)}</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={member.team_id || ''}
-                        onChange={(e) => handleUpdateMember(member.id, 'team_id', e.target.value || null)}
-                        className={inlineSelectClass}
-                      >
-                        <option value="">Sem time</option>
-                        {teams.map(team => (
-                          <option key={team.id} value={team.id}>{team.name}</option>
-                        ))}
-                      </select>
+                      {canEditRow(member.role) ? (
+                        <select
+                          value={member.team_id || ''}
+                          onChange={(e) => handleUpdateMember(member.id, 'team_id', e.target.value || null)}
+                          className={inlineSelectClass}
+                        >
+                          <option value="">Sem time</option>
+                          {teams.map(team => (
+                            <option key={team.id} value={team.id}>{team.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">{teams.find(t => t.id === member.team_id)?.name || 'Sem time'}</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <select
-                        value={member.function_id || ''}
-                        onChange={(e) => handleUpdateMember(member.id, 'function_id', e.target.value || null)}
-                        className={inlineSelectClass}
-                      >
-                        <option value="">Sem função</option>
-                        {functions.map(func => (
-                          <option key={func.id} value={func.id}>{func.name}</option>
-                        ))}
-                      </select>
+                      {canEditRow(member.role) ? (
+                        <select
+                          value={member.function_id || ''}
+                          onChange={(e) => handleUpdateMember(member.id, 'function_id', e.target.value || null)}
+                          className={inlineSelectClass}
+                        >
+                          <option value="">Sem função</option>
+                          {functions.map(func => (
+                            <option key={func.id} value={func.id}>{func.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">{functions.find(f => f.id === member.function_id)?.name || 'Sem função'}</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <input
-                        type="number" min="1" max="10"
-                        value={member.weight || 1}
-                        onChange={(e) => handleUpdateMember(member.id, 'weight', parseInt(e.target.value))}
-                        className="w-16 px-2 py-1 bg-background border border-border rounded-md text-sm text-foreground text-center outline-none"
-                      />
+                      {canEditRow(member.role) ? (
+                        <input
+                          type="number" min="1" max="10"
+                          value={member.weight || 1}
+                          onChange={(e) => handleUpdateMember(member.id, 'weight', parseInt(e.target.value))}
+                          className="w-16 px-2 py-1 bg-background border border-border rounded-md text-sm text-foreground text-center outline-none"
+                        />
+                      ) : (
+                        <span className="text-sm text-muted-foreground">{member.weight || 1}</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       {getStatusBadge(member.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-1">
-                        {isAdmin && (
-                          member.user_id ? (
+                        {canEditRow(member.role) && (
+                          <>
+                            {member.user_id ? (
+                              <button
+                                onClick={() => handleResetPassword(member)}
+                                className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                title="Gerar nova senha"
+                              >
+                                <KeyRound className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleCreateAccess(member)}
+                                className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                title="Criar acesso de login"
+                              >
+                                <ShieldPlus className="w-4 h-4" />
+                              </button>
+                            )}
                             <button
-                              onClick={() => handleResetPassword(member)}
+                              onClick={() => handleEditClick(member)}
                               className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                              title="Gerar nova senha"
+                              title="Editar membro"
                             >
-                              <KeyRound className="w-4 h-4" />
+                              <Edit2 className="w-4 h-4" />
                             </button>
-                          ) : (
                             <button
-                              onClick={() => handleCreateAccess(member)}
-                              className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                              title="Criar acesso de login"
+                              onClick={() => handleDeleteMember(member.id, member.name)}
+                              className="p-2 rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-700 transition-colors"
+                              title="Excluir membro"
                             >
-                              <ShieldPlus className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
-                          )
+                          </>
                         )}
-                        <button
-                          onClick={() => handleEditClick(member)}
-                          className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                          title="Editar membro"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMember(member.id, member.name)}
-                          className="p-2 rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-700 transition-colors"
-                          title="Excluir membro"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                       </div>
                     </td>
                   </tr>
@@ -428,7 +448,7 @@ const Team: React.FC = () => {
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Nível de Acesso</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {['agent', 'manager', 'admin'].map((role) => (
+                  {(isAdmin ? ['agent', 'manager', 'admin'] : ['agent', 'manager']).map((role) => (
                     <div
                       key={role}
                       onClick={() => setFormData({...formData, role})}
@@ -512,7 +532,7 @@ const Team: React.FC = () => {
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Nível de Acesso</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {['agent', 'manager', 'admin'].map((role) => (
+                  {(isAdmin ? ['agent', 'manager', 'admin'] : ['agent', 'manager']).map((role) => (
                     <div
                       key={role}
                       onClick={() => setEditFormData({...editFormData, role})}

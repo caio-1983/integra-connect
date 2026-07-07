@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { requireAdmin } from '../_shared/auth.ts';
+import { requireRole } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,8 +23,10 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const adminCheck = await requireAdmin(req, corsHeaders);
-  if (adminCheck instanceof Response) return adminCheck;
+  // Managers can reset passwords for agent/manager accounts; only admins can
+  // reset another admin's password.
+  const callerCheck = await requireRole(req, corsHeaders, ['admin', 'manager']);
+  if (callerCheck instanceof Response) return callerCheck;
 
   try {
     const { user_id } = (await req.json()) as { user_id?: string };
@@ -39,6 +41,22 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const serviceClient = createClient(supabaseUrl, serviceKey);
+
+    if (callerCheck.role === 'manager') {
+      const { data: targetRole } = await serviceClient
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user_id)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (targetRole) {
+        return new Response(
+          JSON.stringify({ error: 'Gestores não podem redefinir a senha de um administrador' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     const temporaryPassword = generateTemporaryPassword();
 

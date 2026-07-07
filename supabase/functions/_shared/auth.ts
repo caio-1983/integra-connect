@@ -51,10 +51,25 @@ export async function requireAdmin(
   req: Request,
   corsHeaders: Record<string, string>
 ): Promise<{ userId: string } | Response> {
+  const result = await requireRole(req, corsHeaders, ['admin']);
+  if (result instanceof Response) return result;
+  return { userId: result.userId };
+}
+
+/**
+ * Require a valid user JWT belonging to someone whose app_role is one of
+ * `allowedRoles` (e.g. ['admin', 'manager']). Returns the caller's user id
+ * and actual role on success, or a Response (401/403) to short-circuit.
+ */
+export async function requireRole(
+  req: Request,
+  corsHeaders: Record<string, string>,
+  allowedRoles: Array<'admin' | 'manager' | 'agent'>
+): Promise<{ userId: string; role: 'admin' | 'manager' | 'agent' } | Response> {
   const unauthorized = () => new Response(JSON.stringify({ error: 'Unauthorized' }), {
     status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
-  const forbidden = () => new Response(JSON.stringify({ error: 'Forbidden: admin role required' }), {
+  const forbidden = () => new Response(JSON.stringify({ error: `Forbidden: role must be one of ${allowedRoles.join(', ')}` }), {
     status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   });
 
@@ -73,10 +88,10 @@ export async function requireAdmin(
     .from('user_roles')
     .select('role')
     .eq('user_id', userData.user.id)
-    .eq('role', 'admin')
+    .in('role', allowedRoles)
     .maybeSingle();
 
   if (!roleRow) return forbidden();
 
-  return { userId: userData.user.id };
+  return { userId: userData.user.id, role: roleRow.role };
 }

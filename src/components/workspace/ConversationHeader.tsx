@@ -16,6 +16,8 @@ interface ConversationHeaderProps {
   onStatusChange: (status: ConversationStatus) => void;
   onToggleCustomerPanel: () => void;
   onSimulateCustomerMessage?: (content: string) => void;
+  teamMembers: Array<{ id: string; name: string }>;
+  onTransfer: (userId: string) => void;
 }
 
 const SimulateCustomerMessagePopover: React.FC<{ onSimulate: (content: string) => void }> = ({ onSimulate }) => {
@@ -83,6 +85,7 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
 
 const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   conversation, sdrName, showCustomerPanel, onStatusChange, onToggleCustomerPanel, onSimulateCustomerMessage,
+  teamMembers, onTransfer,
 }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel =
@@ -145,6 +148,9 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
           showCustomerPanel={showCustomerPanel}
           onStatusChange={onStatusChange}
           onToggleCustomerPanel={onToggleCustomerPanel}
+          teamMembers={teamMembers}
+          assignedUserId={conversation.assignedUserId}
+          onTransfer={onTransfer}
         />
       </div>
 

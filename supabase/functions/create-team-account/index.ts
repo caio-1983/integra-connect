@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { requireAdmin } from '../_shared/auth.ts';
+import { requireRole } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,8 +32,9 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const adminCheck = await requireAdmin(req, corsHeaders);
-  if (adminCheck instanceof Response) return adminCheck;
+  // Managers can create agent/manager accounts; only admins can create other admins.
+  const callerCheck = await requireRole(req, corsHeaders, ['admin', 'manager']);
+  if (callerCheck instanceof Response) return callerCheck;
 
   try {
     const body = (await req.json()) as CreateTeamAccountBody;
@@ -43,6 +44,13 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'email, full_name e member_role são obrigatórios' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (callerCheck.role === 'manager' && member_role === 'admin') {
+      return new Response(
+        JSON.stringify({ error: 'Gestores não podem criar contas de administrador' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -79,13 +87,9 @@ Deno.serve(async (req) => {
       .update({ must_change_password: true })
       .eq('user_id', newUserId);
 
-    if (member_role === 'admin') {
-      await serviceClient
-        .from('user_roles')
-        .update({ role: 'admin' })
-        .eq('user_id', newUserId);
-    }
-
+    // The team_members upsert below sets the real requested role; a DB
+    // trigger (team_members_sync_role) propagates it into user_roles, which
+    // is what has_role()/RLS actually enforce.
     const { data: teamMember, error: teamMemberError } = await serviceClient
       .from('team_members')
       .upsert(

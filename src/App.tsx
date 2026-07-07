@@ -13,6 +13,7 @@ import Auth from './pages/Auth';
 import SetNewPassword from './pages/SetNewPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import ModuleRoute from './components/ModuleRoute';
+import RoleRoute from './components/RoleRoute';
 import CRMPeople from './components/crm/CRMPeople';
 import CRMCompanies from './components/crm/CRMCompanies';
 import CRMDeals from './components/crm/CRMDeals';
@@ -82,7 +83,10 @@ const App: React.FC = () => {
               <Route path="/chat" element={<ChatInterface />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/scheduling" element={<Scheduling />} />
-              <Route path="/team" element={<Team />} />
+              {/* Equipe/Usuários — RBAC: só admin/gestor (Route element={<RoleRoute />}) */}
+              <Route element={<RoleRoute />}>
+                <Route path="/team" element={<Team />} />
+              </Route>
               <Route path="/settings" element={<Settings />} />
               {/* CRM — Sprint 007 (gated: Fase 2) */}
               <Route element={<ModuleRoute module="crm" />}>

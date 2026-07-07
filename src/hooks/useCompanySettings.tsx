@@ -2,11 +2,17 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
+type UserRole = 'admin' | 'manager' | 'agent';
+
 interface CompanySettings {
   companyName: string;
   sdrName: string;
   loading: boolean;
   isAdmin: boolean;
+  /** Raw role from user_roles — null while loading or if no role row exists. */
+  role: UserRole | null;
+  /** Admin or manager — can create/edit/remove agent and manager accounts. */
+  canManageUsers: boolean;
   refetch: () => Promise<void>;
 }
 
@@ -17,6 +23,7 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
   const [sdrName, setSdrName] = useState('');
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [role, setRole] = useState<UserRole | null>(null);
   const { user } = useAuth();
 
   const fetchSettings = async () => {
@@ -36,6 +43,7 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
         .maybeSingle();
       
       setIsAdmin(roleData?.role === 'admin');
+      setRole((roleData?.role as UserRole | undefined) ?? null);
       
       // Fetch global nina_settings via safe public view (no sensitive credentials)
       const { data: viewData, error } = await (supabase as any)
@@ -74,6 +82,8 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
     sdrName,
     loading,
     isAdmin,
+    role,
+    canManageUsers: role === 'admin' || role === 'manager',
     refetch: fetchSettings,
   };
 
