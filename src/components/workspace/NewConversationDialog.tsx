@@ -80,7 +80,7 @@ export const NewConversationDialog: React.FC<NewConversationDialogProps> = ({
           <DialogTitle>Nova Conversa</DialogTitle>
           <DialogDescription>
             {connectedInstances.length === 0
-              ? 'Nenhum WhatsApp conectado — conecte um número em Gestão de Canais primeiro.'
+              ? 'Nenhum WhatsApp conectado — conecte um número em Conexões primeiro.'
               : connectedInstances.length === 1
                 ? `Enviando via ${connectedInstances[0].name}`
                 : 'Escolha o número de origem e o destinatário.'}

@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { runAgentChat } from '../runtime/AgentRuntime.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { configService } from '../config/ConfigService.js';
 
 const AGENT_IDS = ['atendimento', 'comercial', 'financeiro', 'suporte', 'recepcao'] as const;
 
@@ -26,6 +27,14 @@ const bodySchema = z.object({
 export async function agentChatRoutes(app: FastifyInstance): Promise<void> {
   app.post('/v1/agents/:agentId/chat', {
     preHandler: authMiddleware,
+    // Tighter than the global default — this route pays for a real OpenAI
+    // call per request, so it's the one that actually needs to bound cost.
+    config: {
+      rateLimit: {
+        max: configService.getNumber('AGENT_CHAT_RATE_LIMIT_MAX', 20),
+        timeWindow: configService.getNumber('RATE_LIMIT_WINDOW_MS', 60_000),
+      },
+    },
     schema: {
       tags: ['agents'],
       summary: 'Chat with an agent',

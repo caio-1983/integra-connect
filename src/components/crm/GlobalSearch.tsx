@@ -3,6 +3,7 @@ import { Search, Users, Building2, TrendingUp, MessageSquare, X, ArrowRight } fr
 import { useNavigate } from 'react-router-dom';
 import { MOCK_PEOPLE, MOCK_COMPANIES, MOCK_DEALS, MOCK_CONVERSATIONS } from '@/constants';
 import { cn } from '@/lib/utils';
+import { isModuleEnabled } from '@/lib/platformPhase';
 
 interface SearchResult {
   id: string;
@@ -59,28 +60,30 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ open, onClose }) => 
     const q = query.toLowerCase();
     const out: SearchResult[] = [];
 
-    MOCK_PEOPLE.forEach(p => {
-      if (
-        p.name.toLowerCase().includes(q) ||
-        p.email.toLowerCase().includes(q) ||
-        p.whatsapp.includes(q) ||
-        p.phones.some(ph => ph.includes(q)) ||
-        (p.company?.toLowerCase() ?? '').includes(q)
-      ) {
-        out.push({ id: p.id, type: 'person', title: p.name, subtitle: p.company ?? p.email, href: '/crm/people' });
-      }
-    });
+    if (isModuleEnabled('crm')) {
+      MOCK_PEOPLE.forEach(p => {
+        if (
+          p.name.toLowerCase().includes(q) ||
+          p.email.toLowerCase().includes(q) ||
+          p.whatsapp.includes(q) ||
+          p.phones.some(ph => ph.includes(q)) ||
+          (p.company?.toLowerCase() ?? '').includes(q)
+        ) {
+          out.push({ id: p.id, type: 'person', title: p.name, subtitle: p.company ?? p.email, href: '/crm/people' });
+        }
+      });
 
-    MOCK_COMPANIES.forEach(c => {
-      if (
-        c.razaoSocial.toLowerCase().includes(q) ||
-        (c.nomeFantasia?.toLowerCase() ?? '').includes(q) ||
-        (c.cnpj ?? '').includes(q) ||
-        (c.segmento?.toLowerCase() ?? '').includes(q)
-      ) {
-        out.push({ id: c.id, type: 'company', title: c.nomeFantasia ?? c.razaoSocial, subtitle: c.segmento, href: '/crm/companies' });
-      }
-    });
+      MOCK_COMPANIES.forEach(c => {
+        if (
+          c.razaoSocial.toLowerCase().includes(q) ||
+          (c.nomeFantasia?.toLowerCase() ?? '').includes(q) ||
+          (c.cnpj ?? '').includes(q) ||
+          (c.segmento?.toLowerCase() ?? '').includes(q)
+        ) {
+          out.push({ id: c.id, type: 'company', title: c.nomeFantasia ?? c.razaoSocial, subtitle: c.segmento, href: '/crm/companies' });
+        }
+      });
+    }
 
     MOCK_DEALS.forEach(d => {
       if (

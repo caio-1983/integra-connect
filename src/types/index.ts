@@ -35,6 +35,7 @@ export interface TeamMember {
   team_id?: string | null;
   function_id?: string | null;
   weight?: number;
+  user_id?: string | null;
   team?: Team;
   function?: TeamFunction;
 }

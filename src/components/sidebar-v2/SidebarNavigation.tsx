@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { SidebarSection } from './SidebarSection';
 import { sidebarNavigation } from './navigation.config';
 import { useUnreadMessagesCount } from '@/hooks/useUnreadMessagesCount';
+import { isModuleEnabled } from '@/lib/platformPhase';
 
 /**
  * Navegação global da plataforma.
@@ -19,7 +20,7 @@ export const SidebarNavigation: React.FC = () => {
 
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
-      {sidebarNavigation.map((section) => (
+      {sidebarNavigation.filter((section) => isModuleEnabled(section.id)).map((section) => (
         <SidebarSection key={section.id} section={section} currentPath={currentPath} badges={badges} />
       ))}
     </div>

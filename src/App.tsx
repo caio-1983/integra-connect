@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -10,7 +10,9 @@ import Scheduling from './components/Scheduling';
 import Kanban from './components/Kanban';
 import Operations from './components/Operations';
 import Auth from './pages/Auth';
+import SetNewPassword from './pages/SetNewPassword';
 import ProtectedRoute from './components/ProtectedRoute';
+import ModuleRoute from './components/ModuleRoute';
 import CRMPeople from './components/crm/CRMPeople';
 import CRMCompanies from './components/crm/CRMCompanies';
 import CRMDeals from './components/crm/CRMDeals';
@@ -27,19 +29,10 @@ import { CompanySettingsProvider } from './hooks/useCompanySettings';
 import { AuthProvider } from './hooks/useAuth';
 import { Toaster } from 'sonner';
 import { OnboardingWizard } from './components/OnboardingWizard';
-import { useOnboardingStatus } from './hooks/useOnboardingStatus';
 
 // Componente de Layout que envolve a aplicação principal
 const AppLayout: React.FC = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const { isComplete, hasSeenWizard, loading } = useOnboardingStatus();
-
-  // Show wizard automatically on first load if not complete and never seen
-  useEffect(() => {
-    if (!loading && !isComplete && !hasSeenWizard) {
-      setShowOnboarding(true);
-    }
-  }, [loading, isComplete, hasSeenWizard]);
 
   return (
     <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
@@ -74,6 +67,7 @@ const App: React.FC = () => {
           <Routes>
             {/* Public Routes */}
             <Route path="/auth" element={<Auth />} />
+            <Route path="/nova-senha" element={<SetNewPassword />} />
             
             {/* Protected Routes (With Sidebar) */}
             <Route element={
@@ -90,20 +84,24 @@ const App: React.FC = () => {
               <Route path="/scheduling" element={<Scheduling />} />
               <Route path="/team" element={<Team />} />
               <Route path="/settings" element={<Settings />} />
-              {/* CRM — Sprint 007 */}
-              <Route path="/crm/people" element={<CRMPeople />} />
-              <Route path="/crm/companies" element={<CRMCompanies />} />
-              <Route path="/crm/deals" element={<CRMDeals />} />
-              <Route path="/crm/tasks" element={<CRMTasks />} />
+              {/* CRM — Sprint 007 (gated: Fase 2) */}
+              <Route element={<ModuleRoute module="crm" />}>
+                <Route path="/crm/people" element={<CRMPeople />} />
+                <Route path="/crm/companies" element={<CRMCompanies />} />
+                <Route path="/crm/deals" element={<CRMDeals />} />
+                <Route path="/crm/tasks" element={<CRMTasks />} />
+              </Route>
               {/* Omnichannel — Sprint 008 */}
               <Route path="/settings/channels" element={<ChannelManagement />} />
               <Route path="/settings/webchat-widget" element={<WebchatWidgetSettings />} />
-              {/* IA — Sprint 009 */}
-              <Route path="/ia/agentes" element={<AIAgentsPage />} />
-              <Route path="/ia/base-de-conhecimento" element={<AIKnowledgeBasePage />} />
-              <Route path="/ia/ferramentas" element={<AIToolsPage />} />
-              <Route path="/ia/testes" element={<AIPlaygroundPage />} />
-              <Route path="/ia/configuracoes" element={<AISettingsPage />} />
+              {/* IA — Sprint 009 (gated: Fase 2) */}
+              <Route element={<ModuleRoute module="ia" />}>
+                <Route path="/ia/agentes" element={<AIAgentsPage />} />
+                <Route path="/ia/base-de-conhecimento" element={<AIKnowledgeBasePage />} />
+                <Route path="/ia/ferramentas" element={<AIToolsPage />} />
+                <Route path="/ia/testes" element={<AIPlaygroundPage />} />
+                <Route path="/ia/configuracoes" element={<AISettingsPage />} />
+              </Route>
             </Route>
             
             {/* Catch all - redirect to dashboard */}

@@ -9,7 +9,7 @@ import { useSidebar } from '@/components/ui/sidebar';
 /**
  * Rodapé da Sidebar — identidade do usuário autenticado (UI-001).
  *
- * Exibe: assinatura da plataforma, avatar, nome, cargo e chevron.
+ * Exibe: avatar, nome, cargo e chevron.
  * Não exibe e-mail. Initials derivadas do nome completo.
  *
  * O chevron sinaliza menu futuro (Perfil, Preferências, Ajuda, Sair).
@@ -55,14 +55,6 @@ export const SidebarFooter: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-1.5">
-      {/* Assinatura da plataforma — dois níveis, baixo contraste */}
-      {open && (
-        <div className="text-center leading-tight">
-          <p className="text-[10px] text-slate-300">Powered by</p>
-          <p className="text-[10px] font-semibold text-slate-400">Integra Solutions</p>
-        </div>
-      )}
-
       {/* Separador */}
       <div className="border-t border-slate-100" />
 

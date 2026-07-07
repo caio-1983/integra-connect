@@ -384,55 +384,66 @@ export const api = {
       team_id: m.team_id,
       function_id: m.function_id,
       weight: m.weight ?? undefined,
+      user_id: m.user_id ?? undefined,
       team: m.team as any,
       function: m.function as any
     }));
   },
 
   /**
-   * Create team member
+   * Create a real login account for a team member (Supabase Auth user +
+   * team_members row), via the admin-only `create-team-account` edge function.
+   * Returns a temporary password the admin must share out-of-band; the new
+   * user is forced to change it on first login.
    */
-  createTeamMember: async (member: {
+  createTeamAccount: async (member: {
     name: string;
     email: string;
     role: 'admin' | 'manager' | 'agent';
-    team_id?: string;
-    function_id?: string;
+    team_id?: string | null;
+    function_id?: string | null;
     weight?: number;
-  }): Promise<TeamMember> => {
-    const userId = await getCurrentUserId();
-    
-    const { data, error } = await supabase
-      .from('team_members')
-      .insert({
-        name: member.name,
+  }): Promise<string> => {
+    const { data, error } = await supabase.functions.invoke('create-team-account', {
+      body: {
         email: member.email,
-        role: member.role,
-        team_id: member.team_id,
-        function_id: member.function_id,
+        full_name: member.name,
+        member_role: member.role,
+        team_id: member.team_id || null,
+        function_id: member.function_id || null,
         weight: member.weight || 1,
-        status: 'invited',
-        user_id: null
-      })
-      .select()
-      .single();
+      },
+    });
 
     if (error) {
-      console.error('[API] Error creating team member:', error);
+      console.error('[API] Error creating team account:', error);
       throw error;
     }
+    if (data?.error) {
+      throw new Error(data.error);
+    }
 
-    return {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      role: data.role as 'admin' | 'manager' | 'agent',
-      status: data.status as 'active' | 'invited' | 'disabled',
-      avatar: data.avatar || `https://ui-avatars.com/api/?name=${data.name.replace(' ', '+')}&background=random`,
-      team_id: data.team_id,
-      function_id: data.function_id,
-      weight: data.weight ?? undefined
-    };
+    return data.temporaryPassword as string;
+  },
+
+  /**
+   * Generate a new temporary password for an existing team member's login
+   * account. Admin-only; forces the member to change it on next login.
+   */
+  resetTeamAccountPassword: async (userId: string): Promise<string> => {
+    const { data, error } = await supabase.functions.invoke('reset-team-account-password', {
+      body: { user_id: userId },
+    });
+
+    if (error) {
+      console.error('[API] Error resetting team account password:', error);
+      throw error;
+    }
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    return data.temporaryPassword as string;
   },
 
   /**

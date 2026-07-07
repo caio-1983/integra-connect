@@ -1,10 +1,7 @@
-import React, { useRef, useState } from 'react';
-import { Shield, Bot, Plug, Loader2, Save, RotateCcw, BookOpen, Lock } from 'lucide-react';
+import React from 'react';
+import { Shield, RotateCcw, Lock, Settings as SettingsIcon } from 'lucide-react';
 import { PageContainer, PageHeader } from '@/components/layout';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
-import AgentSettings, { AgentSettingsRef } from './settings/AgentSettings';
-import ApiSettings, { ApiSettingsRef } from './settings/ApiSettings';
-import SystemRoadmap from './SystemRoadmap';
+import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { Button } from './Button';
 import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
@@ -17,9 +14,6 @@ interface OutletContext {
 
 const Settings: React.FC = () => {
   const { companyName, isAdmin } = useCompanySettings();
-  const agentRef = useRef<AgentSettingsRef>(null);
-  const apiRef = useRef<ApiSettingsRef>(null);
-  const [activeTab, setActiveTab] = useState('agent');
   const { resetWizard } = useOnboardingStatus();
   const { setShowOnboarding } = useOutletContext<OutletContext>();
 
@@ -28,26 +22,6 @@ const Settings: React.FC = () => {
     setShowOnboarding(true);
   };
 
-  const handleSave = async () => {
-    if (activeTab === 'agent') {
-      await agentRef.current?.save();
-    } else if (activeTab === 'apis') {
-      await apiRef.current?.save();
-    }
-  };
-
-  const handleCancel = () => {
-    if (activeTab === 'agent') {
-      agentRef.current?.cancel();
-    } else if (activeTab === 'apis') {
-      apiRef.current?.cancel();
-    }
-  };
-
-  const isSaving = activeTab === 'agent' 
-    ? agentRef.current?.isSaving 
-    : apiRef.current?.isSaving;
-  
   return (
     <PageContainer className="max-w-5xl mx-auto">
       <PageHeader
@@ -86,73 +60,11 @@ const Settings: React.FC = () => {
         }
       />
 
-      <Tabs defaultValue="agent" className="w-full" onValueChange={setActiveTab}>
-        <div className="flex items-center justify-between mb-8">
-          <TabsList>
-            <TabsTrigger value="agent" className="gap-2">
-              <Bot className="w-4 h-4" />
-              Agente
-            </TabsTrigger>
-            <TabsTrigger value="apis" className="gap-2">
-              <Plug className="w-4 h-4" />
-              APIs
-            </TabsTrigger>
-            <TabsTrigger value="docs" className="gap-2">
-              <BookOpen className="w-4 h-4" />
-              Documentação
-            </TabsTrigger>
-          </TabsList>
-
-          {activeTab !== 'docs' && isAdmin && (
-            <div className="flex gap-3">
-              <Button
-                variant="ghost"
-                onClick={handleCancel}
-                disabled={isSaving}
-              >
-                Cancelar
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="gap-2"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    Salvar Alterações
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-          
-          {activeTab !== 'docs' && !isAdmin && (
-            <div className="flex items-center gap-2 text-sm text-amber-600">
-              <Lock className="w-4 h-4" />
-              Apenas administradores podem editar
-            </div>
-          )}
-        </div>
-
-        <TabsContent value="agent">
-          <AgentSettings ref={agentRef} />
-        </TabsContent>
-
-        <TabsContent value="apis">
-          <ApiSettings ref={apiRef} />
-        </TabsContent>
-
-        <TabsContent value="docs">
-          <SystemRoadmap />
-        </TabsContent>
-      </Tabs>
+      <EmptyState
+        icon={SettingsIcon}
+        title="Em construção"
+        description="As configurações de agente, integrações e documentação estão sendo reconstruídas para a nova arquitetura. Em breve estarão disponíveis aqui."
+      />
     </PageContainer>
   );
 };

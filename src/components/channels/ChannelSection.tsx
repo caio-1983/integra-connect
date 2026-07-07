@@ -9,7 +9,7 @@ interface ChannelSectionProps {
   channel: ChannelType;
 }
 
-/** One labeled block per non-WhatsApp channel in Gestão de Canais — mirrors
+/** One labeled block per non-WhatsApp channel in Conexões — mirrors
  *  WhatsAppSection's header pattern so every channel reads the same way. */
 export const ChannelSection: React.FC<ChannelSectionProps> = ({ channel }) => {
   const { status } = useChannelProvider(channel);

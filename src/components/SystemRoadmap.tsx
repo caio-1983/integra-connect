@@ -1670,7 +1670,8 @@ setConversations(prev => replaceTempId(prev, tempId, data.id));
                   <li>• fetchTeamMembers()</li>
                   <li>• fetchTeams()</li>
                   <li>• fetchTeamFunctions()</li>
-                  <li>• createTeamMember(data)</li>
+                  <li>• createTeamAccount(data)</li>
+                  <li>• resetTeamAccountPassword(userId)</li>
                   <li>• updateTeamMember(id, data)</li>
                   <li>• deleteTeamMember(id)</li>
                 </ul>

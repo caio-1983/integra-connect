@@ -231,7 +231,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
       setIsInitializing(true);
       
       try {
-        // System already initialized during signUp (useAuth.tsx calls initialize-system)
+        // profiles/user_roles are created by the handle_new_user DB trigger on account creation
         // Just load the settings for this user
         // Single-tenant: busca configuração global (user_id pode ser NULL)
         const { data } = await supabase

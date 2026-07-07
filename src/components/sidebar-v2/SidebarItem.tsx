@@ -15,7 +15,7 @@ interface SidebarItemProps {
 /**
  * Item de navegação atômico — tema claro, aparência premium B2B (UI-001).
  *
- * Dimensões: altura 48px | padding 16px | ícone 20px | texto 15px | gap 12px.
+ * Dimensões: altura 40px | padding 12px | ícone 18px | texto 14px | gap 10px.
  *
  * Estados (Design System — 05-design-system.md + UI-001 paleta):
  *   Default:  texto slate-700, sem fundo.
@@ -34,7 +34,7 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, badgeC
       aria-current={isActive ? 'page' : undefined}
       title={!open ? item.label : undefined}
       className={cn(
-        'group/item relative flex min-h-[48px] items-center gap-3 rounded-lg px-4 text-[15px] transition-colors duration-150',
+        'group/item relative flex min-h-[40px] items-center gap-2.5 rounded-lg px-3 text-sm transition-colors duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 focus-visible:ring-offset-1 focus-visible:ring-offset-white',
         isActive
           ? 'bg-violet-50 font-medium text-violet-700'
@@ -49,7 +49,7 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, badgeC
       <span className="relative flex-shrink-0">
         <Icon
           className={cn(
-            'h-5 w-5 transition-colors',
+            'h-[18px] w-[18px] transition-colors',
             isActive
               ? 'text-violet-600'
               : 'text-slate-400 group-hover/item:text-slate-600',

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { requireAdmin } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,26 +22,14 @@ serve(async (req) => {
       );
     }
 
+    // Dev/test-only endpoint: injects fake inbound messages, so it's admin-gated.
+    const adminCheck = await requireAdmin(req, corsHeaders);
+    if (adminCheck instanceof Response) return adminCheck;
+    const { userId } = adminCheck;
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Get user_id from auth token for multi-tenant support
-    const authHeader = req.headers.get('authorization');
-    let userId: string | null = null;
-
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      const { data: { user } } = await supabase.auth.getUser(token);
-      userId = user?.id || null;
-    }
-
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: 'Autenticação necessária' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     console.log(`[simulate-webhook] Simulating message from ${phone}: ${message} (user: ${userId})`);
 

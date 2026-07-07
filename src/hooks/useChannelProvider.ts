@@ -6,7 +6,7 @@ import { getWebchatWidgetConfig, updateWebchatWidgetConfig } from '@/services/ch
 /**
  * Thin React wrapper around a channel's provider. Owns channel
  * *configuration* (status, connect/disconnect, capabilities) for the admin
- * surfaces (Gestão de Canais, Widget Webchat). The live conversation queue
+ * surfaces (Conexões, Chat do Site). The live conversation queue
  * is a separate concern handled by useConversations.ts.
  */
 export function useChannelProvider(channel: ChannelType) {
@@ -64,7 +64,7 @@ const DEFAULT_WEBCHAT_WIDGET_CONFIG: WebchatWidgetConfig = {
   widgetVersion: 'v1.4.2',
 };
 
-/** Backs the "Widget Webchat" settings page — separate from the generic
+/** Backs the "Chat do Site" settings page — separate from the generic
  *  ChannelAccountStatus since it holds webchat-specific widget fields. */
 export function useWebchatWidgetConfig() {
   const [config, setConfig] = useState<WebchatWidgetConfig>(() =>

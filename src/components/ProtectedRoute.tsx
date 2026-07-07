@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, mustChangePassword } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -25,6 +25,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   if (!user) {
     // Save the attempted URL for redirecting after login
     return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  if (mustChangePassword && location.pathname !== '/nova-senha') {
+    return <Navigate to="/nova-senha" replace />;
   }
 
   return <>{children}</>;

@@ -41,9 +41,7 @@ export const SidebarSection: React.FC<SidebarSectionProps> = ({ section, current
           <SidebarItem
             key={item.id}
             item={item}
-            isActive={
-              currentPath === item.href || currentPath.startsWith(`${item.href}/`)
-            }
+            isActive={currentPath === item.href}
             badgeCount={badges?.[item.id]}
           />
         ))}

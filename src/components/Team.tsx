@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { UserPlus, Search, Loader2, X, Check, Edit2, Users, Settings, Trash2 } from 'lucide-react';
+import { UserPlus, Search, Loader2, X, Check, Edit2, Users, Settings, Trash2, KeyRound, ShieldPlus } from 'lucide-react';
 import { Button } from './Button';
 import { api } from '../services/api';
 import { TeamMember, type Team as TeamType, type TeamFunction } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import TeamConfigModal from './TeamConfigModal';
+import TeamAccountPasswordModal from './TeamAccountPasswordModal';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { toast } from 'sonner';
 import { PageContainer, PageHeader } from '@/components/layout';
 
@@ -13,12 +15,15 @@ const selectClass = 'w-full bg-background border border-border rounded-lg p-2.5 
 const inlineSelectClass = 'w-32 px-3 py-1.5 bg-background border border-border rounded-md text-sm text-foreground cursor-pointer hover:border-ring/50 transition-colors outline-none';
 
 const Team: React.FC = () => {
+  const { isAdmin } = useCompanySettings();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [teams, setTeams] = useState<TeamType[]>([]);
   const [functions, setFunctions] = useState<TeamFunction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
+  const [passwordModal, setPasswordModal] = useState<{ email: string; temporaryPassword: string; title: string } | null>(null);
   const [formData, setFormData] = useState({
     name: '', email: '', role: 'agent', team_id: '', function_id: '', weight: 1
   });
@@ -67,21 +72,57 @@ const Team: React.FC = () => {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsInviting(true);
     try {
-      await api.createTeamMember({
+      const temporaryPassword = await api.createTeamAccount({
         name: formData.name, email: formData.email,
         role: formData.role as 'agent' | 'admin' | 'manager',
         team_id: formData.team_id || undefined,
         function_id: formData.function_id || undefined,
         weight: formData.weight
       });
-      toast.success('Membro convidado com sucesso!');
       setShowModal(false);
       setFormData({ name: '', email: '', role: 'agent', team_id: '', function_id: '', weight: 1 });
       await loadAllData();
-    } catch (error) {
-      console.error('Erro ao convidar membro:', error);
-      toast.error('Erro ao convidar membro. Verifique se o email já não está cadastrado.');
+      setPasswordModal({
+        email: formData.email,
+        temporaryPassword,
+        title: 'Conta criada com sucesso',
+      });
+    } catch (error: any) {
+      console.error('Erro ao criar conta do membro:', error);
+      toast.error(error?.message || 'Erro ao criar conta. Verifique se o email já não está cadastrado.');
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
+  const handleCreateAccess = async (member: TeamMember) => {
+    try {
+      const temporaryPassword = await api.createTeamAccount({
+        name: member.name,
+        email: member.email,
+        role: member.role,
+        team_id: member.team_id || undefined,
+        function_id: member.function_id || undefined,
+        weight: member.weight,
+      });
+      await loadAllData();
+      setPasswordModal({ email: member.email, temporaryPassword, title: 'Acesso criado com sucesso' });
+    } catch (error: any) {
+      console.error('Erro ao criar acesso:', error);
+      toast.error(error?.message || 'Erro ao criar acesso de login para este membro.');
+    }
+  };
+
+  const handleResetPassword = async (member: TeamMember) => {
+    if (!member.user_id) return;
+    try {
+      const temporaryPassword = await api.resetTeamAccountPassword(member.user_id);
+      setPasswordModal({ email: member.email, temporaryPassword, title: 'Nova senha gerada' });
+    } catch (error: any) {
+      console.error('Erro ao gerar nova senha:', error);
+      toast.error(error?.message || 'Erro ao gerar nova senha para este membro.');
     }
   };
 
@@ -183,10 +224,12 @@ const Team: React.FC = () => {
               <Settings className="w-4 h-4 mr-2" />
               Configurar
             </Button>
-            <Button onClick={() => setShowModal(true)}>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Convidar Usuário
-            </Button>
+            {isAdmin && (
+              <Button onClick={() => setShowModal(true)}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Convidar Usuário
+              </Button>
+            )}
           </>
         }
       />
@@ -234,10 +277,12 @@ const Team: React.FC = () => {
           <div className="flex flex-col items-center justify-center p-12">
             <Users className="w-12 h-12 text-muted-foreground/30 mb-4" />
             <p className="text-muted-foreground mb-4">Nenhum membro cadastrado ainda.</p>
-            <Button onClick={() => setShowModal(true)}>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Convidar Primeiro Membro
-            </Button>
+            {isAdmin && (
+              <Button onClick={() => setShowModal(true)}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Convidar Primeiro Membro
+              </Button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -316,6 +361,25 @@ const Team: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-1">
+                        {isAdmin && (
+                          member.user_id ? (
+                            <button
+                              onClick={() => handleResetPassword(member)}
+                              className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                              title="Gerar nova senha"
+                            >
+                              <KeyRound className="w-4 h-4" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleCreateAccess(member)}
+                              className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                              title="Criar acesso de login"
+                            >
+                              <ShieldPlus className="w-4 h-4" />
+                            </button>
+                          )
+                        )}
                         <button
                           onClick={() => handleEditClick(member)}
                           className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -343,14 +407,14 @@ const Team: React.FC = () => {
       {/* Invite Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-card border border-border rounded-xl shadow-xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-border flex justify-between items-center">
+          <div className="bg-card border border-border rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
+            <div className="p-6 border-b border-border flex justify-between items-center flex-shrink-0">
               <h3 className="text-lg font-bold text-foreground">Convidar para a Equipe</h3>
               <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleInvite} className="p-6 space-y-4">
+            <form onSubmit={handleInvite} className="p-6 space-y-4 overflow-y-auto custom-scrollbar min-h-0">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Nome Completo</label>
                 <input required type="text" className={inputClass} placeholder="Ex: João da Silva"
@@ -400,8 +464,11 @@ const Team: React.FC = () => {
                   onChange={(e) => setFormData({...formData, weight: parseInt(e.target.value)})} className={inputClass} />
               </div>
               <div className="pt-4 flex gap-3">
-                <Button type="button" variant="outline" onClick={() => setShowModal(false)} className="flex-1">Cancelar</Button>
-                <Button type="submit" className="flex-1">Enviar Convite</Button>
+                <Button type="button" variant="outline" onClick={() => setShowModal(false)} className="flex-1" disabled={isInviting}>Cancelar</Button>
+                <Button type="submit" className="flex-1" disabled={isInviting}>
+                  {isInviting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Criar Conta
+                </Button>
               </div>
             </form>
           </div>
@@ -411,17 +478,27 @@ const Team: React.FC = () => {
       {/* Config Modal */}
       <TeamConfigModal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} onUpdate={loadAllData} />
 
+      {/* Temporary Password Modal */}
+      {passwordModal && (
+        <TeamAccountPasswordModal
+          title={passwordModal.title}
+          email={passwordModal.email}
+          temporaryPassword={passwordModal.temporaryPassword}
+          onClose={() => setPasswordModal(null)}
+        />
+      )}
+
       {/* Edit Member Modal */}
       {showEditModal && editingMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-card border border-border rounded-xl shadow-xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-border flex justify-between items-center">
+          <div className="bg-card border border-border rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
+            <div className="p-6 border-b border-border flex justify-between items-center flex-shrink-0">
               <h3 className="text-lg font-bold text-foreground">Editar Membro</h3>
               <button onClick={() => { setShowEditModal(false); setEditingMember(null); }} className="text-muted-foreground hover:text-foreground transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-4 overflow-y-auto custom-scrollbar min-h-0">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Nome Completo</label>
                 <input required type="text" className={inputClass} value={editFormData.name}

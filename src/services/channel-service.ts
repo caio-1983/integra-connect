@@ -36,7 +36,7 @@ function writeJSON<T>(key: string, value: T): void {
 }
 
 // ---------------------------------------------------------------------------
-// Per-channel account status (Gestão de Canais)
+// Per-channel account status (Conexões)
 // ---------------------------------------------------------------------------
 
 export function getChannelStatus(channel: ChannelType, fallback: ChannelAccountStatus): ChannelAccountStatus {
@@ -57,7 +57,7 @@ export function updateChannelStatus(
 }
 
 // ---------------------------------------------------------------------------
-// Webchat widget configuration (Entrega 4/5 — Widget Webchat page)
+// Webchat widget configuration (Entrega 4/5 — Chat do Site page)
 // ---------------------------------------------------------------------------
 
 export function getWebchatWidgetConfig(fallback: WebchatWidgetConfig): WebchatWidgetConfig {

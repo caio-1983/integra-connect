@@ -7,6 +7,7 @@ import {
   Building2,
   CalendarDays,
   UserRound,
+  UsersRound,
   Landmark,
   HandCoins,
   CheckSquare,
@@ -103,8 +104,9 @@ export const sidebarNavigation: SidebarSectionConfig[] = [
     title: 'Administração',
     items: [
       { id: 'settings', label: 'Configurações', href: '/settings', icon: SettingsIcon },
-      { id: 'channels', label: 'Gestão de Canais', href: '/settings/channels', icon: Radio },
-      { id: 'webchat-widget', label: 'Widget Webchat', href: '/settings/webchat-widget', icon: Globe },
+      { id: 'team', label: 'Usuários', href: '/team', icon: UsersRound },
+      { id: 'channels', label: 'Conexões', href: '/settings/channels', icon: Radio },
+      { id: 'webchat-widget', label: 'Chat do Site', href: '/settings/webchat-widget', icon: Globe },
     ],
   },
 ];

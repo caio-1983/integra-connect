@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
+import { requireAdmin } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,30 +45,16 @@ serve(async (req) => {
 
     console.log('📱 Testing message to:', cleanPhone);
 
+    // Dev/test-only endpoint: sends a real WhatsApp message via stored
+    // credentials, so it's admin-gated (also pays for the send).
+    const adminCheck = await requireAdmin(req, corsHeaders);
+    if (adminCheck instanceof Response) return adminCheck;
+    const { userId } = adminCheck;
+
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get user_id from auth token for multi-tenant filtering
-    let userId: string | null = null;
-    const authHeader = req.headers.get('authorization');
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      const { data: { user } } = await supabase.auth.getUser(token);
-      userId = user?.id || null;
-    }
-
-    if (!userId) {
-      console.error('❌ No authenticated user');
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Usuário não autenticado' 
-        }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Fetch WhatsApp credentials from nina_settings com fallback triplo
     console.log('🔍 Fetching WhatsApp credentials for user:', userId);

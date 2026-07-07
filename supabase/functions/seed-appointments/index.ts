@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.84.0';
+import { requireAdmin } from '../_shared/auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,33 +28,15 @@ Deno.serve(async (req) => {
   try {
     console.log('[seed-appointments] Starting seed process...');
 
+    // Dev/test-only endpoint: inserts sample appointment data, so it's admin-gated.
+    const adminCheck = await requireAdmin(req, corsHeaders);
+    if (adminCheck instanceof Response) return adminCheck;
+    const { userId } = adminCheck;
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-
-    // Get user_id from auth token for multi-tenant support
-    const authHeader = req.headers.get('authorization');
-    let userId: string | null = null;
-
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      const { data: { user } } = await supabase.auth.getUser(token);
-      userId = user?.id || null;
-    }
-
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ 
-          success: false,
-          error: 'Autenticação necessária' 
-        }),
-        { 
-          status: 401, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
 
     console.log(`[seed-appointments] Creating appointments for user: ${userId}`);
 

@@ -8,7 +8,7 @@ import { EvolutionConnectSheet } from './EvolutionConnectSheet';
 
 const cfg = CHANNEL_CONFIG.whatsapp;
 
-/** The WhatsApp block in Gestão de Canais: every real Evolution instance as
+/** The WhatsApp block in Conexões: every real Evolution instance as
  *  its own card, auto-refreshing every 10s, plus a tile to start a new
  *  connection. */
 export const WhatsAppSection: React.FC = () => {

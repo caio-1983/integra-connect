@@ -7,7 +7,7 @@ const ChannelManagement: React.FC = () => {
   return (
     <PageContainer>
       <PageHeader
-        title="Gestão de Canais"
+        title="Conexões"
         description="Administre todas as conexões de canal do Workspace em um único lugar."
       />
 
