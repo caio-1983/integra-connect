@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   RefreshCw,
   Zap,
-  ShieldAlert,
   LayoutList,
   MessageSquare,
   Users,
@@ -13,7 +12,6 @@ import {
 import { PageContainer, PageHeader, SectionBlock } from '@/components/layout';
 import { KPICard } from '@/components/ui/cards/KPICard';
 import { ImmediateActions, type ActionItem } from '@/components/operations/ImmediateActions';
-import { AlertsPanel } from '@/components/operations/AlertsPanel';
 import { OperationalSummary } from '@/components/operations/OperationalSummary';
 import { api } from '@/services/api';
 import { type StatMetric } from '@/types';
@@ -201,15 +199,6 @@ const Operations: React.FC = () => {
         description="Atividades que exigem intervenção agora"
       >
         <ImmediateActions items={actions} loading={loadingActions} />
-      </SectionBlock>
-
-      {/* Alertas */}
-      <SectionBlock
-        title="Status do Sistema"
-        icon={ShieldAlert}
-        description="Saúde dos componentes operacionais"
-      >
-        <AlertsPanel key={refreshKey} />
       </SectionBlock>
 
       {/* Resumo Operacional */}

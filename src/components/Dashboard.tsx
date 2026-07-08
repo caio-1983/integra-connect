@@ -3,15 +3,7 @@ import { Activity, DollarSign, MessageSquare, Users, Loader2, TrendingUp, Trendi
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { StatMetric } from '../types';
 import { api } from '../services/api';
-import { OnboardingBanner } from './OnboardingBanner';
-import { SystemHealthCard } from './SystemHealthCard';
-import { useOutletContext } from 'react-router-dom';
 import { PageContainer, PageHeader } from '@/components/layout';
-
-interface OutletContext {
-  showOnboarding: boolean;
-  setShowOnboarding: (show: boolean) => void;
-}
 
 type PeriodFilter = 'today' | '7days' | '30days';
 
@@ -32,7 +24,6 @@ const Dashboard: React.FC = () => {
   const [chartData, setChartData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<PeriodFilter>('today');
-  const { setShowOnboarding } = useOutletContext<OutletContext>();
 
   useEffect(() => {
     const loadData = async () => {
@@ -110,9 +101,6 @@ const Dashboard: React.FC = () => {
 
   return (
     <PageContainer>
-      <OnboardingBanner onOpenWizard={() => setShowOnboarding(true)} />
-      <SystemHealthCard />
-
       <PageHeader
         title="Resultados"
         description={`Visão geral da performance da sua IA ${period === 'today' ? 'hoje' : `nos últimos ${periodLabels[period].toLowerCase()}`}.`}
