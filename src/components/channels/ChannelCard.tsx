@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Loader2, Settings as SettingsIcon } from 'lucide-react';
+import { Construction, Loader2, Settings as SettingsIcon } from 'lucide-react';
 import type { ChannelType } from '@/types';
-import { CHANNEL_CONFIG } from '@/lib/channelConfig';
+import { CHANNEL_CONFIG, COMING_SOON_CHANNELS } from '@/lib/channelConfig';
 import { useChannelProvider } from '@/hooks/useChannelProvider';
 import { Button } from '@/components/Button';
 import { ChannelConfigSheet } from './ChannelConfigSheet';
@@ -22,6 +22,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({ channel }) => {
   const [configOpen, setConfigOpen] = useState(false);
   const cfg = CHANNEL_CONFIG[channel];
   const Icon = cfg.icon;
+  const comingSoon = COMING_SOON_CHANNELS.includes(channel);
 
   const handleConnect = async () => {
     setBusy(true);
@@ -52,12 +53,19 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({ channel }) => {
           </div>
           <h3 className="font-semibold text-foreground text-sm">{cfg.label}</h3>
         </div>
-        <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium ${
-          status.connected ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
-        }`}>
-          <span className={`h-1.5 w-1.5 rounded-full ${status.connected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-          {status.connected ? 'Conectado' : 'Aguardando'}
-        </div>
+        {comingSoon ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-muted text-muted-foreground">
+            <Construction className="h-3 w-3" />
+            Em construção
+          </div>
+        ) : (
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium ${
+            status.connected ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+          }`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${status.connected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            {status.connected ? 'Conectado' : 'Aguardando'}
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5 text-xs">
@@ -72,22 +80,30 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({ channel }) => {
       </div>
 
       <div className="flex items-center gap-2 mt-auto pt-1">
-        {status.connected ? (
-          <Button variant="outline" size="sm" onClick={handleDisconnect} disabled={busy} className="flex-1">
-            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Desconectar'}
+        {comingSoon ? (
+          <Button variant="outline" size="sm" disabled className="flex-1">
+            Em construção
           </Button>
         ) : (
-          <Button variant="primary" size="sm" onClick={handleConnect} disabled={busy} className="flex-1">
-            {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Reconectar'}
-          </Button>
+          <>
+            {status.connected ? (
+              <Button variant="outline" size="sm" onClick={handleDisconnect} disabled={busy} className="flex-1">
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Desconectar'}
+              </Button>
+            ) : (
+              <Button variant="primary" size="sm" onClick={handleConnect} disabled={busy} className="flex-1">
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Reconectar'}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => setConfigOpen(true)}>
+              <SettingsIcon className="w-3.5 h-3.5 mr-1" />
+              Configurações
+            </Button>
+          </>
         )}
-        <Button variant="ghost" size="sm" onClick={() => setConfigOpen(true)}>
-          <SettingsIcon className="w-3.5 h-3.5 mr-1" />
-          Configurações
-        </Button>
       </div>
 
-      <ChannelConfigSheet channel={channel} open={configOpen} onOpenChange={setConfigOpen} />
+      {!comingSoon && <ChannelConfigSheet channel={channel} open={configOpen} onOpenChange={setConfigOpen} />}
     </div>
   );
 };

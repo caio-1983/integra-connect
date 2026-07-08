@@ -45,3 +45,11 @@ export const CHANNEL_CONFIG: Record<ChannelType, { icon: LucideIcon; label: stri
 };
 
 export const CHANNEL_ORDER: ChannelType[] = ['whatsapp', 'instagram', 'facebook', 'telegram', 'webchat'];
+
+/**
+ * Channels wired into the provider registry for architecture purposes but
+ * with no real backend integration behind them yet (connect/disconnect is a
+ * local mock flag — see BaseChannelProvider). Surfaced as "Em construção" and
+ * non-interactive in Conexões instead of implying they can actually be used.
+ */
+export const COMING_SOON_CHANNELS: ChannelType[] = ['instagram', 'facebook', 'telegram', 'webchat'];

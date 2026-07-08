@@ -1,7 +1,7 @@
 import React from 'react';
 import type { ChannelType } from '@/types';
 import { SectionBlock } from '@/components/layout';
-import { CHANNEL_CONFIG } from '@/lib/channelConfig';
+import { CHANNEL_CONFIG, COMING_SOON_CHANNELS } from '@/lib/channelConfig';
 import { useChannelProvider } from '@/hooks/useChannelProvider';
 import { ChannelCard } from './ChannelCard';
 
@@ -14,10 +14,13 @@ interface ChannelSectionProps {
 export const ChannelSection: React.FC<ChannelSectionProps> = ({ channel }) => {
   const { status } = useChannelProvider(channel);
   const cfg = CHANNEL_CONFIG[channel];
+  const comingSoon = COMING_SOON_CHANNELS.includes(channel);
 
-  const description = status.connected
-    ? `Conectado${status.accountName ? ` — ${status.accountName}` : ''}`
-    : 'Aguardando conexão';
+  const description = comingSoon
+    ? 'Em construção'
+    : status.connected
+      ? `Conectado${status.accountName ? ` — ${status.accountName}` : ''}`
+      : 'Aguardando conexão';
 
   return (
     <SectionBlock title={cfg.label} icon={cfg.icon} description={description}>
