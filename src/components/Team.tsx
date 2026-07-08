@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { UserPlus, Search, Loader2, X, Check, Edit2, Users, Settings, Trash2, KeyRound, ShieldPlus } from 'lucide-react';
 import { Button } from './Button';
 import { api } from '../services/api';
-import { TeamMember, type Team as TeamType, type TeamFunction } from '../types';
+import { TeamMember, type Team as TeamType } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import TeamConfigModal from './TeamConfigModal';
 import TeamAccountPasswordModal from './TeamAccountPasswordModal';
@@ -12,7 +12,7 @@ import { PageContainer, PageHeader } from '@/components/layout';
 
 const inputClass = 'w-full bg-background border border-border rounded-lg p-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 focus:border-ring/50 outline-none transition-all placeholder:text-muted-foreground';
 const selectClass = 'w-full bg-background border border-border rounded-lg p-2.5 text-sm text-foreground outline-none transition-all';
-const inlineSelectClass = 'w-32 px-3 py-1.5 bg-background border border-border rounded-md text-sm text-foreground cursor-pointer hover:border-ring/50 transition-colors outline-none';
+const inlineSelectClass = 'w-full max-w-[7.5rem] px-2 py-1.5 bg-background border border-border rounded-md text-sm text-foreground cursor-pointer hover:border-ring/50 transition-colors outline-none';
 
 const Team: React.FC = () => {
   const { isAdmin, canManageUsers } = useCompanySettings();
@@ -20,14 +20,13 @@ const Team: React.FC = () => {
   const canEditRow = (targetRole: string) => isAdmin || (canManageUsers && targetRole !== 'admin');
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [teams, setTeams] = useState<TeamType[]>([]);
-  const [functions, setFunctions] = useState<TeamFunction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
   const [passwordModal, setPasswordModal] = useState<{ email: string; temporaryPassword: string; title: string } | null>(null);
   const [formData, setFormData] = useState({
-    name: '', email: '', role: 'agent', team_id: '', function_id: '', weight: 1
+    name: '', email: '', role: 'agent', team_id: ''
   });
   const [searchTerm, setSearchTerm] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
@@ -35,7 +34,7 @@ const Team: React.FC = () => {
   const [editFormData, setEditFormData] = useState({
     name: '', email: '', role: 'agent',
     status: 'invited' as 'active' | 'invited' | 'disabled',
-    team_id: '', function_id: '', weight: 1
+    team_id: ''
   });
 
   useEffect(() => {
@@ -47,14 +46,12 @@ const Team: React.FC = () => {
   const loadAllData = async () => {
     setLoading(true);
     try {
-      const [membersData, teamsData, functionsData] = await Promise.all([
+      const [membersData, teamsData] = await Promise.all([
         api.fetchTeam(),
         api.fetchTeams(),
-        api.fetchTeamFunctions()
       ]);
       setMembers(membersData);
       setTeams(teamsData as TeamType[]);
-      setFunctions(functionsData as TeamFunction[]);
     } catch (error) {
       console.error('Erro ao carregar dados da equipe', error);
     } finally {
@@ -80,11 +77,9 @@ const Team: React.FC = () => {
         name: formData.name, email: formData.email,
         role: formData.role as 'agent' | 'admin' | 'manager',
         team_id: formData.team_id || undefined,
-        function_id: formData.function_id || undefined,
-        weight: formData.weight
       });
       setShowModal(false);
-      setFormData({ name: '', email: '', role: 'agent', team_id: '', function_id: '', weight: 1 });
+      setFormData({ name: '', email: '', role: 'agent', team_id: '' });
       await loadAllData();
       setPasswordModal({
         email: formData.email,
@@ -106,8 +101,6 @@ const Team: React.FC = () => {
         email: member.email,
         role: member.role,
         team_id: member.team_id || undefined,
-        function_id: member.function_id || undefined,
-        weight: member.weight,
       });
       await loadAllData();
       setPasswordModal({ email: member.email, temporaryPassword, title: 'Acesso criado com sucesso' });
@@ -155,7 +148,6 @@ const Team: React.FC = () => {
     setEditFormData({
       name: member.name, email: member.email, role: member.role,
       status: member.status, team_id: member.team_id || '',
-      function_id: member.function_id || '', weight: member.weight || 1
     });
     setShowEditModal(true);
   };
@@ -169,8 +161,6 @@ const Team: React.FC = () => {
         role: editFormData.role as 'admin' | 'manager' | 'agent',
         status: editFormData.status,
         team_id: editFormData.team_id || null,
-        function_id: editFormData.function_id || null,
-        weight: editFormData.weight
       });
       toast.success('Membro atualizado com sucesso!');
       setShowEditModal(false);
@@ -197,12 +187,10 @@ const Team: React.FC = () => {
     if (!searchTerm.trim()) return true;
     const term = searchTerm.toLowerCase();
     const teamName = teams.find(t => t.id === m.team_id)?.name || '';
-    const funcName = functions.find(f => f.id === m.function_id)?.name || '';
     return (
       m.name.toLowerCase().includes(term) ||
       m.email.toLowerCase().includes(term) ||
-      teamName.toLowerCase().includes(term) ||
-      funcName.toLowerCase().includes(term)
+      teamName.toLowerCase().includes(term)
     );
   });
 
@@ -256,7 +244,7 @@ const Team: React.FC = () => {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           type="text"
-          placeholder="Buscar por nome, email, time ou função..."
+          placeholder="Buscar por nome, email ou time..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full sm:w-96 pl-10 pr-4 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground transition-all"
@@ -291,20 +279,18 @@ const Team: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-border bg-muted">
-                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Usuário</th>
-                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Role</th>
-                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Time</th>
-                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Função</th>
-                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Peso</th>
-                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">Status</th>
-                  <th className="px-6 py-4 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">Ações</th>
+                  <th className="px-3 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Usuário</th>
+                  <th className="px-3 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Email</th>
+                  <th className="px-3 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Role</th>
+                  <th className="px-3 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">Time</th>
+                  <th className="px-3 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">Status</th>
+                  <th className="px-3 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
                 {filteredMembers.map((member) => (
                   <tr key={member.id} className="hover:bg-muted/40 transition-colors group">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         <div className="flex-shrink-0 w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground border border-border uppercase">
                           {member.name.substring(0, 2)}
@@ -312,10 +298,10 @@ const Team: React.FC = () => {
                         <span className="text-sm font-medium text-foreground">{member.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-muted-foreground">{member.email}</span>
+                    <td className="px-3 py-3 max-w-[180px]">
+                      <span className="block text-sm text-muted-foreground truncate" title={member.email}>{member.email}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       {canEditRow(member.role) ? (
                         <select
                           value={member.role}
@@ -330,7 +316,7 @@ const Team: React.FC = () => {
                         <span className="text-sm text-foreground">{roleLabel(member.role)}</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       {canEditRow(member.role) ? (
                         <select
                           value={member.team_id || ''}
@@ -346,45 +332,17 @@ const Team: React.FC = () => {
                         <span className="text-sm text-muted-foreground">{teams.find(t => t.id === member.team_id)?.name || 'Sem time'}</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {canEditRow(member.role) ? (
-                        <select
-                          value={member.function_id || ''}
-                          onChange={(e) => handleUpdateMember(member.id, 'function_id', e.target.value || null)}
-                          className={inlineSelectClass}
-                        >
-                          <option value="">Sem função</option>
-                          {functions.map(func => (
-                            <option key={func.id} value={func.id}>{func.name}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">{functions.find(f => f.id === member.function_id)?.name || 'Sem função'}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {canEditRow(member.role) ? (
-                        <input
-                          type="number" min="1" max="10"
-                          value={member.weight || 1}
-                          onChange={(e) => handleUpdateMember(member.id, 'weight', parseInt(e.target.value))}
-                          className="w-16 px-2 py-1 bg-background border border-border rounded-md text-sm text-foreground text-center outline-none"
-                        />
-                      ) : (
-                        <span className="text-sm text-muted-foreground">{member.weight || 1}</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <td className="px-3 py-3 whitespace-nowrap text-center">
                       {getStatusBadge(member.status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <td className="px-3 py-3 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center gap-1">
                         {canEditRow(member.role) && (
                           <>
                             {member.user_id ? (
                               <button
                                 onClick={() => handleResetPassword(member)}
-                                className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                 title="Gerar nova senha"
                               >
                                 <KeyRound className="w-4 h-4" />
@@ -392,7 +350,7 @@ const Team: React.FC = () => {
                             ) : (
                               <button
                                 onClick={() => handleCreateAccess(member)}
-                                className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                                className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                 title="Criar acesso de login"
                               >
                                 <ShieldPlus className="w-4 h-4" />
@@ -400,14 +358,14 @@ const Team: React.FC = () => {
                             )}
                             <button
                               onClick={() => handleEditClick(member)}
-                              className="p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                               title="Editar membro"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteMember(member.id, member.name)}
-                              className="p-2 rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-700 transition-colors"
+                              className="p-1.5 rounded-lg text-muted-foreground hover:bg-red-50 hover:text-red-700 transition-colors"
                               title="Excluir membro"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -470,18 +428,6 @@ const Team: React.FC = () => {
                   <option value="">Sem time</option>
                   {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
                 </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Função (opcional)</label>
-                <select value={formData.function_id} onChange={(e) => setFormData({...formData, function_id: e.target.value})} className={selectClass}>
-                  <option value="">Sem função</option>
-                  {functions.map(func => <option key={func.id} value={func.id}>{func.name}</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Peso (para distribuição)</label>
-                <input type="number" min="1" max="10" value={formData.weight}
-                  onChange={(e) => setFormData({...formData, weight: parseInt(e.target.value)})} className={inputClass} />
               </div>
               <div className="pt-4 flex gap-3">
                 <Button type="button" variant="outline" onClick={() => setShowModal(false)} className="flex-1" disabled={isInviting}>Cancelar</Button>
@@ -564,18 +510,6 @@ const Team: React.FC = () => {
                   <option value="">Sem time</option>
                   {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
                 </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Função</label>
-                <select value={editFormData.function_id} onChange={(e) => setEditFormData({...editFormData, function_id: e.target.value})} className={selectClass}>
-                  <option value="">Sem função</option>
-                  {functions.map(func => <option key={func.id} value={func.id}>{func.name}</option>)}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Peso</label>
-                <input type="number" min="1" max="10" value={editFormData.weight}
-                  onChange={(e) => setEditFormData({...editFormData, weight: parseInt(e.target.value)})} className={inputClass} />
               </div>
               <div className="pt-4 flex gap-3">
                 <Button type="button" variant="outline" onClick={() => { setShowEditModal(false); setEditingMember(null); }} className="flex-1">Cancelar</Button>

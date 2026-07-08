@@ -383,11 +383,8 @@ export const api = {
       avatar: m.avatar || `https://ui-avatars.com/api/?name=${m.name.replace(' ', '+')}&background=random`,
       lastActive: m.last_active || undefined,
       team_id: m.team_id,
-      function_id: m.function_id,
-      weight: m.weight ?? undefined,
       user_id: m.user_id ?? undefined,
       team: m.team as any,
-      function: m.function as any
     }));
   },
 
@@ -402,8 +399,6 @@ export const api = {
     email: string;
     role: 'admin' | 'manager' | 'agent';
     team_id?: string | null;
-    function_id?: string | null;
-    weight?: number;
   }): Promise<string> => {
     const { data, error } = await supabase.functions.invoke('create-team-account', {
       body: {
@@ -411,8 +406,6 @@ export const api = {
         full_name: member.name,
         member_role: member.role,
         team_id: member.team_id || null,
-        function_id: member.function_id || null,
-        weight: member.weight || 1,
       },
     });
 
@@ -456,8 +449,6 @@ export const api = {
     role: 'admin' | 'manager' | 'agent';
     status: 'active' | 'invited' | 'disabled';
     team_id: string | null;
-    function_id: string | null;
-    weight: number;
   }>): Promise<void> => {
     const { error } = await supabase
       .from('team_members')
@@ -554,78 +545,6 @@ export const api = {
 
     if (error) {
       console.error('[API] Error deleting team:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Fetch team functions
-   */
-  fetchTeamFunctions: async () => {
-    const { data, error } = await supabase
-      .from('team_functions')
-      .select('*')
-      .eq('is_active', true)
-      .order('name', { ascending: true });
-
-    if (error) {
-      console.error('[API] Error fetching team functions:', error);
-      throw error;
-    }
-
-    return data || [];
-  },
-
-  /**
-   * Create team function
-   */
-  createTeamFunction: async (func: { name: string; description?: string }) => {
-    const userId = await getCurrentUserId();
-    
-    const { data, error } = await supabase
-      .from('team_functions')
-      .insert({
-        name: func.name,
-        description: func.description,
-        user_id: null
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[API] Error creating team function:', error);
-      throw error;
-    }
-
-    return data;
-  },
-
-  /**
-   * Update team function
-   */
-  updateTeamFunction: async (id: string, updates: Partial<{ name: string; description: string }>) => {
-    const { error } = await supabase
-      .from('team_functions')
-      .update(updates)
-      .eq('id', id);
-
-    if (error) {
-      console.error('[API] Error updating team function:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Delete team function
-   */
-  deleteTeamFunction: async (id: string) => {
-    const { error } = await supabase
-      .from('team_functions')
-      .update({ is_active: false })
-      .eq('id', id);
-
-    if (error) {
-      console.error('[API] Error deleting team function:', error);
       throw error;
     }
   },

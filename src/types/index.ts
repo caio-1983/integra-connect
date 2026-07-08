@@ -33,11 +33,8 @@ export interface TeamMember {
   avatar: string;
   lastActive?: string;
   team_id?: string | null;
-  function_id?: string | null;
-  weight?: number;
   user_id?: string | null;
   team?: Team;
-  function?: TeamFunction;
 }
 
 export interface Team {
@@ -45,15 +42,6 @@ export interface Team {
   name: string;
   description: string | null;
   color: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TeamFunction {
-  id: string;
-  name: string;
-  description: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;

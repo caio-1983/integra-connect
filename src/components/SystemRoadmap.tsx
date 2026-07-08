@@ -1669,7 +1669,6 @@ setConversations(prev => replaceTempId(prev, tempId, data.id));
                 <ul className="text-xs text-muted-foreground space-y-1 font-mono">
                   <li>• fetchTeamMembers()</li>
                   <li>• fetchTeams()</li>
-                  <li>• fetchTeamFunctions()</li>
                   <li>• createTeamAccount(data)</li>
                   <li>• resetTeamAccountPassword(userId)</li>
                   <li>• updateTeamMember(id, data)</li>
