@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useReducedMotion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/Button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { AuthShell } from '@/components/auth/AuthShell';
+import { AnimatedInput } from '@/components/auth/AnimatedInput';
+import { AnimatedButton } from '@/components/auth/AnimatedButton';
+import { LedDivider } from '@/components/auth/LedDivider';
+import { Reveal } from '@/components/auth/Reveal';
+import { SEQ } from '@/components/auth/authMotion';
 import { toast } from 'sonner';
 import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { z } from 'zod';
@@ -22,6 +25,7 @@ const Auth: React.FC = () => {
 
   const { signIn, user, loading } = useAuth();
   const navigate = useNavigate();
+  const shouldReduceMotion = useReducedMotion() ?? false;
 
   // Redirect if already logged in
   useEffect(() => {
@@ -75,77 +79,77 @@ const Auth: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0E0C09] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-[#070707] flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[#C9A45C]/70" />
       </div>
     );
   }
 
   return (
     <AuthShell
-      logo={<img src="/logo-lumina-sidebar.png" alt="Integra Connect" className="h-20 w-auto object-contain" />}
+      logo={
+        <img
+          src="/logo-lumina-sidebar.png"
+          alt="Lumina Lighting Design"
+          className="h-20 w-auto object-contain sm:h-[5.5rem]"
+          // The mark is black + petrol on transparent — retint it to warm
+          // gold (#E8D8B0) so it reads as backlit signage, never pure white.
+          style={{
+            filter:
+              'brightness(0) invert(0.9) sepia(0.55) saturate(1.25) brightness(1.02) drop-shadow(0 0 22px rgba(240,214,160,0.28))',
+            opacity: 0.96,
+          }}
+        />
+      }
       title="Bem-vindo(a) de volta"
-      subtitle="Acesse o painel operacional da Lumina."
-      footerNote="Ao continuar, você concorda com nossos Termos de Uso e Política de Privacidade."
+      subtitle="Gerencie projetos, clientes e operações em um único lugar."
+      footerNote={
+        <>
+          Não possui acesso? Solicite suas credenciais ao{' '}
+          <span className="font-medium text-[#E8D8B0]">administrador</span>.
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="email" className="text-foreground">Email</Label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="email"
-              type="email"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          {errors.email && (
-            <p className="text-sm text-destructive">{errors.email}</p>
-          )}
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Reveal delay={SEQ.fields}>
+          <AnimatedInput
+            id="email"
+            label="E-mail"
+            type="email"
+            icon={Mail}
+            placeholder="seu@email.com"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            error={errors.email}
+          />
+        </Reveal>
 
-        <div className="space-y-2">
-          <Label htmlFor="password" className="text-foreground">Senha</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          {errors.password && (
-            <p className="text-sm text-destructive">{errors.password}</p>
-          )}
-        </div>
+        <Reveal delay={SEQ.fields + 0.12}>
+          <AnimatedInput
+            id="password"
+            label="Senha"
+            type="password"
+            icon={Lock}
+            placeholder="••••••••"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={errors.password}
+          />
+        </Reveal>
 
-        <Button
-          type="submit"
-          variant="primary"
-          size="lg"
-          className="w-full transition-shadow duration-300 hover:shadow-[0_0_28px_-4px_rgba(20,184,166,0.55)]"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          ) : (
-            <ArrowRight className="h-4 w-4 mr-2" />
-          )}
-          Entrar
-        </Button>
+        <Reveal delay={SEQ.button} className="pt-1.5">
+          <AnimatedButton type="submit" isLoading={isSubmitting} loadingLabel="Entrando…">
+            Entrar
+            <ArrowRight className="h-4 w-4" />
+          </AnimatedButton>
+        </Reveal>
       </form>
 
-      <div className="mt-6 pt-6 border-t border-border text-center">
-        <p className="text-muted-foreground text-sm">
-          Não tem uma conta? Peça a um administrador para te cadastrar em Equipe.
-        </p>
-      </div>
+      <Reveal delay={SEQ.divider} className="mt-9">
+        <LedDivider reduce={shouldReduceMotion} />
+      </Reveal>
     </AuthShell>
   );
 };

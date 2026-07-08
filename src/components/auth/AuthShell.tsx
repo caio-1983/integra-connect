@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import '@fontsource-variable/fraunces';
-import { LumeLamp } from './LumeLamp';
+import { BackgroundLighting } from './BackgroundLighting';
+import { LightBeam } from './LightBeam';
+import { FloatingParticles } from './FloatingParticles';
+import { MouseLight } from './MouseLight';
+import { AnimatedLogo } from './AnimatedLogo';
+import { reveal, SEQ } from './authMotion';
 
 interface AuthShellProps {
   logo: ReactNode;
@@ -12,72 +17,76 @@ interface AuthShellProps {
 }
 
 /**
- * Shared "Spotlight Card" shell for the auth flow (login + forced password
- * change): a warm, near-black canvas lit by an original desk-lamp
- * illustration (see LumeLamp) whose glow reveals a light card floating above
- * it — the only surface the real (light-background) Lumina logo can sit on.
+ * Shared shell for the auth flow (login + forced password change),
+ * staged as the entrance of a lighting showroom: a near-black envelope
+ * with blurred architecture, a ceiling spot switching on, the brand
+ * emerging backlit under 2700K light, and the form drawn directly on
+ * the wall — no card. Pages stagger their own fields with <Reveal>;
+ * all timing lives in authMotion.ts and the whole sequence collapses
+ * to an instant render under reduced motion.
  */
 export function AuthShell({ logo, title, subtitle, children, footerNote }: AuthShellProps) {
-  const shouldReduceMotion = useReducedMotion();
-
-  const fadeUp = (delay: number, duration = 0.5) => ({
-    initial: shouldReduceMotion ? false : { opacity: 0, y: 12 },
-    animate: { opacity: 1, y: 0 },
-    transition: {
-      duration: shouldReduceMotion ? 0 : duration,
-      delay: shouldReduceMotion ? 0 : delay,
-      ease: [0.16, 1, 0.3, 1] as const,
-    },
-  });
+  const reduce = useReducedMotion() ?? false;
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#0E0C09] p-4">
-      {/* Decorative layers — canvas depth, spotlight glow, vignette, lamp */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_0%,#1A140D_0%,#0E0C09_60%)]" />
-        {/* Static wrapper handles centering; framer-motion's inline transform on the
-            child would otherwise clobber a translate-x utility placed on the same element. */}
-        <div className="absolute left-1/2 top-[2%] h-[55vh] w-[130vw] max-w-[860px] -translate-x-1/2">
-          <motion.div
-            className="h-full w-full rounded-full bg-[radial-gradient(circle,#FCE8BE_0%,#E8A33C_24%,transparent_68%)] blur-[90px]"
-            initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 0.55, scale: 1 }}
-            transition={{
-              duration: shouldReduceMotion ? 0 : 0.7,
-              delay: shouldReduceMotion ? 0 : 0.55,
-              ease: [0.16, 1, 0.3, 1],
-            }}
-          />
-        </div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_120%_80%_at_50%_20%,transparent_40%,#050403_100%)]" />
-        <LumeLamp />
-      </div>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#070707] px-4 py-14">
+      <BackgroundLighting reduce={reduce} />
+      <LightBeam reduce={reduce} />
+      <FloatingParticles reduce={reduce} />
+      <MouseLight reduce={reduce} />
 
-      <div className="relative z-10 w-full max-w-md">
-        <div className="mb-8 text-center">
-          <motion.div {...fadeUp(0.55)} className="mb-4 flex justify-center">
-            {logo}
-          </motion.div>
+      <div className="relative z-10 w-full max-w-[30rem]">
+        <header className="mb-12 text-center">
+          <AnimatedLogo reduce={reduce}>{logo}</AnimatedLogo>
+
           <motion.h1
-            {...fadeUp(0.62)}
-            className="font-[Fraunces_Variable,Georgia,serif] text-3xl font-semibold text-[#F5EFE6]"
+            {...reveal(reduce, SEQ.title)}
+            // Inline style: Tailwind's arbitrary font-[...] class fails to emit
+            // this family (comma-separated arbitrary value), so the serif was
+            // silently falling back to the sans stack.
+            style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}
+            className="mt-7 text-[2.1rem] font-semibold leading-tight text-[#F2EEE3] [text-wrap:balance] sm:text-[2.35rem]"
           >
             {title}
           </motion.h1>
-          <motion.p {...fadeUp(0.68)} className="mt-2 text-[#C9BFB0]">
+
+          <motion.p
+            {...reveal(reduce, SEQ.subtitle)}
+            className="mx-auto mt-4 text-[15px] leading-relaxed text-[#BFB9AC]"
+          >
             {subtitle}
           </motion.p>
-        </div>
+        </header>
 
-        <motion.div
-          {...fadeUp(0.72, 0.6)}
-          className="rounded-2xl border border-border bg-card p-8 shadow-[0_24px_70px_-20px_rgba(0,0,0,0.65),inset_0_1px_0_0_rgba(232,163,60,0.18)]"
-        >
-          {children}
+        {/* Plano invisível: o formulário nasce da luz — um glow radial quase
+            imperceptível e uma lâmina de vidro que o cérebro percebe como um
+            plano separado do ambiente, sem nunca virar um card. Entra na
+            sequência e depois flutua ±3px num loop de 18s. */}
+        <motion.div {...reveal(reduce, SEQ.plane)} className="relative">
+          <motion.div
+            className="relative will-change-transform"
+            animate={reduce ? undefined : { y: [0, -3, 0] }}
+            transition={reduce ? { duration: 0 } : { duration: 18, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <div
+              aria-hidden
+              className="absolute -inset-x-10 -inset-y-8"
+              style={{
+                background:
+                  'radial-gradient(circle, rgba(255,220,160,0.05) 0%, rgba(255,220,160,0) 70%)',
+              }}
+            />
+            <div className="relative rounded-3xl border border-white/[0.04] bg-white/[0.015] p-7 backdrop-blur-[12px] sm:p-8">
+              {children}
+            </div>
+          </motion.div>
         </motion.div>
 
         {footerNote && (
-          <motion.p {...fadeUp(0.85)} className="mt-6 text-center text-xs text-[#A89A85]">
+          <motion.p
+            {...reveal(reduce, SEQ.footer, { y: 8 })}
+            className="mx-auto mt-9 text-center text-[13px] leading-relaxed text-[#9A948A]"
+          >
             {footerNote}
           </motion.p>
         )}

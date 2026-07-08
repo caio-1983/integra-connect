@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/Button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { AuthShell } from '@/components/auth/AuthShell';
+import { AnimatedInput } from '@/components/auth/AnimatedInput';
+import { AnimatedButton } from '@/components/auth/AnimatedButton';
+import { Reveal } from '@/components/auth/Reveal';
+import { SEQ } from '@/components/auth/authMotion';
 import { toast } from 'sonner';
 import { Lock, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
 import { z } from 'zod';
@@ -22,8 +23,8 @@ const SetNewPassword: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0E0C09] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-[#070707] flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-[#C9A45C]/70" />
       </div>
     );
   }
@@ -86,64 +87,48 @@ const SetNewPassword: React.FC = () => {
   return (
     <AuthShell
       logo={
-        <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent shadow-[0_0_40px_-8px_rgba(34,211,238,0.45)]">
-          <ShieldCheck className="h-8 w-8 text-primary-foreground" />
+        <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] shadow-[0_0_44px_-10px_rgba(242,234,219,0.28)] backdrop-blur">
+          <ShieldCheck className="h-7 w-7 text-[#C9A45C]" />
         </div>
       }
       title="Defina sua nova senha"
       subtitle="Sua conta foi criada com uma senha temporária. Escolha uma nova senha para continuar."
     >
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="password" className="text-foreground">Nova senha</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          {errors.password && (
-            <p className="text-sm text-destructive">{errors.password}</p>
-          )}
-        </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Reveal delay={SEQ.fields}>
+          <AnimatedInput
+            id="password"
+            label="Nova senha"
+            type="password"
+            icon={Lock}
+            placeholder="••••••••"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={errors.password}
+          />
+        </Reveal>
 
-        <div className="space-y-2">
-          <Label htmlFor="confirmPassword" className="text-foreground">Confirmar nova senha</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="confirmPassword"
-              type="password"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          {errors.confirmPassword && (
-            <p className="text-sm text-destructive">{errors.confirmPassword}</p>
-          )}
-        </div>
+        <Reveal delay={SEQ.fields + 0.12}>
+          <AnimatedInput
+            id="confirmPassword"
+            label="Confirmar nova senha"
+            type="password"
+            icon={Lock}
+            placeholder="••••••••"
+            autoComplete="new-password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            error={errors.confirmPassword}
+          />
+        </Reveal>
 
-        <Button
-          type="submit"
-          variant="primary"
-          size="lg"
-          className="w-full transition-shadow duration-300 hover:shadow-[0_0_28px_-4px_rgba(20,184,166,0.55)]"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? (
-            <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          ) : (
-            <ArrowRight className="h-4 w-4 mr-2" />
-          )}
-          Salvar nova senha
-        </Button>
+        <Reveal delay={SEQ.button} className="pt-1.5">
+          <AnimatedButton type="submit" isLoading={isSubmitting} loadingLabel="Salvando…">
+            Salvar nova senha
+            <ArrowRight className="h-4 w-4" />
+          </AnimatedButton>
+        </Reveal>
       </form>
     </AuthShell>
   );

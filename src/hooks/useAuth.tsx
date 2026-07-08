@@ -69,7 +69,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // supabase.auth.signOut() resolve sem lançar: erros (rede, 5xx, refresh
+    // inválido) voltam em `error` e, nesses casos, o auth-js 2.84 NÃO remove a
+    // sessão local (só ignora 401/403/404) — o usuário veria "logout com
+    // sucesso" e continuaria logado, qualquer que fosse o scope.
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      // Último recurso: apaga a sessão persistida e recarrega o app limpo.
+      // `storageKey` é propriedade protegida do client, mas existe em runtime.
+      const storageKey =
+        (supabase.auth as unknown as { storageKey?: string }).storageKey ??
+        `sb-${new URL(import.meta.env.VITE_SUPABASE_URL).hostname.split('.')[0]}-auth-token`;
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(`${storageKey}-code-verifier`);
+      window.location.replace('/auth');
+    }
   };
 
   const refreshMustChangePassword = useCallback(async () => {
