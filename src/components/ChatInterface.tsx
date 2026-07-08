@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Loader2, MessageSquare } from 'lucide-react';
 import { ConversationStatus, TagDefinition } from '../types';
 import { useConversations } from '../hooks/useConversations';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
+import { useInstanceAccessGrants } from '@/hooks/useInstanceAccessGrants';
 import { useAgentRuntime } from '@/ai/hooks/useAgentRuntime';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
@@ -19,6 +20,7 @@ const ChatInterface: React.FC = () => {
   const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, assignConversation, appendLocalMessage, refetch } = useConversations();
   const { sdrName, companyName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
+  const { grantsByInstance } = useInstanceAccessGrants();
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [newConversationOpen, setNewConversationOpen] = useState(false);
@@ -31,6 +33,16 @@ const ChatInterface: React.FC = () => {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
 
   const activeChat = conversations.find(c => c.id === selectedChatId);
+
+  // Only offer transfer/assign targets who can actually see this conversation:
+  // admin/manager always, plus agents granted access to its WhatsApp instance.
+  // Conversations with no tracked instance (legacy rows) stay unrestricted.
+  const eligibleTeamMembers = useMemo(() => {
+    const instance = activeChat?.instance;
+    if (!instance) return teamMembers;
+    const granted = grantsByInstance.get(instance);
+    return teamMembers.filter((m) => m.role === 'admin' || m.role === 'manager' || (m.user_id && granted?.has(m.user_id)));
+  }, [teamMembers, activeChat?.instance, grantsByInstance]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const didInitRef = useRef(false);
 
@@ -183,6 +195,15 @@ const ChatInterface: React.FC = () => {
             onStatusChange={handleStatusChange}
             onToggleCustomerPanel={() => setShowCustomerWorkspace(v => !v)}
             onSimulateCustomerMessage={handleSimulateCustomerMessage}
+            teamMembers={eligibleTeamMembers}
+            onTransfer={async (userId) => {
+              try {
+                await assignConversation(activeChat.id, userId);
+                toast.success('Conversa transferida.');
+              } catch {
+                toast.error('Erro ao transferir conversa.');
+              }
+            }}
           />
 
           <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar relative z-0">
@@ -236,7 +257,7 @@ const ChatInterface: React.FC = () => {
         <CustomerWorkspace
           conversation={activeChat}
           sdrName={sdrName}
-          teamMembers={teamMembers}
+          teamMembers={eligibleTeamMembers}
           availableTags={availableTags}
           isTagSelectorOpen={isTagSelectorOpen}
           setIsTagSelectorOpen={setIsTagSelectorOpen}
@@ -247,9 +268,13 @@ const ChatInterface: React.FC = () => {
           onCreateTag={handleCreateTag}
           onNotesBlur={handleNotesBlur}
           onInsertToComposer={(text) => setInputText(text)}
-          onAssignUser={(userId) => {
-            assignConversation(activeChat.id, userId);
-            toast.success('Conversa atribuída.');
+          onAssignUser={async (userId) => {
+            try {
+              await assignConversation(activeChat.id, userId);
+              toast.success('Conversa atribuída.');
+            } catch {
+              toast.error('Erro ao atribuir conversa.');
+            }
           }}
         />
       )}

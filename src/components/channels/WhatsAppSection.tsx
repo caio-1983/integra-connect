@@ -3,16 +3,19 @@ import { Plus, Loader2 } from 'lucide-react';
 import { SectionBlock } from '@/components/layout';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { useWhatsappInstances } from '@/hooks/useWhatsappInstances';
+import { useInstanceAccessGrants } from '@/hooks/useInstanceAccessGrants';
 import { WhatsAppInstanceCard } from './WhatsAppInstanceCard';
 import { EvolutionConnectSheet } from './EvolutionConnectSheet';
 
 const cfg = CHANNEL_CONFIG.whatsapp;
+const EMPTY_GRANTS = new Set<string>();
 
 /** The WhatsApp block in Conexões: every real Evolution instance as
  *  its own card, auto-refreshing every 10s, plus a tile to start a new
  *  connection. */
 export const WhatsAppSection: React.FC = () => {
   const { instances, loading, lastFetchedAt, refresh } = useWhatsappInstances();
+  const { grantsByInstance, refresh: refreshGrants } = useInstanceAccessGrants();
   const [newSheetOpen, setNewSheetOpen] = useState(false);
   const connectedCount = instances.filter((instance) => instance.connected).length;
 
@@ -31,7 +34,14 @@ export const WhatsAppSection: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {instances.map((instance) => (
-            <WhatsAppInstanceCard key={instance.name} instance={instance} lastFetchedAt={lastFetchedAt} onChanged={refresh} />
+            <WhatsAppInstanceCard
+              key={instance.name}
+              instance={instance}
+              lastFetchedAt={lastFetchedAt}
+              onChanged={refresh}
+              grantedUserIds={grantsByInstance.get(instance.name) ?? EMPTY_GRANTS}
+              onGrantsChanged={refreshGrants}
+            />
           ))}
 
           <button

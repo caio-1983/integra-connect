@@ -1054,6 +1054,30 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_instance_access: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          instance_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          instance_name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          instance_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       contacts_with_stats: {

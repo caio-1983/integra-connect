@@ -584,6 +584,7 @@ export function useConversations() {
           return c;
         });
       });
+      throw err;
     }
   }, [conversations]);
 

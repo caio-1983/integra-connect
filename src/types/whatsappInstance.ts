@@ -11,6 +11,18 @@ export interface WhatsappInstanceSummary {
   profilePicture?: string;
 }
 
+/** A grant of one user's access to one WhatsApp instance (many-to-many —
+ *  multiple users can share the same instance_name). Keyed by instance_name
+ *  since there's no `whatsapp_instances` table (see whatsapp_instance_access
+ *  migration comment for the trade-off). */
+export interface InstanceAccessGrant {
+  id: string;
+  instance_name: string;
+  user_id: string;
+  granted_by: string | null;
+  created_at: string;
+}
+
 // Extension point for future per-instance routing config (Inbox, Agente IA
 // padrão, Equipe responsável, Horário de atendimento, Tags, Regras de
 // distribuição). Not populated or rendered this sprint — just the typed

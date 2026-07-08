@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Loader2, QrCode, RefreshCw, Unlink, Trash2, MessageCircle, Download } from 'lucide-react';
+import { Loader2, QrCode, RefreshCw, Unlink, Trash2, MessageCircle, Download, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/Button';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -8,12 +8,16 @@ import {
 import type { WhatsappInstanceSummary } from '@/types';
 import { disconnectWhatsappInstance, removeWhatsappInstance, importWhatsappContacts } from '@/services/whatsappConnectionService';
 import { EvolutionConnectSheet } from './EvolutionConnectSheet';
+import { InstanceAccessSheet } from './InstanceAccessSheet';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { toast } from 'sonner';
 
 interface WhatsAppInstanceCardProps {
   instance: WhatsappInstanceSummary;
   lastFetchedAt?: Date;
   onChanged: () => void;
+  grantedUserIds: Set<string>;
+  onGrantsChanged: () => void;
 }
 
 const STATUS_LABEL: Record<WhatsappInstanceSummary['status'], string> = {
@@ -57,10 +61,14 @@ function initials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({ instance, lastFetchedAt, onChanged }) => {
+export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({
+  instance, lastFetchedAt, onChanged, grantedUserIds, onGrantsChanged,
+}) => {
+  const { canManageUsers } = useCompanySettings();
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [accessSheetOpen, setAccessSheetOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const label = instance.profileName || instance.name;
 
@@ -163,6 +171,14 @@ export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({ inst
             <QrCode className="w-3.5 h-3.5 mr-1.5" /> Conectar
           </Button>
         )}
+        {canManageUsers && (
+          <Button variant="outline" size="sm" onClick={() => setAccessSheetOpen(true)}>
+            <ShieldCheck className="w-3.5 h-3.5 mr-1.5" /> Acesso
+            {grantedUserIds.size > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-muted text-[10px] font-medium">{grantedUserIds.size}</span>
+            )}
+          </Button>
+        )}
         <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(true)} disabled={busy}>
           <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Remover
         </Button>
@@ -173,6 +189,16 @@ export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({ inst
         onOpenChange={(next) => { setSheetOpen(next); if (!next) onChanged(); }}
         existingInstanceName={instance.name}
       />
+
+      {canManageUsers && (
+        <InstanceAccessSheet
+          open={accessSheetOpen}
+          onOpenChange={setAccessSheetOpen}
+          instanceName={instance.name}
+          grantedUserIds={grantedUserIds}
+          onChanged={onGrantsChanged}
+        />
+      )}
 
       <AlertDialog open={confirmRemove} onOpenChange={setConfirmRemove}>
         <AlertDialogContent>

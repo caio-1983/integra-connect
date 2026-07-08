@@ -9,7 +9,8 @@ import {
   DBConversation,
   DBMessage,
   UIConversation,
-  transformDBToUIConversation
+  transformDBToUIConversation,
+  InstanceAccessGrant
 } from '../types';
 import { MOCK_CONTACTS, MOCK_TEAM, MOCK_APPOINTMENTS, MOCK_DEALS } from '../constants';
 
@@ -1503,6 +1504,56 @@ export const api = {
     }
 
     console.log(`[API] Conversation ${conversationId} and deals assigned to user ${userId}`);
+  },
+
+  /**
+   * All WhatsApp instance access grants (who can see which number).
+   * Readable by any authenticated user (RLS) so the client can compute
+   * per-instance eligible-transfer lists without an admin-only round trip.
+   */
+  fetchInstanceAccess: async (): Promise<InstanceAccessGrant[]> => {
+    const { data, error } = await supabase
+      .from('whatsapp_instance_access')
+      .select('*');
+
+    if (error) {
+      console.error('[API] Error fetching instance access grants:', error);
+      return [];
+    }
+
+    return data || [];
+  },
+
+  /**
+   * Grants a user access to a WhatsApp instance. RLS enforces who's allowed
+   * to call this (admin: anyone; manager: agent-role targets only).
+   */
+  grantInstanceAccess: async (instanceName: string, userId: string): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from('whatsapp_instance_access')
+      .insert({ instance_name: instanceName, user_id: userId, granted_by: user?.id ?? null });
+
+    if (error) {
+      console.error('[API] Error granting instance access:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Revokes a user's access to a WhatsApp instance.
+   */
+  revokeInstanceAccess: async (instanceName: string, userId: string): Promise<void> => {
+    const { error } = await supabase
+      .from('whatsapp_instance_access')
+      .delete()
+      .eq('instance_name', instanceName)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('[API] Error revoking instance access:', error);
+      throw error;
+    }
   },
 
   /**
