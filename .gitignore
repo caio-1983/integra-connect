@@ -31,3 +31,9 @@ supabase/.temp
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code local state — machine-specific permissions/hooks, not shared config
+.claude/settings.json
+
+# graphify knowledge graph — generated, regenerate with `graphify update .`
+graphify-out/
