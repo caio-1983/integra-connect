@@ -31,7 +31,7 @@ const DEFAULT_INSTANCE = 'integra-connect';
  * calls our backend.
  */
 export const EvolutionConnectSheet: React.FC<EvolutionConnectSheetProps> = ({ open, onOpenChange, existingInstanceName }) => {
-  const [instanceName, setInstanceName] = useState(DEFAULT_INSTANCE);
+  const [instanceName, setInstanceName] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
   const [qrBase64, setQrBase64] = useState<string | undefined>();
   const [pairingCode, setPairingCode] = useState<string | undefined>();
@@ -114,32 +114,40 @@ export const EvolutionConnectSheet: React.FC<EvolutionConnectSheetProps> = ({ op
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md bg-background border-border overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{existingInstanceName ? `Reconectar "${existingInstanceName}"` : 'Conectar WhatsApp (Evolution)'}</SheetTitle>
+          <SheetTitle>{existingInstanceName ? `Reconectar "${existingInstanceName}"` : 'Conectar WhatsApp'}</SheetTitle>
           <SheetDescription>
             {existingInstanceName
               ? 'Gera um novo QR Code para reconectar esta instância já cadastrada.'
-              : 'Cria a instância no seu servidor Evolution, registra o webhook automaticamente e exibe o QR para parear o número.'}
+              : 'Conecte um número do WhatsApp à plataforma. Após gerar o QR Code, basta escaneá-lo pelo aplicativo.'}
           </SheetDescription>
         </SheetHeader>
 
         <div className="mt-6 space-y-5">
-          {!existingInstanceName && (
-            <div>
-              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Nome da instância</label>
-              <input
-                type="text"
-                value={instanceName}
-                onChange={(e) => setInstanceName(e.target.value)}
-                disabled={phase === 'creating' || phase === 'awaiting-scan' || phase === 'connected'}
-                className="h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 disabled:opacity-60"
-              />
-            </div>
-          )}
-
           {phase === 'idle' && !existingInstanceName && (
-            <Button variant="primary" size="sm" onClick={handleCreate} className="w-full">
-              <QrCode className="w-3.5 h-3.5 mr-1.5" /> Gerar QR Code
-            </Button>
+            <div className="space-y-4">
+              <div className="border-t border-border" />
+
+              <div className="space-y-1.5">
+                <label htmlFor="instance-name" className="text-sm font-medium text-foreground block">
+                  Nome da conexão
+                </label>
+                <input
+                  id="instance-name"
+                  type="text"
+                  value={instanceName}
+                  onChange={(e) => setInstanceName(e.target.value)}
+                  placeholder="Ex.: Comercial"
+                  className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring/50"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Esse nome serve apenas para identificar este canal.
+                </p>
+              </div>
+
+              <Button variant="primary" size="sm" onClick={handleCreate} className="w-full">
+                <QrCode className="w-3.5 h-3.5 mr-1.5" /> Gerar QR Code
+              </Button>
+            </div>
           )}
 
           {phase === 'creating' && (

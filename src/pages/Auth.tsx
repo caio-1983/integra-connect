@@ -30,7 +30,7 @@ const Auth: React.FC = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (!loading && user) {
-      navigate('/dashboard', { replace: true });
+      navigate('/operations', { replace: true });
     }
   }, [user, loading, navigate]);
 
@@ -71,7 +71,7 @@ const Auth: React.FC = () => {
         return;
       }
       toast.success('Login realizado com sucesso!');
-      navigate('/dashboard', { replace: true });
+      navigate('/operations', { replace: true });
     } finally {
       setIsSubmitting(false);
     }

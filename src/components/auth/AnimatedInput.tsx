@@ -1,6 +1,7 @@
-import { forwardRef } from 'react';
+import { forwardRef, useState } from 'react';
 import type { InputHTMLAttributes } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { Eye, EyeOff } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,8 +23,11 @@ interface AnimatedInputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const AnimatedInput = forwardRef<HTMLInputElement, AnimatedInputProps>(
-  ({ id, label, icon: Icon, error, className, ...props }, ref) => {
+  ({ id, label, icon: Icon, error, className, type, ...props }, ref) => {
     const reduce = useReducedMotion() ?? false;
+    const [showPassword, setShowPassword] = useState(false);
+    const isPassword = type === 'password';
+    const inputType = isPassword ? (showPassword ? 'text' : 'password') : type;
 
     return (
       <div className="space-y-2.5">
@@ -38,10 +42,12 @@ export const AnimatedInput = forwardRef<HTMLInputElement, AnimatedInputProps>(
           <input
             ref={ref}
             id={id}
+            type={inputType}
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? `${id}-error` : undefined}
             className={cn(
-              'h-14 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] pl-11 pr-4 text-[15px] text-[#F1EDE4] caret-[#E8D8B0]',
+              'h-14 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] pl-11 text-[15px] text-[#F1EDE4] caret-[#E8D8B0]',
+              isPassword ? 'pr-12' : 'pr-4',
               'placeholder:text-[rgba(241,237,228,0.52)]',
               // Placeholder sobe 2px e esmaece quando o campo é iluminado
               '[&::placeholder]:transition-[opacity,transform] [&::placeholder]:duration-300',
@@ -58,6 +64,18 @@ export const AnimatedInput = forwardRef<HTMLInputElement, AnimatedInputProps>(
             )}
             {...props}
           />
+          {isPassword && (
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+              aria-pressed={showPassword}
+              tabIndex={-1}
+              className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-[rgba(232,216,176,0.5)] transition-colors duration-200 hover:text-[#E8D8B0] focus:text-[#E8D8B0] focus:outline-none"
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          )}
         </div>
         <AnimatePresence initial={false}>
           {error && (
