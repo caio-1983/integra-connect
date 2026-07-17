@@ -93,7 +93,7 @@ export const AgentConfigSheet: React.FC<AgentConfigSheetProps> = ({ agentId, ope
             </select>
             <p className="text-[11px] text-muted-foreground">
               {executionMode === 'backend'
-                ? 'Requer o AI Runtime (Sprint 010) rodando e configurado em VITE_AI_GATEWAY_URL/VITE_AI_GATEWAY_KEY. O modelo e o provider passam a ser decididos pelo backend.'
+                ? 'Requer o AI Runtime (Sprint 010) rodando e o backend gateway configurado em VITE_BACKEND_URL/VITE_BACKEND_KEY. O modelo e o provider passam a ser decididos pelo backend.'
                 : 'Executa inteiramente no navegador via LocalAIProvider — sem chamadas de rede, sem custo.'}
             </p>
           </section>

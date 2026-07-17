@@ -1,38 +1,16 @@
 /**
  * Single service responsible for all WhatsApp/Evolution communication
- * between the frontend and the Sprint 010/011/012 backend (VITE_AI_GATEWAY_URL/KEY).
- * The frontend never talks to Evolution directly — only to our own backend.
+ * between the frontend and the Sprint 010/011/012 backend. It depends only on
+ * the neutral backend-gateway connection (VITE_BACKEND_URL/KEY) — never on any
+ * AI configuration. The frontend never talks to Evolution directly, only to our
+ * own backend.
  */
-function base(): string {
-  const url = import.meta.env.VITE_AI_GATEWAY_URL as string | undefined;
-  if (!url) throw new Error('VITE_AI_GATEWAY_URL não configurado.');
-  return url;
-}
-
-function authKey(): string {
-  const key = import.meta.env.VITE_AI_GATEWAY_KEY as string | undefined;
-  if (!key) throw new Error('VITE_AI_GATEWAY_KEY não configurado.');
-  return key;
-}
-
-function headers(): Record<string, string> {
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${authKey()}` };
-}
-
-// For bodyless requests (DELETE / POST with no payload) — Fastify rejects an
-// explicit `Content-Type: application/json` with an empty body
-// (FST_ERR_CTP_EMPTY_JSON_BODY), so these calls must omit it.
-function authOnlyHeaders(): Record<string, string> {
-  return { Authorization: `Bearer ${authKey()}` };
-}
-
-async function handle<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`Backend ${res.status}: ${body}`);
-  }
-  return res.json() as Promise<T>;
-}
+import {
+  backendBaseUrl as base,
+  backendHeaders as headers,
+  backendAuthOnlyHeaders as authOnlyHeaders,
+  handleBackendResponse as handle,
+} from './backendGateway';
 
 export interface QrResult { base64?: string; pairingCode?: string; code?: string; }
 export interface CreateInstanceResult { qr: QrResult; major: number; webhookUrl: string; }
