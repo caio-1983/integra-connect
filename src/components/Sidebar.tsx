@@ -38,7 +38,7 @@ const AppSidebar: React.FC = () => {
   return (
     <>
       <Sidebar open={open} setOpen={setOpen}>
-        <SidebarBody className="justify-between border-r border-slate-200 bg-white">
+        <SidebarBody className="justify-between border-r border-sidebar-border bg-sidebar">
           <div className="flex flex-1 flex-col gap-1 overflow-hidden">
             <SidebarHeader />
 

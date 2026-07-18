@@ -29,7 +29,7 @@ const AgentCard: React.FC<AgentCardProps> = ({ agentId }) => {
     <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg border border-violet-200 bg-violet-50 text-violet-700 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-lg border border-accent/20 bg-accent/10 text-accent flex items-center justify-center">
             <Bot className="w-4 h-4" />
           </div>
           <div>

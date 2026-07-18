@@ -66,7 +66,7 @@ export const SidebarFooter: React.FC = () => {
   return (
     <div className="flex flex-col gap-1.5">
       {/* Separador */}
-      <div className="border-t border-slate-100" />
+      <div className="border-t border-sidebar-border" />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -74,10 +74,10 @@ export const SidebarFooter: React.FC = () => {
             type="button"
             title="Conta"
             aria-label="Abrir menu da conta"
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 data-[state=open]:bg-slate-50"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 data-[state=open]:bg-sidebar-accent"
           >
             {/* Avatar */}
-            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-violet-50 text-[11px] font-bold text-violet-700">
+            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-accent/10 text-[11px] font-bold text-accent">
               {getUserInitials()}
             </div>
 
@@ -85,15 +85,15 @@ export const SidebarFooter: React.FC = () => {
               <>
                 {/* Nome + Cargo */}
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <p className="truncate text-[13px] font-medium leading-tight text-slate-800">
+                  <p className="truncate text-[13px] font-medium leading-tight text-foreground">
                     {getDisplayName()}
                   </p>
-                  <p className="text-[11px] leading-tight text-slate-400">
+                  <p className="text-[11px] leading-tight text-muted-foreground">
                     {getRole()}
                   </p>
                 </div>
 
-                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-slate-300" />
+                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
               </>
             )}
           </button>
@@ -102,30 +102,30 @@ export const SidebarFooter: React.FC = () => {
         <DropdownMenuContent
           side="top"
           align="start"
-          className="w-64 rounded-xl border-slate-200 bg-white p-1.5 text-slate-800 shadow-lg"
+          className="w-64 rounded-xl border-border bg-popover p-1.5 text-popover-foreground shadow-lg"
         >
           <DropdownMenuLabel className="px-2.5 py-2">
-            <p className="truncate text-[13px] font-medium leading-tight text-slate-800">{getDisplayName()}</p>
-            <p className="truncate text-[11px] leading-tight text-slate-400">{user?.email}</p>
+            <p className="truncate text-[13px] font-medium leading-tight text-foreground">{getDisplayName()}</p>
+            <p className="truncate text-[11px] leading-tight text-muted-foreground">{user?.email}</p>
           </DropdownMenuLabel>
 
-          <DropdownMenuSeparator className="bg-slate-100" />
+          <DropdownMenuSeparator className="bg-border" />
 
           <DropdownMenuItem
             onSelect={() => setChangePasswordOpen(true)}
-            className="text-slate-700 focus:bg-slate-50 focus:text-slate-900"
+            className="text-foreground focus:bg-muted focus:text-foreground"
           >
-            <KeyRound className="h-4 w-4 text-slate-400" />
+            <KeyRound className="h-4 w-4 text-muted-foreground" />
             Mudar senha
           </DropdownMenuItem>
 
-          <DropdownMenuSeparator className="bg-slate-100" />
+          <DropdownMenuSeparator className="bg-border" />
 
           <DropdownMenuItem
             onSelect={handleLogout}
-            className="text-slate-700 focus:bg-red-50 focus:text-red-600"
+            className="text-foreground focus:bg-destructive/10 focus:text-destructive"
           >
-            <LogOut className="h-4 w-4 text-slate-400" />
+            <LogOut className="h-4 w-4 text-muted-foreground" />
             Sair
           </DropdownMenuItem>
         </DropdownMenuContent>

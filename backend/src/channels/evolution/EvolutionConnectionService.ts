@@ -59,7 +59,7 @@ export const evolutionConnectionService = {
       .filter((c) => c.remoteJid && !c.isGroup && !c.remoteJid.endsWith('@g.us'))
       .map((c) => ({
         phoneNumber: c.remoteJid!.replace(/@s\.whatsapp\.net$/, '').replace(/@.*$/, ''),
-        name: c.pushName || null,
+        name: c.pushName || c.name || c.verifiedName || null,
         profilePictureUrl: c.profilePicUrl || null,
       }));
     return conversationRepository.bulkImportContacts(contacts);

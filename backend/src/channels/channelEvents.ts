@@ -40,6 +40,9 @@ export interface InboundMessageReceivedPayload {
   instance: string;
   externalContactId: string;
   contactName?: string;
+  /** Group only: the individual sender's phone digits and display name. */
+  senderParticipant?: string;
+  senderName?: string;
   providerMessageId: string;
   text: string;
   tsSec?: number;

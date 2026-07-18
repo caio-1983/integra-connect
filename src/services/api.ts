@@ -118,8 +118,8 @@ export const api = {
       const [
         messagesPeriodResult,
         messagesPrevResult,
-        contactsPeriodResult,
-        contactsPrevResult,
+        newLeadsPeriodResult,
+        newLeadsPrevResult,
         wonDealsPeriodResult,
         wonDealsPrevResult,
         appointmentsPeriodResult,
@@ -137,14 +137,16 @@ export const api = {
           .select('id', { count: 'exact', head: true })
           .gte('last_message_at', prevPeriodStartStr)
           .lt('last_message_at', periodStartStr),
-        // New contacts in period
+        // New leads in period — a lead is a deal, which only exists once the
+        // contact sends a message (ConversationService.createLeadForContact);
+        // importing contacts no longer creates deals.
         supabase
-          .from('contacts')
+          .from('deals')
           .select('id', { count: 'exact', head: true })
           .gte('created_at', periodStartStr),
-        // New contacts in previous period
+        // New leads in previous period
         supabase
-          .from('contacts')
+          .from('deals')
           .select('id', { count: 'exact', head: true })
           .gte('created_at', prevPeriodStartStr)
           .lt('created_at', periodStartStr),
@@ -183,8 +185,8 @@ export const api = {
 
       const atendimentosPeriod = messagesPeriodResult.count || 0;
       const atendimentosPrev = messagesPrevResult.count || 0;
-      const contactsPeriod = contactsPeriodResult.count || 0;
-      const contactsPrev = contactsPrevResult.count || 0;
+      const newLeadsPeriod = newLeadsPeriodResult.count || 0;
+      const newLeadsPrev = newLeadsPrevResult.count || 0;
       
       // Conversões = deals ganhos + appointments agendados
       const conversionsPeriod = (wonDealsPeriodResult.count || 0) + (appointmentsPeriodResult.count || 0);
@@ -216,9 +218,9 @@ export const api = {
         },
         {
           label: 'Novos Leads',
-          value: contactsPeriod.toString(),
-          trend: calculateTrend(contactsPeriod, contactsPrev),
-          trendUp: contactsPeriod >= contactsPrev
+          value: newLeadsPeriod.toString(),
+          trend: calculateTrend(newLeadsPeriod, newLeadsPrev),
+          trendUp: newLeadsPeriod >= newLeadsPrev
         }
       ];
     } catch (error) {
@@ -324,14 +326,30 @@ export const api = {
   },
 
   /**
-   * Fetch contacts from database
+   * Fetch contacts from database. Pass `search` to filter server-side by name
+   * or phone (digits) — used by the "+" new-conversation picker so imported
+   * contacts beyond the recent window are still findable/selectable. Without a
+   * search it returns the most recently active contacts (capped, for the list).
    */
-  fetchContacts: async (): Promise<Contact[]> => {
-    const { data, error } = await supabase
-      .from('contacts')
-      .select('*')
-      .order('last_activity', { ascending: false })
-      .limit(100);
+  fetchContacts: async (search?: string): Promise<Contact[]> => {
+    const term = (search ?? '').trim();
+    let query = supabase.from('contacts').select('*');
+
+    if (term) {
+      // DB stores phone as bare digits (5521...), so strip formatting from the
+      // typed term for the phone match; commas/parens would break PostgREST's
+      // .or() grammar, so sanitize them out of the text match.
+      const digits = term.replace(/\D/g, '');
+      const safe = term.replace(/[,()*]/g, ' ').trim();
+      const ors: string[] = [];
+      if (safe) ors.push(`name.ilike.%${safe}%`, `call_name.ilike.%${safe}%`);
+      if (digits) ors.push(`phone_number.ilike.%${digits}%`);
+      if (ors.length) query = query.or(ors.join(','));
+    }
+
+    const { data, error } = await query
+      .order('last_activity', { ascending: false, nullsFirst: false })
+      .limit(term ? 50 : 500);
 
     if (error) {
       console.error('[API] Error fetching contacts:', error);
@@ -342,13 +360,24 @@ export const api = {
       return []; // Return empty array if no data
     }
 
+    // A contact only counts as a "lead" once it has a deal. Deals are created
+    // when the contact sends a message (ConversationService.createLeadForContact),
+    // never on import — everyone else is a plain contact.
+    const { data: dealRows } = await supabase.from('deals').select('contact_id');
+    const leadContactIds = new Set(
+      (dealRows ?? []).map((d: { contact_id: string | null }) => d.contact_id).filter(Boolean)
+    );
+
     return data.map(c => ({
       id: c.id,
-      name: c.name || c.call_name || c.phone_number,
+      // Real name only (no phone fallback here) — the UI applies the phone
+      // fallback via contactDisplayName, so nameless contacts still render.
+      name: c.name || c.call_name || '',
       phone: c.phone_number,
       email: c.email || '',
-      status: 'lead' as const, // Map from tags or client_memory in future
-      lastContact: new Date(c.last_activity).toLocaleDateString('pt-BR')
+      status: leadContactIds.has(c.id) ? ('lead' as const) : ('contact' as const),
+      // Raw ISO (or '') — the UI formats it; imported contacts may have no activity yet.
+      lastContact: c.last_activity ?? ''
     }));
   },
 
@@ -1471,6 +1500,60 @@ export const api = {
 
     if (error) {
       console.error('[API] Error revoking instance access:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Custom display labels per WhatsApp instance (settings/channels card rename).
+   * Returns a { instanceName -> label } map. Table isn't in the generated
+   * Supabase types yet, so the client is cast (same pattern as nina_settings_public).
+   */
+  fetchInstanceLabels: async (): Promise<Record<string, string>> => {
+    const { data, error } = await (supabase as any)
+      .from('whatsapp_instance_labels')
+      .select('instance_name, label');
+
+    if (error) {
+      console.error('[API] Error fetching instance labels:', error);
+      return {};
+    }
+
+    const map: Record<string, string> = {};
+    for (const row of (data ?? []) as { instance_name: string; label: string | null }[]) {
+      if (row.label) map[row.instance_name] = row.label;
+    }
+    return map;
+  },
+
+  /**
+   * Renames a WhatsApp connection card. An empty label resets to the default
+   * (deletes the row). RLS restricts writes to admins/managers.
+   */
+  setInstanceLabel: async (instanceName: string, label: string): Promise<void> => {
+    const trimmed = label.trim();
+
+    if (!trimmed) {
+      const { error } = await (supabase as any)
+        .from('whatsapp_instance_labels')
+        .delete()
+        .eq('instance_name', instanceName);
+      if (error) {
+        console.error('[API] Error clearing instance label:', error);
+        throw error;
+      }
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await (supabase as any)
+      .from('whatsapp_instance_labels')
+      .upsert(
+        { instance_name: instanceName, label: trimmed, updated_by: user?.id ?? null, updated_at: new Date().toISOString() },
+        { onConflict: 'instance_name' },
+      );
+    if (error) {
+      console.error('[API] Error setting instance label:', error);
       throw error;
     }
   },

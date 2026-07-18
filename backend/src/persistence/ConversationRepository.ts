@@ -251,12 +251,19 @@ class ConversationRepository {
     content: string;
     tsSec?: number;
     media?: InboundMedia;
+    /** Group only: who sent this message, stored on messages.metadata so the UI
+     *  can label each bubble (the conversation contactName is the group subject). */
+    sender?: { name?: string; phone?: string };
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
     const sentAt = input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString();
 
     const mediaUrl = input.media
       ? await this.uploadInboundMedia(input.conversationId, input.providerMessageId, input.media)
+      : null;
+
+    const sender = input.sender && (input.sender.name || input.sender.phone)
+      ? { name: input.sender.name ?? null, phone: input.sender.phone ?? null }
       : null;
 
     const { error } = await supabase.from('messages').insert({
@@ -269,6 +276,7 @@ class ConversationRepository {
       from_type: 'user',
       status: 'sent',
       sent_at: sentAt,
+      ...(sender ? { metadata: { sender } } : {}),
     });
 
     if (error) {

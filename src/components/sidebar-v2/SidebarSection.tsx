@@ -28,12 +28,12 @@ export const SidebarSection: React.FC<SidebarSectionProps> = ({ section, current
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.2 }}
-          className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-slate-400"
+          className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
         >
           {section.title}
         </motion.p>
       ) : (
-        <div className="mx-2 my-2 h-px bg-slate-100" aria-hidden="true" />
+        <div className="mx-2 my-2 h-px bg-sidebar-border" aria-hidden="true" />
       )}
 
       <nav className="flex flex-col gap-0.5" aria-label={section.title}>

@@ -2,6 +2,7 @@ import React from 'react';
 import { Shield, RotateCcw, Lock, Settings as SettingsIcon } from 'lucide-react';
 import { PageContainer, PageHeader } from '@/components/layout';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
+import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { Button } from './Button';
 import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
@@ -45,7 +46,7 @@ const Settings: React.FC = () => {
                 Refazer Onboarding
               </Button>
             )}
-            <span className="px-3 py-1 bg-cyan-50 border border-cyan-200 text-cyan-700 text-xs rounded-full font-mono flex items-center">
+            <span className="px-3 py-1 bg-primary/10 border border-primary/20 text-primary text-xs rounded-full font-mono flex items-center">
               {isAdmin ? (
                 <>
                   <Shield className="w-3 h-3 mr-1" /> Admin
@@ -60,11 +61,15 @@ const Settings: React.FC = () => {
         }
       />
 
-      <EmptyState
-        icon={SettingsIcon}
-        title="Em construção"
-        description="As configurações de agente, integrações e documentação estão sendo reconstruídas para a nova arquitetura. Em breve estarão disponíveis aqui."
-      />
+      <div className="space-y-10">
+        <AppearanceSettings />
+
+        <EmptyState
+          icon={SettingsIcon}
+          title="Mais configurações em construção"
+          description="As configurações de agente, integrações e documentação estão sendo reconstruídas para a nova arquitetura. Em breve estarão disponíveis aqui."
+        />
+      </div>
     </PageContainer>
   );
 };

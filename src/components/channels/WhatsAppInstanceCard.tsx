@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Loader2, QrCode, RefreshCw, Unlink, Trash2, MessageCircle, Download, ShieldCheck } from 'lucide-react';
+import { Loader2, QrCode, RefreshCw, Unlink, Trash2, MessageCircle, Download, ShieldCheck, Pencil, Check, X } from 'lucide-react';
 import { Button } from '@/components/Button';
+import { api } from '@/services/api';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -18,6 +19,9 @@ interface WhatsAppInstanceCardProps {
   onChanged: () => void;
   grantedUserIds: Set<string>;
   onGrantsChanged: () => void;
+  /** Custom display name for the card (overrides the WhatsApp profile name). */
+  customLabel?: string;
+  onLabelChanged: () => void;
 }
 
 const STATUS_LABEL: Record<WhatsappInstanceSummary['status'], string> = {
@@ -62,7 +66,7 @@ function initials(name: string): string {
 }
 
 export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({
-  instance, lastFetchedAt, onChanged, grantedUserIds, onGrantsChanged,
+  instance, lastFetchedAt, onChanged, grantedUserIds, onGrantsChanged, customLabel, onLabelChanged,
 }) => {
   const { canManageUsers } = useCompanySettings();
   const [busy, setBusy] = useState(false);
@@ -70,7 +74,29 @@ export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [accessSheetOpen, setAccessSheetOpen] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
-  const label = instance.profileName || instance.name;
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState('');
+  const [savingLabel, setSavingLabel] = useState(false);
+  const label = customLabel || instance.profileName || instance.name;
+
+  const startEditLabel = () => {
+    setLabelDraft(customLabel ?? '');
+    setEditingLabel(true);
+  };
+
+  const handleSaveLabel = async () => {
+    setSavingLabel(true);
+    try {
+      await api.setInstanceLabel(instance.name, labelDraft);
+      toast.success('Nome do card atualizado.');
+      setEditingLabel(false);
+      onLabelChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao renomear o card.');
+    } finally {
+      setSavingLabel(false);
+    }
+  };
 
   const handleDisconnect = async () => {
     setBusy(true);
@@ -122,9 +148,46 @@ export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({
               <MessageCircle className="w-4 h-4" />
             </div>
           )}
-          <div className="min-w-0">
-            <h3 className="font-semibold text-foreground text-sm truncate">{label}</h3>
-            <p className="text-[11px] text-muted-foreground truncate">{formatNumber(instance.number)}</p>
+          <div className="min-w-0 flex-1">
+            {editingLabel ? (
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  value={labelDraft}
+                  onChange={(e) => setLabelDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveLabel();
+                    if (e.key === 'Escape') setEditingLabel(false);
+                  }}
+                  placeholder={instance.profileName || instance.name}
+                  disabled={savingLabel}
+                  maxLength={60}
+                  className="w-full bg-background border border-border rounded px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring/50"
+                />
+                <button onClick={handleSaveLabel} disabled={savingLabel} className="p-1 text-emerald-600 hover:text-emerald-700 disabled:opacity-50 shrink-0" title="Salvar">
+                  {savingLabel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-4 h-4" />}
+                </button>
+                <button onClick={() => setEditingLabel(false)} disabled={savingLabel} className="p-1 text-muted-foreground hover:text-foreground shrink-0" title="Cancelar">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-1 group/label">
+                  <h3 className="font-semibold text-foreground text-sm truncate">{label}</h3>
+                  {canManageUsers && (
+                    <button
+                      onClick={startEditLabel}
+                      className="p-0.5 text-muted-foreground hover:text-foreground opacity-0 group-hover/label:opacity-100 transition-opacity shrink-0"
+                      title="Renomear card"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground truncate">{formatNumber(instance.number)}</p>
+              </>
+            )}
           </div>
         </div>
         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium shrink-0 ${STATUS_PILL[instance.status]}`}>

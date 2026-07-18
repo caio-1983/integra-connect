@@ -35,13 +35,14 @@ const ChatInterface: React.FC = () => {
   const activeChat = conversations.find(c => c.id === selectedChatId);
 
   // Only offer transfer/assign targets who can actually see this conversation:
-  // admin/manager always, plus agents granted access to its WhatsApp instance.
+  // access now applies to every role (admin/manager included), so a target is
+  // eligible only if granted access to this WhatsApp instance.
   // Conversations with no tracked instance (legacy rows) stay unrestricted.
   const eligibleTeamMembers = useMemo(() => {
     const instance = activeChat?.instance;
     if (!instance) return teamMembers;
     const granted = grantsByInstance.get(instance);
-    return teamMembers.filter((m) => m.role === 'admin' || m.role === 'manager' || (m.user_id && granted?.has(m.user_id)));
+    return teamMembers.filter((m) => m.user_id && granted?.has(m.user_id));
   }, [teamMembers, activeChat?.instance, grantsByInstance]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const didInitRef = useRef(false);
@@ -211,6 +212,7 @@ const ChatInterface: React.FC = () => {
               messages={activeChat.messages}
               messagesEndRef={messagesEndRef}
               primaryChannel={activeChat.primaryChannel}
+              isGroup={activeChat.isGroup}
             />
           </div>
 

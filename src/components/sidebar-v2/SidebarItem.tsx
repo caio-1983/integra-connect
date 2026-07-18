@@ -35,15 +35,15 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, badgeC
       title={!open ? item.label : undefined}
       className={cn(
         'group/item relative flex min-h-[40px] items-center gap-2.5 rounded-lg px-3 text-sm transition-colors duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30 focus-visible:ring-offset-1 focus-visible:ring-offset-white',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-1 focus-visible:ring-offset-background',
         isActive
-          ? 'bg-violet-50 font-medium text-violet-700'
-          : 'font-normal text-slate-700 hover:bg-slate-50 hover:text-slate-900',
+          ? 'bg-accent/10 font-medium text-accent'
+          : 'font-normal text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground',
       )}
     >
       {/* Barra lateral do estado ativo — 3px, UI-001 */}
       {isActive && (
-        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-violet-600" />
+        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent" />
       )}
 
       <span className="relative flex-shrink-0">
@@ -51,8 +51,8 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, badgeC
           className={cn(
             'h-[18px] w-[18px] transition-colors',
             isActive
-              ? 'text-violet-600'
-              : 'text-slate-400 group-hover/item:text-slate-600',
+              ? 'text-accent'
+              : 'text-muted-foreground group-hover/item:text-foreground',
           )}
         />
         {showBadge && (
