@@ -1,10 +1,23 @@
 import React, { useRef, useState } from 'react';
 import { MessageSquare, Bot, User, Check, CheckCheck, Play, Pause, Paperclip, Download } from 'lucide-react';
 import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, contactDisplayName } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 
 const WAVE_BARS = 28;
+
+/** WhatsApp-style per-sender name colors in group threads — intentionally
+ *  multi-hue (not brand tokens) so distinct participants read apart at a glance.
+ *  Picked deterministically from the sender's phone/name so it's stable. */
+const SENDER_COLORS = [
+  'text-rose-500', 'text-amber-600', 'text-emerald-600',
+  'text-sky-600', 'text-violet-500', 'text-fuchsia-500', 'text-teal-600',
+];
+function senderColorClass(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return SENDER_COLORS[h % SENDER_COLORS.length];
+}
 
 /** Splits text on URLs (capturing group keeps the URLs) so message text with a
  *  link renders the link as a clickable anchor instead of dead text. */
@@ -52,9 +65,11 @@ interface ConversationTimelineProps {
    *  arrived through a different channel and surface a "via {label}" hint,
    *  proving the thread stays unified even as the channel varies. */
   primaryChannel: ChannelType;
+  /** Group thread — incoming messages are then labeled with their sender. */
+  isGroup?: boolean;
 }
 
-const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, messagesEndRef, primaryChannel }) => {
+const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, messagesEndRef, primaryChannel, isGroup }) => {
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [audioDurations, setAudioDurations] = useState<Record<string, number>>({});
   const [audioProgress, setAudioProgress] = useState<Record<string, number>>({});
@@ -254,12 +269,17 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
                   via {channelCfg.label}
                 </span>
               )}
+              {!isOutgoing && isGroup && (msg.senderName || msg.senderPhone) && (
+                <span className={cn('mb-0.5 px-1 text-[11px] font-semibold', senderColorClass(msg.senderPhone || msg.senderName || ''))}>
+                  {contactDisplayName(msg.senderName, msg.senderPhone, 'Participante')}
+                </span>
+              )}
               <div className={cn(
                 'px-4 py-2.5 rounded-2xl shadow-sm text-sm leading-relaxed',
                 isOutgoing
                   ? msg.fromType === 'nina'
-                    ? 'bg-gradient-to-br from-violet-600 to-purple-700 text-white rounded-tr-sm'
-                    : 'bg-gradient-to-br from-cyan-600 to-teal-700 text-white rounded-tr-sm'
+                    ? 'bg-accent text-accent-foreground rounded-tr-sm'
+                    : 'bg-primary text-primary-foreground rounded-tr-sm'
                   : 'bg-muted text-foreground rounded-tl-sm border border-border',
               )}>
                 {renderMessageContent(msg)}
@@ -269,7 +289,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
                 {/* Author icon + time stay subtle until hover; the read receipt
                     below is always at full opacity so "visualizado" reads clearly. */}
                 <span className="flex items-center gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
-                  {isOutgoing && msg.fromType === 'nina'  && <Bot  className="w-3 h-3 text-violet-500" />}
+                  {isOutgoing && msg.fromType === 'nina'  && <Bot  className="w-3 h-3 text-accent" />}
                   {isOutgoing && msg.fromType === 'human' && <User className="w-3 h-3 text-primary" />}
                   <span className="text-[10px] text-muted-foreground font-medium">{msg.timestamp}</span>
                 </span>

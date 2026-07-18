@@ -33,6 +33,8 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
     content: msg.text,
     tsSec: msg.tsSec,
     media: msg.media,
+    // Attribute the sender in group threads (contactName is the group subject).
+    sender: msg.isGroup ? { name: msg.senderName, phone: msg.senderParticipant } : undefined,
   });
   if (!inserted) return; // duplicate delivery — already handled
 

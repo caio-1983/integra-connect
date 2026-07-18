@@ -28,8 +28,15 @@ import AISettingsPage from './components/ai/AISettingsPage';
 
 import { CompanySettingsProvider } from './hooks/useCompanySettings';
 import { AuthProvider } from './hooks/useAuth';
+import { ThemeProvider, useTheme } from './contexts/ThemeProvider';
 import { Toaster } from 'sonner';
 import { OnboardingWizard } from './components/OnboardingWizard';
+
+/** Toaster that follows the current light/dark mode. */
+const ThemedToaster: React.FC = () => {
+  const { mode } = useTheme();
+  return <Toaster position="top-right" richColors theme={mode} />;
+};
 
 // Componente de Layout que envolve a aplicação principal
 const AppLayout: React.FC = () => {
@@ -62,9 +69,10 @@ const AppLayout: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <CompanySettingsProvider>
-        <BrowserRouter>
+    <ThemeProvider>
+      <AuthProvider>
+        <CompanySettingsProvider>
+          <BrowserRouter>
           <Routes>
             {/* Public Routes */}
             <Route path="/auth" element={<Auth />} />
@@ -111,14 +119,11 @@ const App: React.FC = () => {
             {/* Catch all - redirect to dashboard */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
-        </BrowserRouter>
-        <Toaster 
-          position="top-right"
-          richColors
-          theme="dark"
-        />
-      </CompanySettingsProvider>
-    </AuthProvider>
+          </BrowserRouter>
+          <ThemedToaster />
+        </CompanySettingsProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 

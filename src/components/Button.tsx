@@ -7,7 +7,7 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary:   "bg-gradient-to-r from-cyan-600 to-teal-600 text-white hover:from-cyan-500 hover:to-teal-500 shadow-sm border border-transparent",
+        primary:   "bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 shadow-sm border border-transparent",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border",
         outline:   "border border-border bg-transparent text-foreground hover:bg-muted hover:text-foreground",
         ghost:     "text-muted-foreground hover:bg-muted hover:text-foreground",

@@ -48,15 +48,15 @@ const Dashboard: React.FC = () => {
 
   const getIcon = (label: string) => {
     if (label.includes('Conversões')) return <DollarSign className="h-5 w-5 text-emerald-600" />;
-    if (label.includes('Atendimentos')) return <MessageSquare className="h-5 w-5 text-cyan-600" />;
-    if (label.includes('Leads')) return <Users className="h-5 w-5 text-violet-600" />;
+    if (label.includes('Atendimentos')) return <MessageSquare className="h-5 w-5 text-primary" />;
+    if (label.includes('Leads')) return <Users className="h-5 w-5 text-accent" />;
     return <Activity className="h-5 w-5 text-orange-600" />;
   };
 
   const getGradient = (label: string) => {
     if (label.includes('Conversões')) return 'from-emerald-50 to-transparent border-emerald-200';
-    if (label.includes('Atendimentos')) return 'from-cyan-50 to-transparent border-cyan-200';
-    if (label.includes('Leads')) return 'from-violet-50 to-transparent border-violet-200';
+    if (label.includes('Atendimentos')) return 'from-primary/10 to-transparent border-primary/20';
+    if (label.includes('Leads')) return 'from-accent/10 to-transparent border-accent/20';
     return 'from-orange-50 to-transparent border-orange-200';
   };
 
@@ -152,37 +152,37 @@ const Dashboard: React.FC = () => {
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorChats" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0891b2" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#0891b2" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="#e2e8f0" />
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis
                   dataKey="name"
                   axisLine={false}
                   tickLine={false}
                   tickMargin={10}
                   fontSize={12}
-                  stroke="#94a3b8"
+                  stroke="hsl(var(--muted-foreground))"
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
                   fontSize={12}
-                  stroke="#94a3b8"
+                  stroke="hsl(var(--muted-foreground))"
                 />
                 <Tooltip
-                  contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', color: '#0f172a', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.07)' }}
-                  itemStyle={{ color: '#0891b2' }}
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.07)' }}
+                  itemStyle={{ color: 'hsl(var(--chart-1))' }}
                 />
                 <Area
                   type="monotone"
                   dataKey="chats"
-                  stroke="#0891b2"
+                  stroke="hsl(var(--chart-1))"
                   strokeWidth={2.5}
                   fillOpacity={1}
                   fill="url(#colorChats)"
-                  activeDot={{ r: 5, strokeWidth: 0, fill: '#0891b2' }}
+                  activeDot={{ r: 5, strokeWidth: 0, fill: 'hsl(var(--chart-1))' }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -205,7 +205,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-cyan-600 to-teal-500 rounded-full transition-all duration-1000 ease-out"
+                    className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-1000 ease-out"
                     style={{ width: `${Math.min((day.sales / Math.max(...chartData.map(d => d.sales), 1)) * 100, 100)}%` }}
                   />
                 </div>

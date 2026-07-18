@@ -112,7 +112,7 @@ const ContactWorkspacePanel: React.FC<ContactWorkspacePanelProps> = ({
         >
           {/* Identity */}
           <div className="flex flex-col items-center text-center">
-            <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-cyan-500 to-teal-600 shadow-xl mb-4">
+            <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-primary to-accent shadow-xl mb-4">
               <img
                 src={activeChat.contactAvatar}
                 alt={activeChat.contactName}

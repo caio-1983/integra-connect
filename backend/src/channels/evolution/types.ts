@@ -84,6 +84,9 @@ export interface RawContact {
   id?: string;
   remoteJid?: string;
   pushName?: string | null;
+  /** Some Evolution builds also return these when pushName is empty. */
+  name?: string | null;
+  verifiedName?: string | null;
   profilePicUrl?: string | null;
   isGroup?: boolean;
 }
@@ -122,6 +125,10 @@ export interface NormalizedInbound {
   instance: string;
   externalContactId: string; // sender phone digits, or the full group JID when isGroup
   contactName?: string;
+  /** Group only: the individual sender's phone digits and display name, so each
+   *  message can be attributed (contactName is the group subject, not the sender). */
+  senderParticipant?: string;
+  senderName?: string;
   providerMessageId: string;
   text: string;
   tsSec?: number;

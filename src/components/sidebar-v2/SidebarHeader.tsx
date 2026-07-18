@@ -23,7 +23,7 @@ export const SidebarHeader: React.FC = () => {
         to="/dashboard"
         className={cn(
           'flex items-center justify-center py-2 rounded-md',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/30',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30',
         )}
       >
         <img
@@ -42,21 +42,21 @@ export const SidebarHeader: React.FC = () => {
         >
           {/* Identidade do produto */}
           <div className="flex flex-col items-center gap-0.5 px-2 text-center">
-            <span className="text-[13px] font-semibold leading-tight text-slate-800">
+            <span className="text-[13px] font-semibold leading-tight text-foreground">
               Integra Connect
             </span>
-            <span className="text-[11px] leading-tight text-slate-400">
+            <span className="text-[11px] leading-tight text-muted-foreground">
               Plataforma Omnichannel
             </span>
           </div>
 
           {/* Divisor inferior — separa Header da Navegação */}
-          <div className="mx-2 h-px bg-slate-100" aria-hidden="true" />
+          <div className="mx-2 h-px bg-sidebar-border" aria-hidden="true" />
         </motion.div>
       )}
 
       {/* Divisor quando colapsado */}
-      {!open && <div className="mx-2 mt-2 h-px bg-slate-100" aria-hidden="true" />}
+      {!open && <div className="mx-2 mt-2 h-px bg-sidebar-border" aria-hidden="true" />}
     </div>
   );
 };

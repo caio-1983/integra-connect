@@ -13,13 +13,13 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onOpenWizard
   if (loading || isComplete) return null;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 via-white to-violet-50 p-6 mb-8">
+    <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/10 via-card to-accent/10 p-6 mb-8">
       <div className="relative z-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-100 border border-cyan-200 flex items-center justify-center">
-                <Rocket className="w-5 h-5 text-cyan-600" />
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <Rocket className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-foreground">Complete a configuração do sistema</h3>
@@ -35,7 +35,7 @@ export const OnboardingBanner: React.FC<OnboardingBannerProps> = ({ onOpenWizard
               </div>
               <div className="h-2 bg-border rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-cyan-500 to-violet-500 rounded-full transition-all duration-500"
+                  className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-500"
                   style={{ width: `${completionPercentage}%` }}
                 />
               </div>

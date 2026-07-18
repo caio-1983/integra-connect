@@ -106,13 +106,23 @@ export function parseInbound(rawBody: unknown): NormalizedInbound | null {
     channel: 'whatsapp',
     instance: String(instance),
     externalContactId,
-    contactName: data.pushName ?? undefined,
+    // pushName is frequently empty (known Evolution/Baileys issue); fall back to
+    // the business/notify name so fewer contacts land without any name at all.
+    contactName: data.pushName ?? data.verifiedBizName ?? data.notifyName ?? undefined,
     providerMessageId: String(key.id),
     text: String(text),
     tsSec: typeof data.messageTimestamp === 'number' ? data.messageTimestamp : undefined,
     media,
     pendingMedia,
     isGroup: isGroup || undefined,
+    // Groups only: who actually sent this message. key.participant is the
+    // sender's JID and pushName is their display name — kept per-message so the
+    // UI can attribute it, since the conversation contactName is the group
+    // subject (set downstream in EvolutionChannelConnector).
+    senderParticipant: isGroup
+      ? (String(key.participant ?? '').replace(/@s\.whatsapp\.net$/, '').replace(/@.*$/, '') || undefined)
+      : undefined,
+    senderName: isGroup ? (data.pushName ?? undefined) : undefined,
   };
 }
 

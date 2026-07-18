@@ -325,7 +325,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-foreground flex items-center gap-2">
-                          <User className="w-4 h-4 text-cyan-400" />
+                          <User className="w-4 h-4 text-primary" />
                           Nome *
                         </FormLabel>
                         <FormControl>
@@ -346,7 +346,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-foreground flex items-center gap-2">
-                          <Phone className="w-4 h-4 text-cyan-400" />
+                          <Phone className="w-4 h-4 text-primary" />
                           Telefone *
                         </FormLabel>
                         <FormControl>
@@ -371,7 +371,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-foreground flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-cyan-400" />
+                        <Mail className="w-4 h-4 text-primary" />
                         Email (opcional)
                       </FormLabel>
                       <FormControl>
@@ -392,7 +392,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
             {/* Campos do Deal */}
             <div className="border-t border-border pt-6 space-y-4">
               <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <Building className="w-5 h-5 text-cyan-400" />
+                <Building className="w-5 h-5 text-primary" />
                 Informações do Deal
               </h3>
 
@@ -589,7 +589,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white shadow-lg shadow-cyan-500/20"
+                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground shadow-lg shadow-primary/20"
               >
                 {isSubmitting ? 'Criando...' : contactMode === 'new' ? 'Criar Contato e Deal' : 'Criar Deal'}
               </Button>

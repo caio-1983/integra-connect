@@ -4,6 +4,7 @@ import { SectionBlock } from '@/components/layout';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { useWhatsappInstances } from '@/hooks/useWhatsappInstances';
 import { useInstanceAccessGrants } from '@/hooks/useInstanceAccessGrants';
+import { useInstanceLabels } from '@/hooks/useInstanceLabels';
 import { WhatsAppInstanceCard } from './WhatsAppInstanceCard';
 import { EvolutionConnectSheet } from './EvolutionConnectSheet';
 
@@ -16,6 +17,7 @@ const EMPTY_GRANTS = new Set<string>();
 export const WhatsAppSection: React.FC = () => {
   const { instances, loading, lastFetchedAt, refresh } = useWhatsappInstances();
   const { grantsByInstance, refresh: refreshGrants } = useInstanceAccessGrants();
+  const { labels, refresh: refreshLabels } = useInstanceLabels();
   const [newSheetOpen, setNewSheetOpen] = useState(false);
   const connectedCount = instances.filter((instance) => instance.connected).length;
 
@@ -41,6 +43,8 @@ export const WhatsAppSection: React.FC = () => {
               onChanged={refresh}
               grantedUserIds={grantsByInstance.get(instance.name) ?? EMPTY_GRANTS}
               onGrantsChanged={refreshGrants}
+              customLabel={labels[instance.name]}
+              onLabelChanged={refreshLabels}
             />
           ))}
 

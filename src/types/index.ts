@@ -1,6 +1,7 @@
 // ============= Channel Types (Sprint 008) =============
 export * from './channel';
 import type { ChannelType, ChannelIdentity, TimelineSource } from './channel';
+import { contactDisplayName } from '@/lib/utils';
 
 // ============= WhatsApp Instance Types (Sprint 012) =============
 export * from './whatsappInstance';
@@ -80,7 +81,7 @@ export interface Contact {
   name: string;
   phone: string;
   email: string;
-  status: 'lead' | 'customer' | 'churned';
+  status: 'contact' | 'lead' | 'customer' | 'churned';
   lastContact: string;
 }
 
@@ -294,6 +295,9 @@ export interface UIConversation {
   /** Evolution instance (WhatsApp number) that owns this conversation — used to
    *  filter the queue when several numbers run at once. From conversations.metadata.instance. */
   instance?: string;
+  /** True for WhatsApp group threads — the timeline then labels each incoming
+   *  message with its sender. From conversations.metadata.isGroup. */
+  isGroup?: boolean;
 }
 
 export interface UIMessage {
@@ -308,6 +312,9 @@ export interface UIMessage {
   whatsappMessageId: string | null;
   /** Channel this specific message arrived/was sent through. */
   channel?: ChannelType;
+  /** Group only: who sent this incoming message (from messages.metadata.sender). */
+  senderName?: string | null;
+  senderPhone?: string | null;
 }
 
 // ============= Utility Functions =============
@@ -327,7 +334,7 @@ export function transformDBToUIConversation(
   return {
     id: conv.id,
     contactId: conv.contact_id,
-    contactName: conv.contact?.name || conv.contact?.call_name || conv.contact?.phone_number || 'Desconhecido',
+    contactName: contactDisplayName(conv.contact?.name || conv.contact?.call_name, conv.contact?.phone_number, 'Desconhecido'),
     contactPhone: conv.contact?.phone_number || '',
     contactAvatar: conv.contact?.profile_picture_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.contact?.name || 'U')}&background=0ea5e9&color=fff`,
     contactEmail: conv.contact?.email || null,
@@ -345,6 +352,9 @@ export function transformDBToUIConversation(
     notes: conv.contact?.notes || null,
     primaryChannel: 'whatsapp',
     instance: (conv.metadata as { instance?: string } | null)?.instance,
+    isGroup: (conv.metadata as { isGroup?: boolean } | null)?.isGroup
+      ?? conv.contact?.phone_number?.endsWith('@g.us')
+      ?? false,
   };
 }
 
@@ -360,6 +370,8 @@ export function transformDBToUIMessage(msg: DBMessage): UIMessage {
     mediaUrl: msg.media_url,
     whatsappMessageId: msg.whatsapp_message_id,
     channel: 'whatsapp',
+    senderName: (msg.metadata as { sender?: { name?: string | null } } | null)?.sender?.name ?? null,
+    senderPhone: (msg.metadata as { sender?: { phone?: string | null } } | null)?.sender?.phone ?? null,
   };
 }
 

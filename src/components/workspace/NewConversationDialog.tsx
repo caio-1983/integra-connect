@@ -14,6 +14,7 @@ import { api } from '@/services/api';
 import { startConversation } from '@/services/whatsappConnectionService';
 import { useWhatsappInstances } from '@/hooks/useWhatsappInstances';
 import { Contact } from '@/types';
+import { contactDisplayName, formatPhone } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface NewConversationDialogProps {
@@ -42,16 +43,19 @@ export const NewConversationDialog: React.FC<NewConversationDialogProps> = ({
     setSelectedInstance((prev) => prev || connectedInstances[0]?.name || '');
   }, [open, connectedInstances]);
 
+  // Search server-side (debounced) so imported contacts beyond the recent
+  // window — including nameless ones — are findable and selectable.
   useEffect(() => {
     if (!open) return;
     setLoadingContacts(true);
-    api.fetchContacts().then(setContacts).catch(console.error).finally(() => setLoadingContacts(false));
-  }, [open]);
-
-  const filteredContacts = contacts.filter((c) => {
-    const q = search.toLowerCase();
-    return (c.name?.toLowerCase() || '').includes(q) || (c.phone || '').includes(q);
-  });
+    const handle = setTimeout(() => {
+      api.fetchContacts(search)
+        .then(setContacts)
+        .catch(console.error)
+        .finally(() => setLoadingContacts(false));
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [open, search]);
 
   const handleStart = async (phone: string, name?: string) => {
     if (!selectedInstance) {
@@ -120,22 +124,22 @@ export const NewConversationDialog: React.FC<NewConversationDialogProps> = ({
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-              ) : filteredContacts.length === 0 ? (
+              ) : contacts.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">Nenhum contato encontrado</p>
               ) : (
-                filteredContacts.map((c) => (
+                contacts.map((c) => (
                   <button
                     key={c.id}
                     disabled={starting || connectedInstances.length === 0}
-                    onClick={() => handleStart(c.phone, c.name)}
+                    onClick={() => handleStart(c.phone, c.name || undefined)}
                     className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors disabled:opacity-50"
                   >
                     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                       <User className="w-4 h-4 text-muted-foreground" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-foreground truncate">{c.name || 'Sem nome'}</div>
-                      <div className="text-xs text-muted-foreground">{c.phone}</div>
+                      <div className="text-sm font-medium text-foreground truncate">{contactDisplayName(c.name, c.phone)}</div>
+                      <div className="text-xs text-muted-foreground">{formatPhone(c.phone) || c.phone}</div>
                     </div>
                   </button>
                 ))

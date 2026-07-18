@@ -562,7 +562,7 @@ const Scheduling: React.FC = () => {
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
                     <div className="space-y-2">
                          <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Data Selecionada</label>
                          <div className="flex items-center gap-2 text-foreground font-medium bg-background p-3 rounded-lg border border-border">
@@ -688,9 +688,9 @@ const Scheduling: React.FC = () => {
       {/* Appointment Details Modal */}
       {selectedAppointment && (
          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-             <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
+             <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
                  {/* Header */}
-                 <div className={`p-6 border-b border-border relative overflow-hidden ${getEventTypeHeaderBg(selectedAppointment.type)}`}>
+                 <div className={`p-6 border-b border-border relative overflow-hidden shrink-0 ${getEventTypeHeaderBg(selectedAppointment.type)}`}>
                      <div className="absolute top-0 right-0 p-4 opacity-5">
                          <CalendarIcon className="w-32 h-32" />
                      </div>
@@ -726,7 +726,7 @@ const Scheduling: React.FC = () => {
                  </div>
 
                  {/* Body */}
-                 <div className="p-6 space-y-6 flex-1">
+                 <div className="p-6 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
                      {selectedAppointment.description && (
                          <div className="space-y-2">
                              <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Descrição</h4>

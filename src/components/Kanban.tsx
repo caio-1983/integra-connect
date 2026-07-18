@@ -336,7 +336,7 @@ const Kanban: React.FC = () => {
                     }`}>
                       {column.isAiManaged && (
                         <span title="Gerenciado pela IA">
-                          <Bot className="w-3 h-3 text-cyan-600" />
+                          <Bot className="w-3 h-3 text-primary" />
                         </span>
                       )}
                       {column.title}
@@ -479,7 +479,7 @@ const Kanban: React.FC = () => {
                         key={col.id}
                         className={`flex-1 h-8 flex items-center justify-center px-2 relative cursor-pointer transition-all first:rounded-l-md last:rounded-r-md
                           ${isCompleted ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' :
-                            isActive ? 'bg-cyan-600 text-white shadow-sm' :
+                            isActive ? 'bg-primary text-primary-foreground shadow-sm' :
                             'bg-muted text-muted-foreground hover:bg-secondary hover:text-foreground'}
                         `}
                         onClick={async () => {
@@ -544,9 +544,9 @@ const Kanban: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setActiveTab('email')}
-                    className={`flex items-center gap-2 text-sm font-medium transition-colors ${activeTab === 'email' ? 'text-violet-600' : 'text-muted-foreground hover:text-foreground'}`}
+                    className={`flex items-center gap-2 text-sm font-medium transition-colors ${activeTab === 'email' ? 'text-accent' : 'text-muted-foreground hover:text-foreground'}`}
                   >
-                    <div className={`p-2 rounded-full ${activeTab === 'email' ? 'bg-violet-50' : 'bg-muted'}`}>
+                    <div className={`p-2 rounded-full ${activeTab === 'email' ? 'bg-accent/10' : 'bg-muted'}`}>
                       <Mail className="w-4 h-4" />
                     </div>
                     Email
@@ -656,7 +656,7 @@ const Kanban: React.FC = () => {
               {selectedDeal.clientMemory && (
                 <div className="p-6 border-t border-border">
                   <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <Brain className="w-4 h-4 text-violet-600" /> Insights do(a) {sdrName}
+                    <Brain className="w-4 h-4 text-accent" /> Insights do(a) {sdrName}
                   </h4>
 
                   <div className="space-y-3">
@@ -669,7 +669,7 @@ const Kanban: React.FC = () => {
                       </div>
                       <div className="w-full bg-muted rounded-full h-1.5">
                         <div
-                          className="bg-gradient-to-r from-cyan-600 to-violet-600 h-1.5 rounded-full transition-all"
+                          className="bg-gradient-to-r from-primary to-accent h-1.5 rounded-full transition-all"
                           style={{ width: `${selectedDeal.clientMemory.lead_profile.qualification_score || 0}%` }}
                         />
                       </div>

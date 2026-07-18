@@ -5,6 +5,7 @@ import { Button } from './Button';
 import { api } from '../services/api';
 import { PageContainer, PageHeader, Toolbar } from '@/components/layout';
 import { Contact } from '../types';
+import { contactDisplayName } from '@/lib/utils';
 
 const Contacts: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -39,8 +40,18 @@ const Contacts: React.FC = () => {
     switch (status) {
       case 'customer': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'lead':     return 'bg-cyan-50 text-cyan-700 border-cyan-200';
+      case 'contact':  return 'bg-muted text-muted-foreground border-border';
       case 'churned':  return 'bg-muted text-muted-foreground border-border';
       default:         return 'bg-muted text-muted-foreground border-border';
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'customer': return 'Cliente Ativo';
+      case 'lead':     return 'Lead Qualificado';
+      case 'churned':  return 'Churned';
+      default:         return 'Contato';
     }
   };
 
@@ -124,7 +135,7 @@ const Contacts: React.FC = () => {
                         </div>
                         <div>
                           <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                            {contact.name || 'Sem nome'}
+                            {contactDisplayName(contact.name, contact.phone)}
                           </div>
                           <div className="text-xs text-muted-foreground">{contact.phone}</div>
                         </div>
@@ -132,7 +143,7 @@ const Contacts: React.FC = () => {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${getStatusColor(contact.status)}`}>
-                        {contact.status === 'customer' ? 'Cliente Ativo' : contact.status === 'lead' ? 'Lead Qualificado' : 'Churned'}
+                        {getStatusLabel(contact.status)}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -150,7 +161,7 @@ const Contacts: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-muted-foreground">{new Date(contact.lastContact).toLocaleDateString('pt-BR')}</span>
+                      <span className="text-muted-foreground">{contact.lastContact ? new Date(contact.lastContact).toLocaleDateString('pt-BR') : '—'}</span>
                       <div className="text-[10px] text-muted-foreground/60">via WhatsApp</div>
                     </td>
                     <td className="px-6 py-4 text-right">
