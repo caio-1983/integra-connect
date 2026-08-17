@@ -20,12 +20,16 @@ export const SidebarNavigation: React.FC = () => {
   const badges = { chat: unreadCount };
   const { canManageUsers } = useCompanySettings();
 
+  // Itens cuja rota está atrás de RoleRoute (admin/gestor). Mostrá-los para um
+  // atendente renderiza um link que só o joga de volta em /operations, então a
+  // lista precisa acompanhar as rotas guardadas em App.tsx.
+  const MANAGER_ONLY_ITEMS = new Set(['team', 'campaigns']);
+
   const visibleSections = sidebarNavigation
     .filter((section) => isModuleEnabled(section.id))
     .map((section) => ({
       ...section,
-      // "Usuários" (gestão de equipe) é só pra quem pode gerenciar usuários (admin/gestor).
-      items: section.items.filter((item) => item.id !== 'team' || canManageUsers),
+      items: section.items.filter((item) => !MANAGER_ONLY_ITEMS.has(item.id) || canManageUsers),
     }));
 
   return (

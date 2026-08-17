@@ -1,6 +1,7 @@
 /** Evolution API version-adaptive contracts (Fase 1). Kept entirely inside channels/evolution — nothing above imports these. */
 
 import type { MessageDeliveryStatus } from '../../types/messageStatus.js';
+import type { ChannelName, InboundAttribution } from '../channelEvents.js';
 
 export type EvolutionMajor = 1 | 2;
 
@@ -119,9 +120,12 @@ export interface NormalizedInboundMedia {
   fileName?: string;
 }
 
-/** Channel-agnostic shape produced by inboundParser and consumed by the ChannelOrchestrator. */
+/** Channel-agnostic shape produced by a connector's parser and consumed by the
+ *  ChannelOrchestrator. Lives under evolution/ for historical reasons — the Meta
+ *  connector reuses it as-is, which is why `channel` is a union rather than a
+ *  literal. */
 export interface NormalizedInbound {
-  channel: 'whatsapp';
+  channel: ChannelName;
   instance: string;
   externalContactId: string; // sender phone digits, or the full group JID when isGroup
   contactName?: string;
@@ -138,13 +142,21 @@ export interface NormalizedInbound {
    *  even with webhook.base64=true). The connector resolves this to `media` by
    *  calling getBase64FromMedia — kept out of the pure parser. */
   pendingMedia?: { kind: InboundMediaKind; mimeType: string; fileName?: string };
+  /** Set by the Meta parser when media arrived as a CDN URL instead of bytes.
+   *  The connector downloads it — the URL is signed and short-lived, so it must
+   *  be fetched on receipt, and the download is kept out of the pure parser for
+   *  the same reason `pendingMedia` is. */
+  pendingMediaUrl?: { kind: InboundMediaKind; url: string; fileName?: string };
   /** Group messages are persisted (visible in the queue) but never auto-replied to by the AI — see ConversationService. */
   isGroup?: boolean;
+  /** Origin signals found on this message (Meta click-to-WhatsApp ad, or a
+   *  `[ref:...]` token from a site link). Absent when the message carried none. */
+  attribution?: InboundAttribution;
 }
 
 /** Channel-agnostic delivery-status change (Evolution's messages.update). */
 export interface NormalizedStatusUpdate {
-  channel: 'whatsapp';
+  channel: ChannelName;
   instance: string;
   providerMessageId: string;
   status: MessageDeliveryStatus;

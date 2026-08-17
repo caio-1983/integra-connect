@@ -6,6 +6,11 @@ export interface OutboundMediaPayload {
   mediatype: 'image' | 'video' | 'audio' | 'document';
   mimetype: string;
   base64: string;
+  /** Public URL of the copy we already stored before sending. Meta's Graph API
+   *  only accepts a URL or a multipart upload — never base64 in the JSON body —
+   *  so this is what makes attachments possible there. Evolution ignores it and
+   *  uses `base64`. */
+  url?: string;
   fileName?: string;
   caption?: string;
 }

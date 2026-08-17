@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
-import Dashboard from './components/Dashboard';
 import ChatInterface from './components/ChatInterface';
 import Contacts from './components/Contacts';
 import Settings from './components/Settings';
@@ -20,6 +19,13 @@ import CRMDeals from './components/crm/CRMDeals';
 import CRMTasks from './components/crm/CRMTasks';
 import ChannelManagement from './components/ChannelManagement';
 import WebchatWidgetSettings from './components/WebchatWidgetSettings';
+import CampaignSettings from './components/campaigns/CampaignSettings';
+import ResultsLayout from './components/results/ResultsLayout';
+import ResultsOverview from './components/results/ResultsOverview';
+import ResultsCampaigns from './components/results/ResultsCampaigns';
+import ResultsOrigin from './components/results/ResultsOrigin';
+import ResultsLosses from './components/results/ResultsLosses';
+import ResultsAttendance from './components/results/ResultsAttendance';
 import AIAgentsPage from './components/ai/AIAgentsPage';
 import AIKnowledgeBasePage from './components/ai/AIKnowledgeBasePage';
 import AIToolsPage from './components/ai/AIToolsPage';
@@ -86,7 +92,18 @@ const App: React.FC = () => {
             }>
               <Route path="/" element={<Navigate to="/operations" replace />} />
               <Route path="/operations" element={<Operations />} />
-              <Route path="/dashboard" element={<Dashboard />} />
+              {/* Resultados — abas sob uma única rota, compartilhando o seletor de
+                  período. A comparação entre atendentes fica atrás de RoleRoute:
+                  não é dado de atendente. */}
+              <Route path="/dashboard" element={<ResultsLayout />}>
+                <Route index element={<ResultsOverview />} />
+                <Route path="campanhas" element={<ResultsCampaigns />} />
+                <Route path="origem" element={<ResultsOrigin />} />
+                <Route path="perdas" element={<ResultsLosses />} />
+                <Route element={<RoleRoute />}>
+                  <Route path="atendimento" element={<ResultsAttendance />} />
+                </Route>
+              </Route>
               <Route path="/pipeline" element={<Kanban />} />
               <Route path="/chat" element={<ChatInterface />} />
               <Route path="/contacts" element={<Contacts />} />
@@ -94,6 +111,9 @@ const App: React.FC = () => {
               {/* Equipe/Usuários — RBAC: só admin/gestor (Route element={<RoleRoute />}) */}
               <Route element={<RoleRoute />}>
                 <Route path="/team" element={<Team />} />
+                {/* Campanhas e mapeamento de origem — quem define a atribuição
+                    define o que os relatórios dizem, então é admin/gestor. */}
+                <Route path="/settings/campanhas" element={<CampaignSettings />} />
               </Route>
               <Route path="/settings" element={<Settings />} />
               {/* CRM — Sprint 007 (gated: Fase 2) */}

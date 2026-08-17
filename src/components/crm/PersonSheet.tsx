@@ -9,6 +9,7 @@ import { MOCK_DEALS, MOCK_TASKS, MOCK_COMPANIES, MOCK_TIMELINE_ENTRIES } from '@
 import { Timeline } from './Timeline';
 import { TaskList } from './TaskList';
 import { useNavigate } from 'react-router-dom';
+import { formatCurrency } from '@/lib/formatCurrency';
 
 interface PersonSheetProps {
   person: Person | null;
@@ -169,7 +170,7 @@ export const PersonSheet: React.FC<PersonSheetProps> = ({ person, open, onOpenCh
                     <div>
                       <p className="font-medium text-foreground">{d.title}</p>
                       <p className="text-muted-foreground mt-0.5">
-                        {d.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+                        {formatCurrency(d.value)}
                       </p>
                     </div>
                     <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground">

@@ -5,8 +5,11 @@ import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 interface TeamMemberOption {
+  /** team_members.id — what onTransfer sends, and what deals.owner_id stores. */
   id: string;
   name: string;
+  /** auth.users.id — what conversations.assigned_user_id stores. */
+  user_id?: string | null;
 }
 
 interface WorkspaceActionsProps {
@@ -52,7 +55,9 @@ const TransferPopover: React.FC<{
               onClick={() => { onTransfer(member.id); setOpen(false); }}
               className={cn(
                 'text-left text-sm px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors',
-                member.id === assignedUserId ? 'text-primary font-medium' : 'text-foreground',
+                // assignedUserId is an auth id, member.id is a team_members id —
+                // comparing them directly never matched. Match on user_id.
+                member.user_id && member.user_id === assignedUserId ? 'text-primary font-medium' : 'text-foreground',
               )}
             >
               {member.name}

@@ -5,7 +5,18 @@ import { requestManualReply, requestManualMediaReply, startConversation } from '
 import { evolutionConnectionService } from '../channels/evolution/EvolutionConnectionService.js';
 
 const paramsSchema = z.object({ conversationId: z.string().min(1) });
-const bodySchema = z.object({ content: z.string().min(1) });
+
+// `operatorId` is the authenticated frontend user's auth.users id, persisted to
+// `messages.sent_by` so per-attendant supervision is possible at all (from_type
+// only distinguishes user/nina/human). It is SELF-ASSERTED: this endpoint
+// authenticates with a shared GATEWAY_API_KEY and has no per-user identity, so
+// the value is sound for attribution and reporting and must never be used for
+// authorization. Optional so an older frontend build keeps working — the message
+// just lands unattributed.
+const bodySchema = z.object({
+  content: z.string().min(1),
+  operatorId: z.string().uuid().optional(),
+});
 
 // 32 MB cap: base64 inflates a file by ~33%, so this admits real WhatsApp media
 // (images/short videos/documents) while bounding memory per request.
@@ -15,7 +26,14 @@ const mediaBodySchema = z.object({
   mimeType: z.string().min(1),
   fileName: z.string().optional(),
   caption: z.string().optional(),
+  operatorId: z.string().uuid().optional(),
 });
+
+const OPERATOR_ID_DOC = {
+  type: 'string',
+  format: 'uuid',
+  description: 'ID do operador (auth.users.id) que enviou — gravado em messages.sent_by para o relatório por atendente. Auto-declarado: use apenas para atribuição, nunca para autorização.',
+} as const;
 
 const mediaBodyJsonSchema = {
   type: 'object',
@@ -25,6 +43,16 @@ const mediaBodyJsonSchema = {
     mimeType: { type: 'string', minLength: 1, description: 'MIME type do arquivo.', example: 'image/png' },
     fileName: { type: 'string', description: 'Nome original do arquivo (rótulo do documento).' },
     caption: { type: 'string', description: 'Legenda opcional enviada junto da mídia.' },
+    operatorId: OPERATOR_ID_DOC,
+  },
+} as const;
+
+const replyBodyJsonSchema = {
+  type: 'object',
+  required: ['content'],
+  properties: {
+    content: { type: 'string', minLength: 1, description: 'Texto da resposta do atendente.' },
+    operatorId: OPERATOR_ID_DOC,
   },
 } as const;
 
@@ -106,10 +134,13 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
 
   app.post('/v1/conversations/:conversationId/reply', {
     preHandler: authMiddleware,
+    validatorCompiler: noopValidator,
     schema: {
       tags: ['conversations'],
       summary: 'Send a human operator reply',
       security: [{ bearerAuth: [] }],
+      params: conversationParamsJsonSchema,
+      body: replyBodyJsonSchema,
     },
   }, async (request, reply) => {
     const paramsResult = paramsSchema.safeParse(request.params);
@@ -119,7 +150,7 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     if (!bodyResult.success) return reply.code(400).send({ error: 'content obrigatório' });
 
     try {
-      await requestManualReply(paramsResult.data.conversationId, bodyResult.data.content);
+      await requestManualReply(paramsResult.data.conversationId, bodyResult.data.content, bodyResult.data.operatorId);
       return reply.code(202).send({ accepted: true });
     } catch (error) {
       request.log.error(error);

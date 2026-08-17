@@ -10,6 +10,8 @@ import { Deal, DealActivity, TeamMember, KanbanColumn } from '../types';
 import { supabase } from '../integrations/supabase/client';
 import { CreateDealModal } from './CreateDealModal';
 import { LostReasonModal } from './LostReasonModal';
+import { WonDealModal } from './WonDealModal';
+import { formatCurrency, formatCurrencyExact } from '../lib/formatCurrency';
 import { PipelineSettingsModal } from './PipelineSettingsModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
@@ -26,6 +28,7 @@ const Kanban: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'note' | 'activity' | 'email'>('note');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isLostModalOpen, setIsLostModalOpen] = useState(false);
+  const [isWonModalOpen, setIsWonModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [activities, setActivities] = useState<DealActivity[]>([]);
@@ -135,10 +138,13 @@ const Kanban: React.FC = () => {
     }
   };
 
-  const handleMarkWon = async () => {
+  /** Both "won" entry points (the action button and the stage progress bar) go
+   *  through WonDealModal so the closed value is always captured — see
+   *  api.markDealWon. */
+  const handleMarkWon = async (value: number) => {
     if (!selectedDeal) return;
     try {
-      await api.markDealWon(selectedDeal.id);
+      await api.markDealWon(selectedDeal.id, value);
       toast.success("Deal marcado como ganho! Parabéns pelo fechamento!");
       setSelectedDeal(null);
     } catch (error) {
@@ -147,10 +153,10 @@ const Kanban: React.FC = () => {
     }
   };
 
-  const handleMarkLost = async (reason: string) => {
+  const handleMarkLost = async (reasonCode: string, detail?: string) => {
     if (!selectedDeal) return;
     try {
-      await api.markDealLost(selectedDeal.id, reason);
+      await api.markDealLost(selectedDeal.id, reasonCode, detail);
       toast.success("Deal marcado como perdido. Motivo registrado.");
       setSelectedDeal(null);
     } catch (error) {
@@ -208,10 +214,6 @@ const Kanban: React.FC = () => {
     } catch (error) {
       console.error("Erro ao excluir atividade", error);
     }
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
   const onDragStart = (e: React.DragEvent, dealId: string) => {
@@ -429,7 +431,7 @@ const Kanban: React.FC = () => {
                 <div>
                   <h2 className="text-2xl font-bold text-foreground mb-1">{selectedDeal.title}</h2>
                   <div className="flex items-center gap-2 text-muted-foreground text-sm flex-wrap">
-                    <span className="font-semibold text-emerald-700">{formatCurrency(selectedDeal.value)}</span>
+                    <span className="font-semibold text-emerald-700">{formatCurrencyExact(selectedDeal.value)}</span>
                     <span className="w-1 h-1 rounded-full bg-border"></span>
                     <span className="flex items-center gap-1"><Building className="w-3 h-3" /> {selectedDeal.company}</span>
                     <span className="w-1 h-1 rounded-full bg-border"></span>
@@ -451,7 +453,7 @@ const Kanban: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="secondary" onClick={handleMarkWon} className="bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700">
+                  <Button variant="secondary" onClick={() => setIsWonModalOpen(true)} className="bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-700">
                     Ganho
                   </Button>
                   <Button variant="secondary" onClick={() => setIsLostModalOpen(true)} className="bg-red-50 hover:bg-red-100 border-red-200 text-red-700">
@@ -486,14 +488,7 @@ const Kanban: React.FC = () => {
                           const isGanhoColumn = col.title === 'Ganho';
                           const isPerdidoColumn = col.title === 'Perdido';
                           if (isGanhoColumn) {
-                            try {
-                              await api.markDealWon(selectedDeal.id);
-                              toast.success("Deal marcado como ganho!");
-                              setDeals(deals.map(d => d.id === selectedDeal.id ? { ...d, stageId: col.id, wonAt: new Date().toISOString() } : d));
-                              setSelectedDeal({ ...selectedDeal, stageId: col.id });
-                            } catch {
-                              toast.error("Erro ao marcar como ganho");
-                            }
+                            setIsWonModalOpen(true);
                           } else if (isPerdidoColumn) {
                             setIsLostModalOpen(true);
                           } else {
@@ -798,6 +793,14 @@ const Kanban: React.FC = () => {
         onOpenChange={setIsLostModalOpen}
         onConfirm={handleMarkLost}
         dealTitle={selectedDeal?.title || ''}
+      />
+
+      <WonDealModal
+        open={isWonModalOpen}
+        onOpenChange={setIsWonModalOpen}
+        onConfirm={handleMarkWon}
+        dealTitle={selectedDeal?.title || ''}
+        currentValue={selectedDeal?.value ?? 0}
       />
 
       <PipelineSettingsModal

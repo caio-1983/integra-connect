@@ -4,6 +4,7 @@ import { Deal } from '@/types';
 import { Button } from '@/components/Button';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/formatCurrency';
 
 interface DealTableProps {
   deals: Deal[];
@@ -28,10 +29,6 @@ const stageColor: Record<string, string> = {
 const priorityLabel: Record<string, string> = {
   low: 'Baixa', medium: 'Média', high: 'Alta',
 };
-
-function formatCurrency(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-}
 
 export const DealTable: React.FC<DealTableProps> = ({ deals }) => {
   const navigate = useNavigate();

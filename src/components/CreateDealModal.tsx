@@ -186,12 +186,15 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
           return;
         }
 
-        // Criar novo contato (o trigger NÃO será acionado porque inserimos is_blocked = false explicitamente)
+        // Um contato é chaveado por (channel, external_id) desde a migração
+        // 20260810100000 — para WhatsApp o external_id é o próprio telefone.
         const { data: newContact, error: contactError } = await supabase
           .from('contacts')
           .insert({
             name: data.new_contact_name,
             phone_number: data.new_contact_phone,
+            channel: 'whatsapp',
+            external_id: data.new_contact_phone,
             email: data.new_contact_email || null,
           })
           .select('id')
@@ -206,12 +209,6 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
 
         contactId = newContact.id;
         toast.success('Contato criado com sucesso!');
-
-        // Deletar deal criado automaticamente pelo trigger (se existir)
-        await supabase
-          .from('deals')
-          .delete()
-          .eq('contact_id', contactId);
       }
 
       // Parse tags

@@ -3,6 +3,7 @@ import { MapPin, Globe, FileText, User, Building2, BarChart2, Users } from 'luci
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Company } from '@/types';
 import { MOCK_DEALS, MOCK_PEOPLE } from '@/constants';
+import { formatCurrency } from '@/lib/formatCurrency';
 
 interface CompanySheetProps {
   company: Company | null;
@@ -61,7 +62,7 @@ export const CompanySheet: React.FC<CompanySheetProps> = ({ company, open, onOpe
               { label: 'Contatos', value: contacts.length },
               { label: 'Negócios', value: deals.length },
               { label: 'Valor Total', value: totalValue > 0
-                ? totalValue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+                ? formatCurrency(totalValue)
                 : 'R$ 0' },
             ].map(kpi => (
               <div key={kpi.label} className="rounded-xl border border-border bg-card p-3 text-center">
@@ -146,7 +147,7 @@ export const CompanySheet: React.FC<CompanySheetProps> = ({ company, open, onOpe
                     <div>
                       <p className="font-medium text-foreground">{d.title}</p>
                       <p className="text-muted-foreground mt-0.5">
-                        {d.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+                        {formatCurrency(d.value)}
                       </p>
                     </div>
                     <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground">

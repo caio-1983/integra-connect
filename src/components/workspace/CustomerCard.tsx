@@ -3,6 +3,7 @@ import { User, Plus, X } from 'lucide-react';
 import { UIConversation, TagDefinition } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TagSelector } from '@/components/TagSelector';
+import { LeadOriginCard } from '@/components/workspace/LeadOriginCard';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { cn } from '@/lib/utils';
 
@@ -72,14 +73,21 @@ const CustomerCard: React.FC<CustomerCardProps> = ({
         </div>
       </div>
 
+      {/* Origem do lead — leitura e correção manual (organico/indicacao/offline
+          não têm como ser rastreados automaticamente). */}
+      <LeadOriginCard contactId={conversation.contactId} channel={conversation.primaryChannel} />
+
       {/* Responsible */}
       <div className="px-4 space-y-2">
         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
           <User className="w-3 h-3" />
           Responsável
         </p>
+        {/* O valor do select é um team_members.id (é o que onAssignUser espera),
+            mas conversation.assignedUserId é um auth.users.id — por isso a
+            seleção atual é resolvida pelo user_id do membro, não por igualdade. */}
         <select
-          value={conversation.assignedUserId || ''}
+          value={teamMembers.find((m) => m.user_id && m.user_id === conversation.assignedUserId)?.id ?? ''}
           onChange={(e) => onAssignUser(e.target.value || null)}
           className="w-full bg-background border border-border rounded-lg px-2.5 py-1.5 text-xs text-foreground focus:ring-1 focus:ring-ring/50 focus:border-ring/50 outline-none transition-all"
         >

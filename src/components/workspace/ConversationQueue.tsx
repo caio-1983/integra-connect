@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Search, Plus, Loader2, MessageSquare, Smartphone, ChevronDown } from 'lucide-react';
+import { Search, Plus, Loader2, MessageSquare, Smartphone, ChevronDown, UserCheck } from 'lucide-react';
 import { UIConversation } from '@/types';
 import { ConversationItem } from './ConversationItem';
 import { ConversationFilters, QueueFilter } from './ConversationFilters';
 import { useWhatsappInstances } from '@/hooks/useWhatsappInstances';
 import { cn } from '@/lib/utils';
+
+interface TeamMemberOption { id: string; name: string; user_id?: string | null }
 
 interface ConversationQueueProps {
   conversations: UIConversation[];
@@ -13,12 +15,28 @@ interface ConversationQueueProps {
   loading: boolean;
   sdrName: string;
   onNewConversation: () => void;
+  /** Used both to name the assigned attendant on each row and to populate the
+   *  "Atendente" filter. */
+  teamMembers?: TeamMemberOption[];
 }
 
-function applyFilter(conversations: UIConversation[], filter: QueueFilter, query: string, instance: string): UIConversation[] {
+function applyFilter(
+  conversations: UIConversation[],
+  filter: QueueFilter,
+  query: string,
+  instance: string,
+  attendant: string,
+): UIConversation[] {
   let result = conversations;
   if (instance !== 'all') {
     result = result.filter(c => c.instance === instance);
+  }
+  // 'unassigned' is a first-class choice, not the absence of one: an unrouted
+  // conversation is precisely what a supervisor hunts for.
+  if (attendant === 'unassigned') {
+    result = result.filter(c => !c.assignedUserId);
+  } else if (attendant !== 'all') {
+    result = result.filter(c => c.assignedUserId === attendant);
   }
   if (query) {
     const q = query.toLowerCase();
@@ -48,11 +66,12 @@ function buildCounts(conversations: UIConversation[]): Record<QueueFilter, numbe
 }
 
 const ConversationQueue: React.FC<ConversationQueueProps> = ({
-  conversations, selectedId, onSelect, loading, sdrName, onNewConversation,
+  conversations, selectedId, onSelect, loading, sdrName, onNewConversation, teamMembers = [],
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<QueueFilter>('all');
   const [instanceFilter, setInstanceFilter] = useState('all');
+  const [attendantFilter, setAttendantFilter] = useState('all');
   const { instances: connectedInstances } = useWhatsappInstances();
 
   // All WhatsApp numbers the operator might filter by: every connected instance
@@ -69,7 +88,13 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
     ? conversations
     : conversations.filter(c => c.instance === instanceFilter);
   const counts = buildCounts(instanceScoped);
-  const filtered = applyFilter(conversations, activeFilter, searchQuery, instanceFilter);
+  const filtered = applyFilter(conversations, activeFilter, searchQuery, instanceFilter, attendantFilter);
+
+  // Only members who actually hold conversations are offered, so the dropdown
+  // doesn't list the whole company when two people are on the inbox.
+  const assignedIds = new Set(conversations.map(c => c.assignedUserId).filter((id): id is string => !!id));
+  const attendantOptions = teamMembers.filter(m => m.user_id && assignedIds.has(m.user_id));
+  const unassignedCount = conversations.filter(c => !c.assignedUserId).length;
 
   return (
     <div className="w-64 xl:w-72 border-r border-border flex flex-col bg-card flex-shrink-0">
@@ -114,6 +139,27 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
           </div>
         )}
+
+        {(attendantOptions.length > 0 || unassignedCount > 0) && (
+          <div className="relative mt-2">
+            <UserCheck className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+            <select
+              value={attendantFilter}
+              onChange={(e) => setAttendantFilter(e.target.value)}
+              aria-label="Filtrar por atendente"
+              className="w-full pl-7 pr-6 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground focus:ring-1 focus:ring-ring/50 outline-none transition-all appearance-none cursor-pointer"
+            >
+              <option value="all">Todos os atendentes</option>
+              {unassignedCount > 0 && <option value="unassigned">Não atribuídas ({unassignedCount})</option>}
+              {attendantOptions.map(m => (
+                <option key={m.id} value={m.user_id!}>
+                  {m.name} ({conversations.filter(c => c.assignedUserId === m.user_id).length})
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+          </div>
+        )}
       </div>
 
       {/* Filters */}
@@ -139,7 +185,7 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
           <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
             <MessageSquare className="w-8 h-8 text-muted-foreground/30 mb-3" />
             <p className="text-xs text-muted-foreground">
-              {searchQuery || activeFilter !== 'all'
+              {searchQuery || activeFilter !== 'all' || attendantFilter !== 'all'
                 ? 'Nenhuma conversa encontrada'
                 : 'Aguardando conversas'}
             </p>
@@ -152,6 +198,7 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
               isSelected={selectedId === conv.id}
               onClick={() => onSelect(conv.id)}
               sdrName={sdrName}
+              teamMembers={teamMembers}
             />
           ))
         )}
