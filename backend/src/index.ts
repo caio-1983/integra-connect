@@ -10,6 +10,7 @@ import { agentChatRoutes } from './routes/agentChat.js';
 import { channelWebhookRoutes } from './routes/channelWebhooks.js';
 import { whatsappInstanceRoutes } from './routes/whatsappInstances.js';
 import { conversationReplyRoutes } from './routes/conversationReply.js';
+import { metaAccountRoutes } from './routes/metaAccounts.js';
 // Side-effect imports: each subscribes its handlers to the EventBus at boot.
 import './telemetry/TelemetryService.js';
 import './channels/ChannelOrchestrator.js';
@@ -48,6 +49,7 @@ async function main(): Promise<void> {
   await app.register(channelWebhookRoutes);
   await app.register(whatsappInstanceRoutes);
   await app.register(conversationReplyRoutes);
+  await app.register(metaAccountRoutes);
 
   const port = configService.getNumber('PORT', 8787);
   await app.listen({ port, host: '0.0.0.0' });

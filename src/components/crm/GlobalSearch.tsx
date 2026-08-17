@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { MOCK_PEOPLE, MOCK_COMPANIES, MOCK_DEALS, MOCK_CONVERSATIONS } from '@/constants';
 import { cn } from '@/lib/utils';
 import { isModuleEnabled } from '@/lib/platformPhase';
+import { formatCurrency } from '@/lib/formatCurrency';
 
 interface SearchResult {
   id: string;
@@ -91,7 +92,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({ open, onClose }) => 
         d.company.toLowerCase().includes(q) ||
         (d.contactName?.toLowerCase() ?? '').includes(q)
       ) {
-        out.push({ id: d.id, type: 'deal', title: d.title, subtitle: `${d.company} · ${d.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}`, href: '/pipeline' });
+        out.push({ id: d.id, type: 'deal', title: d.title, subtitle: `${d.company} · ${formatCurrency(d.value)}`, href: '/pipeline' });
       }
     });
 

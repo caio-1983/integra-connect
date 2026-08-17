@@ -88,17 +88,22 @@ export async function importWhatsappContacts(instanceName: string): Promise<Impo
 // ============= Operador — resposta manual via Evolution =============
 
 /** Sends a human operator's reply through the backend's channel-agnostic
- * outbound pipeline (resolves the right connector/instance server-side). */
-export async function sendConversationReply(conversationId: string, content: string): Promise<void> {
+ * outbound pipeline (resolves the right connector/instance server-side).
+ *
+ * `operatorId` is the current user's auth id and lands on `messages.sent_by` —
+ * without it the reply is anonymous and the per-attendant report cannot count
+ * it. The backend gateway has no per-user identity of its own (shared bearer
+ * token), so the frontend is the only thing that knows who is typing. */
+export async function sendConversationReply(conversationId: string, content: string, operatorId?: string): Promise<void> {
   const res = await fetch(`${base()}/v1/conversations/${encodeURIComponent(conversationId)}/reply`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, operatorId }),
   });
   await handle<{ accepted: true }>(res);
 }
 
-export interface SendMediaReplyInput { base64: string; mimeType: string; fileName?: string; caption?: string; }
+export interface SendMediaReplyInput { base64: string; mimeType: string; fileName?: string; caption?: string; operatorId?: string; }
 
 /** Sends a human operator's media reply (attachment). base64 has no data: prefix. */
 export async function sendConversationMediaReply(conversationId: string, media: SendMediaReplyInput): Promise<void> {

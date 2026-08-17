@@ -4,6 +4,7 @@ import { Deal } from '@/types';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { CreateDealModal } from '@/components/CreateDealModal';
+import { formatCurrency } from '@/lib/formatCurrency';
 
 interface DealSummaryProps {
   deals: Deal[];
@@ -28,10 +29,6 @@ const stageColor: Record<string, string> = {
   won:          'bg-emerald-50 text-emerald-700 border-emerald-200',
   lost:         'bg-red-50 text-red-700 border-red-200',
 };
-
-function formatCurrency(v: number) {
-  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-}
 
 export const DealSummary: React.FC<DealSummaryProps> = ({ deals, contactId, contactName }) => {
   const navigate = useNavigate();

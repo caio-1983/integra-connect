@@ -1,15 +1,9 @@
 import type { InboundMediaKind, NormalizedInbound, NormalizedInboundMedia, NormalizedStatusUpdate } from './types.js';
 import type { MessageDeliveryStatus } from '../../types/messageStatus.js';
+import type { InboundAttribution } from '../channelEvents.js';
+import { extractRefToken } from '../attributionToken.js';
+import { MEDIA_PLACEHOLDER } from '../mediaPlaceholder.js';
 import { logger } from '../../logger/Logger.js';
-
-/** Fallback text shown when a media message has no caption, so it's never dropped. */
-const MEDIA_PLACEHOLDER: Record<InboundMediaKind, string> = {
-  audio: '🎤 Mensagem de voz',
-  image: '📷 Imagem',
-  video: '🎥 Vídeo',
-  document: '📄 Documento',
-  sticker: '💟 Figurinha',
-};
 
 /** Default mimetype per kind when Evolution omits it. */
 const DEFAULT_MIME: Record<InboundMediaKind, string> = {
@@ -19,6 +13,71 @@ const DEFAULT_MIME: Record<InboundMediaKind, string> = {
   document: 'application/octet-stream',
   sticker: 'image/webp',
 };
+
+/**
+ * Pulls the Meta click-to-WhatsApp ad reference off an inbound message.
+ *
+ * When someone taps "Send message" on a Facebook/Instagram ad, WhatsApp attaches
+ * `contextInfo.externalAdReply` to their first message. That is the ONLY place
+ * the originating ad is ever stated, and the parser used to discard the whole
+ * `contextInfo` node — which is why paid-ad leads were indistinguishable from
+ * organic ones.
+ *
+ * Deliberately defensive: `contextInfo` can hang off any message node depending
+ * on the message type, and Evolution/Baileys have moved these fields between
+ * versions. Every field is optional and a miss degrades to "no attribution"
+ * rather than throwing. The raw node is logged (see `logAdReplyDiagnostic`) so
+ * the exact shape can be confirmed against the live server instead of assumed.
+ */
+function extractAdReply(message: Record<string, any>): InboundAttribution | undefined {
+  // contextInfo lives on whichever node carries the message body.
+  const contextInfo = Object.values(message ?? {})
+    .map((node) => (node && typeof node === 'object' ? (node as Record<string, any>).contextInfo : undefined))
+    .find((ctx) => ctx && typeof ctx === 'object') as Record<string, any> | undefined;
+
+  const adReply = contextInfo?.externalAdReply as Record<string, any> | undefined;
+  if (!adReply) return undefined;
+
+  const sourceUrl: string | undefined = adReply.sourceUrl ?? undefined;
+  // ctwaClid is sometimes a first-class field and sometimes only present as a
+  // query param on sourceUrl — read both, preferring the explicit field.
+  let ctwaClid: string | undefined = adReply.ctwaClid ?? contextInfo?.ctwaClid ?? undefined;
+  if (!ctwaClid && sourceUrl) {
+    try {
+      ctwaClid = new URL(sourceUrl).searchParams.get('ctwa_clid') ?? undefined;
+    } catch {
+      // Not a parseable URL — nothing to recover, keep ctwaClid undefined.
+    }
+  }
+
+  const adId: string | undefined = adReply.sourceId ? String(adReply.sourceId) : undefined;
+  if (!adId && !ctwaClid) return undefined; // an ad reply with no identifier is not attributable
+
+  return {
+    adId,
+    adTitle: adReply.title ?? undefined,
+    ctwaClid,
+    // `sourceType` is 'ad' for paid placements and 'post' for organic ones, so a
+    // shared post is correctly NOT counted as paid media.
+    kind: adReply.sourceType === 'post' ? 'direct_social' : 'paid_ad',
+  };
+}
+
+/**
+ * One-shot diagnostic for the CTWA payload. Evolution's exact `contextInfo`
+ * shape has not been byte-verified against the live v2.3.7 server, so the raw
+ * node is logged whenever one arrives — confirm against a real ad click and
+ * adjust `extractAdReply` from the logged shape rather than guessing.
+ */
+function logAdReplyDiagnostic(instance: unknown, message: Record<string, any>): void {
+  const withContext = Object.entries(message ?? {}).find(
+    ([, node]) => node && typeof node === 'object' && (node as Record<string, any>).contextInfo,
+  );
+  if (!withContext) return;
+  const contextInfo = (withContext[1] as Record<string, any>).contextInfo;
+  if (!contextInfo?.externalAdReply) return;
+  logger.info({ instance, node: withContext[0], contextInfo }, '[evolution] inbound carries externalAdReply (CTWA) — raw payload');
+}
 
 /**
  * Shared across v1 and v2 — the inbound webhook envelope is near-identical
@@ -61,11 +120,24 @@ export function parseInbound(rawBody: unknown): NormalizedInbound | null {
   const caption: string | undefined =
     msg.imageMessage?.caption ?? msg.videoMessage?.caption ?? documentNode?.caption;
 
-  const text: string | undefined =
+  const rawText: string | undefined =
     msg.conversation ??
     msg.extendedTextMessage?.text ??
     caption ??
     (mediaNode ? MEDIA_PLACEHOLDER[mediaNode.kind] : undefined);
+
+  // Origin signals, resolved before the text is normalized. A Meta ad reply wins
+  // over a site `[ref:]` token: an ad click is a stronger, first-party claim than
+  // a token that could be copied from any link.
+  logAdReplyDiagnostic(instance, msg);
+  const adAttribution = extractAdReply(msg);
+  const { ref, cleanText } = rawText ? extractRefToken(rawText) : { ref: undefined, cleanText: rawText };
+  const attribution: InboundAttribution | undefined =
+    adAttribution ?? (ref ? { ref, kind: 'website' } : undefined);
+
+  // The `[ref:]` token is stripped here and never persisted, so it shows up in
+  // neither the conversation timeline nor the agent's context.
+  const text = cleanText;
 
   if (!text || !instance || !key.id) {
     // Diagnostic: a message arrived but produced no text/media we handle — log
@@ -123,6 +195,7 @@ export function parseInbound(rawBody: unknown): NormalizedInbound | null {
       ? (String(key.participant ?? '').replace(/@s\.whatsapp\.net$/, '').replace(/@.*$/, '') || undefined)
       : undefined,
     senderName: isGroup ? (data.pushName ?? undefined) : undefined,
+    attribution,
   };
 }
 

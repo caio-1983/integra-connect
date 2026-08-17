@@ -1,5 +1,5 @@
 import type { ConversationMode, IncomingMessage, MessageDeliveryStatus } from '../types/index.js';
-import type { InboundMedia } from '../channels/channelEvents.js';
+import type { InboundAttribution, InboundMedia } from '../channels/channelEvents.js';
 import { getSupabase } from './supabaseClient.js';
 import { logger } from '../logger/Logger.js';
 
@@ -8,6 +8,11 @@ import { logger } from '../logger/Logger.js';
 // bucket or migration is needed. The name is historical; treat it as the shared
 // inbound-media bucket.
 const MEDIA_BUCKET = 'audio-messages';
+
+/** Operator display names, cached per reply (see getOperatorName). Short TTL so a
+ *  rename in the team screen reaches outgoing signatures without a restart. */
+const OPERATOR_NAME_TTL_MS = 10 * 60 * 1000;
+const operatorNameCache = new Map<string, { name?: string; expiresAt: number }>();
 
 /** File extension for a stored media blob, from its mimetype (falls back to the
  *  document's own file name extension, then 'bin'). */
@@ -80,19 +85,34 @@ function modeToStatus(mode: ConversationMode): DbStatus {
 
 export interface FindOrCreateContactResult { contactId: string; }
 export interface FindOrCreateConversationResult { conversationId: string; created: boolean; }
+/** Resolved routing target for an outbound message on an existing conversation. */
+export interface ConversationChannelInfo { provider: string; channel: string; instance: string; to: string; }
 export interface InsertMessageResult { inserted: boolean; }
 export interface ImportContactInput { phoneNumber: string; name?: string | null; profilePictureUrl?: string | null; }
 export interface BulkImportContactsResult { imported: number; updated: number; }
 
 class ConversationRepository {
-  /** `isGroup` also refreshes `name` on every message for an existing contact
+  /** A contact is keyed on (channel, external_id) — see migration
+   * 20260810100000_channel_identity. `externalId` is the phone digits on
+   * WhatsApp, a PSID on Messenger, an IGSID on Instagram; `phone_number` is
+   * only populated for WhatsApp, where it is still the routing address
+   * Evolution expects. The same human on two channels is intentionally two
+   * contacts (no identity unification in this phase).
+   *
+   * `isGroup` also refreshes `name` on every message for an existing contact
    * — the group's subject can change and is re-resolved per message
    * (EvolutionChannelConnector), so this lets a rename self-heal. Individual
    * contacts intentionally keep their name frozen after creation, so a
    * WhatsApp pushName change (or a manual CRM edit) is never clobbered. */
-  async findOrCreateContact(phone: string, pushName?: string, isGroup?: boolean): Promise<FindOrCreateContactResult> {
+  async findOrCreateContact(channel: string, externalId: string, pushName?: string, isGroup?: boolean): Promise<FindOrCreateContactResult> {
     const supabase = getSupabase();
-    const { data: existing } = await supabase.from('contacts').select('id').eq('phone_number', phone).maybeSingle();
+    const isWhatsapp = channel === 'whatsapp';
+    const { data: existing } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('channel', channel)
+      .eq('external_id', externalId)
+      .maybeSingle();
 
     if (existing) {
       const update: Record<string, unknown> = { last_activity: new Date().toISOString() };
@@ -107,8 +127,10 @@ class ConversationRepository {
     const { data, error } = await supabase
       .from('contacts')
       .insert({
-        phone_number: phone,
-        whatsapp_id: phone,
+        channel,
+        external_id: externalId,
+        phone_number: isWhatsapp ? externalId : null,
+        whatsapp_id: isWhatsapp ? externalId : null,
         name: pushName ?? null,
         call_name: pushName?.split(' ')[0] ?? null,
         user_id: null,
@@ -129,8 +151,16 @@ class ConversationRepository {
    * doesn't auto-reply from the moment the group thread is created — belt and
    * suspenders alongside ConversationService's hard isGroup guard, which is
    * what actually prevents it even if someone later flips the mode. */
-  async findOrCreateConversation(contactId: string, instance: string, isGroup?: boolean): Promise<FindOrCreateConversationResult> {
+  async findOrCreateConversation(
+    contactId: string,
+    instance: string,
+    opts: { channel: string; provider: string; isGroup?: boolean },
+  ): Promise<FindOrCreateConversationResult> {
     const supabase = getSupabase();
+    const { isGroup, channel, provider } = opts;
+    // No channel predicate needed: the contact itself is now scoped by channel
+    // (contacts is keyed on channel + external_id), so one active conversation
+    // per contact is already one active conversation per channel.
     const { data: existing } = await supabase
       .from('conversations')
       .select('id')
@@ -147,7 +177,11 @@ class ConversationRepository {
         status: isGroup ? 'human' : 'nina',
         is_active: true,
         user_id: null,
-        metadata: isGroup ? { instance, isGroup: true } : { instance },
+        channel,
+        provider,
+        // `channel`/`provider` are also kept on metadata so the shape stays
+        // backward-compatible with anything already reading metadata.instance.
+        metadata: isGroup ? { instance, channel, provider, isGroup: true } : { instance, channel, provider },
       })
       .select('id')
       .single();
@@ -156,22 +190,32 @@ class ConversationRepository {
     return { conversationId: data.id, created: true };
   }
 
-  /** Resolves the Evolution instance + recipient phone for a conversation, so
-   * a manual operator reply (no fresh inbound event to read this from) can
-   * still be routed correctly. Returns null if the conversation predates
-   * instance tracking, or has no contact. */
-  async getConversationChannelInfo(conversationId: string): Promise<{ instance: string; to: string } | null> {
+  /** Resolves provider + channel + account instance + recipient address for a
+   * conversation, so a manual operator reply (no fresh inbound event to read
+   * this from) can still be routed correctly. The recipient comes from
+   * `contacts.external_id` — phone digits on WhatsApp, PSID/IGSID on Meta —
+   * which is what every connector's send API takes. Returns null if the
+   * conversation predates instance tracking, or has no contact.
+   *
+   * `channel`/`provider` fall back to whatsapp/evolution for rows written
+   * before 20260810100000, which is what they were. */
+  async getConversationChannelInfo(conversationId: string): Promise<ConversationChannelInfo | null> {
     const supabase = getSupabase();
     const { data } = await supabase
       .from('conversations')
-      .select('metadata, contacts(phone_number)')
+      .select('metadata, channel, provider, contacts(external_id)')
       .eq('id', conversationId)
       .maybeSingle();
 
     const instance = (data?.metadata as { instance?: string } | null)?.instance;
-    const to = (data?.contacts as unknown as { phone_number?: string } | null)?.phone_number;
+    const to = (data?.contacts as unknown as { external_id?: string } | null)?.external_id;
     if (!instance || !to) return null;
-    return { instance, to };
+    return {
+      provider: (data?.provider as string | null) ?? 'evolution',
+      channel: (data?.channel as string | null) ?? 'whatsapp',
+      instance,
+      to,
+    };
   }
 
   /** Creates a CRM lead (deal in the first active pipeline stage) for a contact
@@ -207,6 +251,81 @@ class ConversationRepository {
       user_id: null,
     });
     if (error) logger.warn({ contactId, err: error.message }, '[repo] failed to create lead');
+  }
+
+  /**
+   * Records where a lead came from, on first touch only.
+   *
+   * `ON CONFLICT DO NOTHING` against the contact_id primary key is what makes
+   * first-touch attribution immutable — no later message can rewrite the origin,
+   * so a lead that came from the September ad still reads as the September ad
+   * after it comes back through an organic message in November. That also means
+   * this is safe to call on every inbound without a "is this the first?" check.
+   *
+   * Only the RAW signals are stored. Which campaign they belong to is resolved at
+   * read time by `lead_attribution_resolved` against the editable
+   * `campaign_mappings`, so a manager fixing a mapping re-attributes the whole
+   * history (see migration 20260810100100).
+   *
+   * Never throws: an attribution hiccup must not drop the message that carried it.
+   */
+  async recordAttribution(contactId: string, channel: string, attribution: InboundAttribution, instance?: string): Promise<void> {
+    const supabase = getSupabase();
+
+    // Undefined keys are dropped so `source_raw` only ever contains signals that
+    // genuinely arrived — an unmapped-values report must not be polluted by nulls.
+    const sourceRaw: Record<string, string> = {};
+    const put = (key: string, value?: string) => { if (value) sourceRaw[key] = value; };
+    put('ad_id', attribution.adId);
+    put('ad_title', attribution.adTitle);
+    put('ctwa_clid', attribution.ctwaClid);
+    put('meta_campaign_name', attribution.metaCampaignName);
+    put('ref', attribution.ref);
+    put('utm_source', attribution.utmSource);
+    put('utm_medium', attribution.utmMedium);
+    put('utm_campaign', attribution.utmCampaign);
+    put('landing_path', attribution.landingPath);
+    put('instance', instance);
+
+    const { error } = await supabase
+      .from('contact_attribution')
+      .upsert({
+        contact_id: contactId,
+        source_channel: channel,
+        source_kind: attribution.kind,
+        source_raw: sourceRaw,
+        set_manually: false,
+      }, { onConflict: 'contact_id', ignoreDuplicates: true });
+
+    if (error) logger.warn({ contactId, err: error.message }, '[repo] failed to record lead attribution');
+  }
+
+  /**
+   * Display name of the operator behind `messages.sent_by`, used to sign the
+   * outgoing text (see channels/outboundSignature.ts). Cached because it is hit
+   * once per human reply and a team name changes about never; the short TTL is
+   * only so a rename lands without a restart. Returns undefined on any miss, and
+   * never throws — an unsigned message is far better than a dropped one.
+   */
+  async getOperatorName(userId: string): Promise<string | undefined> {
+    const cached = operatorNameCache.get(userId);
+    if (cached && cached.expiresAt > Date.now()) return cached.name;
+
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('team_members')
+      .select('name')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      logger.warn({ userId, err: error.message }, '[repo] failed to resolve operator name');
+      return undefined;
+    }
+
+    const name = (data?.name as string | undefined)?.trim() || undefined;
+    operatorNameCache.set(userId, { name, expiresAt: Date.now() + OPERATOR_NAME_TTL_MS });
+    return name;
   }
 
   /** Best-effort name lookup for phone numbers we already know as contacts —
@@ -247,6 +366,7 @@ class ConversationRepository {
   /** Returns inserted:false on unique-violation (dedup by whatsapp_message_id), matching the legacy webhook's idempotency. */
   async insertInboundMessage(input: {
     conversationId: string;
+    channel: string;
     providerMessageId: string;
     content: string;
     tsSec?: number;
@@ -268,6 +388,7 @@ class ConversationRepository {
 
     const { error } = await supabase.from('messages').insert({
       conversation_id: input.conversationId,
+      channel: input.channel,
       whatsapp_message_id: input.providerMessageId,
       content: input.content,
       type: mediaUrl ? mediaKindToDbType(input.media!.kind) : 'text',
@@ -289,17 +410,22 @@ class ConversationRepository {
 
   async insertOutboundMessage(input: {
     conversationId: string;
+    channel: string;
     providerMessageId?: string;
     content: string;
     fromType: 'nina' | 'human';
+    /** Only meaningful for `fromType: 'human'` — see messages.sent_by. */
+    operatorId?: string;
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
     const { error } = await supabase.from('messages').insert({
       conversation_id: input.conversationId,
+      channel: input.channel,
       whatsapp_message_id: input.providerMessageId ?? null,
       content: input.content,
       type: 'text',
       from_type: input.fromType,
+      sent_by: input.fromType === 'human' ? (input.operatorId ?? null) : null,
       status: 'sent',
       sent_at: new Date().toISOString(),
     });
@@ -331,21 +457,25 @@ class ConversationRepository {
    *  document) so it renders in the timeline exactly like an inbound one. */
   async insertOutboundMediaMessage(input: {
     conversationId: string;
+    channel: string;
     providerMessageId?: string;
     content: string;
     mediaUrl: string;
     mediaType: string;
     dbType: 'audio' | 'image' | 'video' | 'document';
+    operatorId?: string;
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
     const { error } = await supabase.from('messages').insert({
       conversation_id: input.conversationId,
+      channel: input.channel,
       whatsapp_message_id: input.providerMessageId ?? null,
       content: input.content,
       type: input.dbType,
       media_url: input.mediaUrl,
       media_type: input.mediaType,
       from_type: 'human',
+      sent_by: input.operatorId ?? null,
       status: 'sent',
       sent_at: new Date().toISOString(),
     });
@@ -424,36 +554,51 @@ class ConversationRepository {
     const supabase = getSupabase();
 
     const phoneNumbers = contacts.map((c) => c.phoneNumber);
-    const { data: existingRows } = await supabase.from('contacts').select('phone_number').in('phone_number', phoneNumbers);
-    const existing = new Set((existingRows ?? []).map((r) => r.phone_number as string));
+    const { data: existingRows } = await supabase
+      .from('contacts')
+      .select('external_id')
+      .eq('channel', 'whatsapp')
+      .in('external_id', phoneNumbers);
+    const existing = new Set((existingRows ?? []).map((r) => r.external_id as string));
 
     const withName = contacts.filter((c) => c.name);
     const withPicOnly = contacts.filter((c) => !c.name && c.profilePictureUrl);
     const withNeither = contacts.filter((c) => !c.name && !c.profilePictureUrl);
 
+    // An address-book import is WhatsApp by definition. The conflict target is
+    // the (channel, external_id) key introduced in 20260810100000 — the old
+    // single-column `phone_number` unique no longer exists, so upserting on it
+    // would fail outright.
+    const identity = (phoneNumber: string) => ({
+      channel: 'whatsapp',
+      external_id: phoneNumber,
+      phone_number: phoneNumber,
+      whatsapp_id: phoneNumber,
+    });
+    const ON_CONFLICT = 'channel,external_id';
+
     if (withName.length > 0) {
       const rows = withName.map((c) => ({
-        phone_number: c.phoneNumber,
-        whatsapp_id: c.phoneNumber,
+        ...identity(c.phoneNumber),
         name: c.name,
         call_name: c.name!.split(' ')[0],
         profile_picture_url: c.profilePictureUrl ?? null,
         user_id: null,
       }));
-      const { error } = await supabase.from('contacts').upsert(rows, { onConflict: 'phone_number' });
+      const { error } = await supabase.from('contacts').upsert(rows, { onConflict: ON_CONFLICT });
       if (error) throw new Error(`[repo] failed to upsert contacts with name: ${error.message}`);
     }
 
     if (withPicOnly.length > 0) {
       // Deliberately no `name`/`call_name` keys — see method doc.
-      const rows = withPicOnly.map((c) => ({ phone_number: c.phoneNumber, whatsapp_id: c.phoneNumber, profile_picture_url: c.profilePictureUrl, user_id: null }));
-      const { error } = await supabase.from('contacts').upsert(rows, { onConflict: 'phone_number' });
+      const rows = withPicOnly.map((c) => ({ ...identity(c.phoneNumber), profile_picture_url: c.profilePictureUrl, user_id: null }));
+      const { error } = await supabase.from('contacts').upsert(rows, { onConflict: ON_CONFLICT });
       if (error) throw new Error(`[repo] failed to upsert contacts with picture only: ${error.message}`);
     }
 
     if (withNeither.length > 0) {
-      const rows = withNeither.map((c) => ({ phone_number: c.phoneNumber, whatsapp_id: c.phoneNumber, user_id: null }));
-      const { error } = await supabase.from('contacts').upsert(rows, { onConflict: 'phone_number', ignoreDuplicates: true });
+      const rows = withNeither.map((c) => ({ ...identity(c.phoneNumber), user_id: null }));
+      const { error } = await supabase.from('contacts').upsert(rows, { onConflict: ON_CONFLICT, ignoreDuplicates: true });
       if (error) throw new Error(`[repo] failed to insert bare contacts: ${error.message}`);
     }
 

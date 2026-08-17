@@ -2,6 +2,7 @@ import { aiEventBus, type AppEvent } from '../runtime/EventBus.js';
 import { logger } from '../logger/Logger.js';
 import { getConnector } from './connectorRegistry.js';
 import { ChannelEvents, type OutboundMessageRequestedPayload, type OutboundMessageSentPayload } from './channelEvents.js';
+import { applySignature } from './outboundSignature.js';
 
 /**
  * Subscribes to `OutboundMessageRequested`, routes by provider to the right
@@ -19,13 +20,19 @@ function register(): void {
       return;
     }
 
-    const { providerMessageId } = await connector.sendText(req.instance, req.to, req.text);
+    // Signed for the customer, clean for us: `text` below is deliberately the
+    // unsigned original, so the timeline and the AI's history never carry the
+    // attendant's name as if the customer had been told it twice.
+    const outgoing = applySignature(req.text, req.signature, req.channel);
+    const { providerMessageId } = await connector.sendText(req.instance, req.to, outgoing);
 
     const sent: OutboundMessageSentPayload = {
       conversationId: req.conversationId,
+      channel: req.channel,
       providerMessageId,
       text: req.text,
       fromType: req.fromType,
+      operatorId: req.operatorId,
     };
     await aiEventBus.publish({ type: ChannelEvents.OutboundMessageSent, payload: sent as unknown as Record<string, unknown>, timestamp: new Date() });
   });

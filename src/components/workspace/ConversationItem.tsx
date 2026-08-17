@@ -3,12 +3,15 @@ import { Bot, User, Pause } from 'lucide-react';
 import { MessageType, UIConversation, ConversationStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
+import { AttendantTag } from './AttendantTag';
 
 interface ConversationItemProps {
   conversation: UIConversation;
   isSelected: boolean;
   onClick: () => void;
   sdrName: string;
+  /** Needed to name the assigned attendant on the queue row. */
+  teamMembers?: Array<{ id: string; name: string; user_id?: string | null }>;
 }
 
 const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color: string }> = {
@@ -17,7 +20,7 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
   paused: { icon: Pause, color: 'bg-amber-50 text-amber-700 border-amber-200' },
 };
 
-const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName }) => {
+const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName, teamMembers = [] }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel = conversation.status === 'nina' ? sdrName : conversation.status === 'human' ? 'Humano' : 'Pausado';
   const channelCfg = CHANNEL_CONFIG[conversation.primaryChannel];
@@ -76,6 +79,9 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
             <StatusIcon className="w-2.5 h-2.5" />
             {statusLabel}
           </span>
+          {/* Para quem a conversa foi direcionada — vem antes das tags porque é a
+              informação que o gestor procura ao varrer a fila. */}
+          <AttendantTag assignedUserId={conversation.assignedUserId} teamMembers={teamMembers} compact />
           {conversation.tags.slice(0, 1).map(tag => (
             <span key={tag} className="px-1.5 py-0.5 bg-muted border border-border text-muted-foreground text-[10px] rounded font-medium truncate max-w-[60px]">
               {tag}

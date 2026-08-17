@@ -10,7 +10,8 @@ import {
   DBMessage,
   UIConversation,
   transformDBToUIConversation,
-  InstanceAccessGrant
+  InstanceAccessGrant,
+  LossReason
 } from '../types';
 import { MOCK_CONTACTS, MOCK_TEAM, MOCK_APPOINTMENTS, MOCK_DEALS } from '../constants';
 
@@ -69,15 +70,6 @@ const calculateTrend = (today: number, yesterday: number): string => {
   if (yesterday === 0) return today > 0 ? '+100%' : '0%';
   const diff = ((today - yesterday) / yesterday) * 100;
   return `${diff >= 0 ? '+' : ''}${diff.toFixed(0)}%`;
-};
-
-const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  }).format(value);
 };
 
 const getDayName = (date: Date): string => {
@@ -1059,19 +1051,25 @@ export const api = {
   },
 
   /**
-   * Move deal to a new stage
-   * Clears won_at/lost_at/lost_reason when moving away from Ganho/Perdido
+   * Move deal to a new stage.
+   *
+   * Clears won_at/lost_at and the loss reason when moving away from
+   * Ganho/Perdido. That erasure used to destroy the only record of why a deal was
+   * lost; since migration 20260810100200 the `deals_record_stage_change` trigger
+   * snapshots the reason into `deal_stage_history` first, so reopening a lost deal
+   * no longer loses the history.
    */
   moveDealStage: async (id: string, newStageId: string): Promise<void> => {
     const { ganhoId, perdidoId } = await getSystemStageIds();
-    
+
     // Build update object - clear won_at/lost_at if moving away from those stages
     const updates: Record<string, any> = { stage_id: newStageId };
-    
+
     if (newStageId !== ganhoId && newStageId !== perdidoId) {
       updates.won_at = null;
       updates.lost_at = null;
       updates.lost_reason = null;
+      updates.lost_reason_code = null;
       updates.stage = 'in_progress';
     }
     
@@ -1087,25 +1085,30 @@ export const api = {
   },
 
   /**
-   * Mark deal as won
+   * Mark deal as won, recording the closed value.
+   *
+   * `value` is required: a lead created from a first inbound message starts at
+   * 0, so without writing the figure here every revenue report would sum to
+   * zero. Callers collect it via WonDealModal.
    */
-  markDealWon: async (dealId: string): Promise<void> => {
+  markDealWon: async (dealId: string, value: number): Promise<void> => {
     const { ganhoId } = await getSystemStageIds();
-    
+
     if (!ganhoId) {
       console.error('[API] Ganho stage not found');
       throw new Error('Stage "Ganho" not found in pipeline');
     }
-    
+
     const { error } = await supabase
       .from('deals')
-      .update({ 
+      .update({
         stage: 'won',
         stage_id: ganhoId,
+        value,
         won_at: new Date().toISOString()
       })
       .eq('id', dealId);
-      
+
     if (error) {
       console.error('[API] Error marking deal as won:', error);
       throw error;
@@ -1113,26 +1116,49 @@ export const api = {
   },
 
   /**
-   * Mark deal as lost with reason
+   * The loss-reason taxonomy (active only, in display order).
+   *
+   * `deals.lost_reason` alone is free text typed into a textarea, so losses could
+   * never be counted or ranked — which is exactly what "o que está deixando de
+   * converter?" asks for. `lost_reason_code` is what reports group by; the free
+   * text survives as the case-by-case detail.
    */
-  markDealLost: async (dealId: string, reason: string): Promise<void> => {
+  fetchLossReasons: async (): Promise<LossReason[]> => {
+    const { data, error } = await supabase
+      .from('loss_reasons')
+      .select('key, label, position')
+      .eq('is_active', true)
+      .order('position');
+
+    if (error) {
+      console.error('[API] Error fetching loss reasons:', error);
+      return [];
+    }
+    return (data ?? []) as LossReason[];
+  },
+
+  /**
+   * Mark deal as lost with a taxonomy code and optional free-text detail.
+   */
+  markDealLost: async (dealId: string, reasonCode: string, detail?: string): Promise<void> => {
     const { perdidoId } = await getSystemStageIds();
-    
+
     if (!perdidoId) {
       console.error('[API] Perdido stage not found');
       throw new Error('Stage "Perdido" not found in pipeline');
     }
-    
+
     const { error } = await supabase
       .from('deals')
-      .update({ 
+      .update({
         stage: 'lost',
         stage_id: perdidoId,
         lost_at: new Date().toISOString(),
-        lost_reason: reason
+        lost_reason_code: reasonCode,
+        lost_reason: detail?.trim() || null
       })
       .eq('id', dealId);
-      
+
     if (error) {
       console.error('[API] Error marking deal as lost:', error);
       throw error;
@@ -1426,13 +1452,46 @@ export const api = {
   },
 
   /**
-   * Assign conversation to a team member and sync with deal
+   * Assign a conversation to a team member, and its contact's deals along with it.
+   *
+   * `teamMemberId` is a `team_members.id`, which is what every caller has in
+   * hand. The two target columns need DIFFERENT ids, and conflating them was a
+   * real bug: `deals.owner_id` references team_members(id), while
+   * `conversations.assigned_user_id` is an auth.users id (it now has a foreign
+   * key enforcing that — see migration 20260810100300) and is what the
+   * transfer-eligibility filter compares against `team_members.user_id`. So the
+   * member's auth id is resolved here rather than assumed to be the same value.
    */
-  assignConversation: async (conversationId: string, userId: string | null, contactId: string): Promise<void> => {
-    // Update conversation
+  assignConversation: async (
+    conversationId: string,
+    teamMemberId: string | null,
+    contactId: string,
+  ): Promise<{ authUserId: string | null }> => {
+    let authUserId: string | null = null;
+
+    if (teamMemberId) {
+      const { data: member, error: memberError } = await supabase
+        .from('team_members')
+        .select('user_id')
+        .eq('id', teamMemberId)
+        .maybeSingle();
+
+      if (memberError) {
+        console.error('[API] Error resolving team member for assignment:', memberError);
+        throw memberError;
+      }
+      // A member invited but without an account yet has no auth id. The deal
+      // owner is still set; the conversation simply stays unassigned rather than
+      // pointing at a non-existent user.
+      authUserId = member?.user_id ?? null;
+    }
+
     const { error: convError } = await supabase
       .from('conversations')
-      .update({ assigned_user_id: userId })
+      .update({
+        assigned_user_id: authUserId,
+        assigned_at: authUserId ? new Date().toISOString() : null,
+      })
       .eq('id', conversationId);
 
     if (convError) {
@@ -1440,10 +1499,9 @@ export const api = {
       throw convError;
     }
 
-    // Update deal(s) with same contact_id
     const { error: dealError } = await supabase
       .from('deals')
-      .update({ owner_id: userId })
+      .update({ owner_id: teamMemberId })
       .eq('contact_id', contactId);
 
     if (dealError) {
@@ -1451,7 +1509,10 @@ export const api = {
       throw dealError;
     }
 
-    console.log(`[API] Conversation ${conversationId} and deals assigned to user ${userId}`);
+    console.log(`[API] Conversation ${conversationId} assigned to auth user ${authUserId}; deals to member ${teamMemberId}`);
+    // Returned so the caller can update local state with the id that was actually
+    // stored, instead of guessing from the team_members.id it passed in.
+    return { authUserId };
   },
 
   /**

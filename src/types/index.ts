@@ -207,9 +207,92 @@ export interface ClientMemory {
   }>;
 }
 
+// ============= Lead origin, campaigns & outcome =============
+
+/** How a lead reached us. Coarser than `ChannelType` on purpose: the question is
+ *  "was this paid media, our site, organic, or a referral", not which app. */
+export type LeadSourceKind =
+  | 'paid_ad'
+  | 'website'
+  | 'direct_social'
+  | 'organic'
+  | 'referral'
+  | 'offline'
+  | 'unknown';
+
+export const LEAD_SOURCE_KIND_LABEL: Record<LeadSourceKind, string> = {
+  paid_ad: 'Anúncio pago',
+  website: 'Site',
+  direct_social: 'Direct / rede social',
+  organic: 'Orgânico',
+  referral: 'Indicação',
+  offline: 'Offline',
+  unknown: 'Não identificado',
+};
+
+/** The signals that identify a campaign, as a mapping rule can match them. */
+export type CampaignMatchType =
+  | 'meta_ad_id'
+  | 'meta_campaign_name'
+  | 'utm_campaign'
+  | 'ref_token'
+  | 'whatsapp_instance';
+
+export const CAMPAIGN_MATCH_TYPE_LABEL: Record<CampaignMatchType, string> = {
+  meta_ad_id: 'ID do anúncio (Meta)',
+  meta_campaign_name: 'Nome da campanha (Meta)',
+  utm_campaign: 'utm_campaign',
+  ref_token: 'Token [ref:] do site',
+  whatsapp_instance: 'Número de WhatsApp',
+};
+
+export interface Campaign {
+  id: string;
+  name: string;
+  channel: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  isActive: boolean;
+  notes: string | null;
+}
+
+export interface CampaignMapping {
+  id: string;
+  campaignId: string;
+  matchType: CampaignMatchType;
+  matchValue: string;
+  priority: number;
+}
+
+/** A contact's first-touch origin with its campaign already resolved by the
+ *  `lead_attribution_resolved` view. */
+export interface LeadAttribution {
+  contactId: string;
+  sourceChannel: string;
+  sourceKind: LeadSourceKind;
+  sourceRaw: Record<string, string>;
+  setManually: boolean;
+  firstSeenAt: string;
+  campaignId: string | null;
+  campaignName: string | null;
+  /** The raw value that identifies a campaign, mapped or not — drives the
+   *  "unmapped signals" list on the campaigns admin page. */
+  rawCampaignSignal: string | null;
+}
+
+export interface LossReason {
+  key: string;
+  label: string;
+  position: number;
+}
+
 export interface DBContact {
   id: string;
-  phone_number: string;
+  /** Null for channels that have no phone number (Instagram/Messenger). */
+  phone_number: string | null;
+  /** Identity within `channel`: phone digits (whatsapp), PSID (facebook), IGSID (instagram). */
+  external_id: string;
+  channel: ChannelType;
   whatsapp_id: string | null;
   name: string | null;
   call_name: string | null;
@@ -233,7 +316,10 @@ export interface DBConversation {
   contact_id: string;
   status: ConversationStatus;
   is_active: boolean;
+  channel: ChannelType;
+  provider: string | null;
   assigned_user_id: string | null;
+  assigned_at: string | null;
   assigned_team: string | null;
   tags: string[];
   metadata: Record<string, any>;
@@ -250,10 +336,13 @@ export interface DBConversation {
 export interface DBMessage {
   id: string;
   conversation_id: string;
+  channel: ChannelType;
   whatsapp_message_id: string | null;
   content: string | null;
   type: DBMessageType;
   from_type: MessageFromType;
+  /** Which operator typed this message (`from_type = 'human'` only). */
+  sent_by: string | null;
   status: DBMessageStatus;
   media_url: string | null;
   media_type: string | null;
@@ -312,6 +401,9 @@ export interface UIMessage {
   whatsappMessageId: string | null;
   /** Channel this specific message arrived/was sent through. */
   channel?: ChannelType;
+  /** Operator who typed this message (`fromType === 'human'` only) — the basis
+   *  for per-attendant supervision metrics. Null for AI and inbound messages. */
+  sentBy?: string | null;
   /** Group only: who sent this incoming message (from messages.metadata.sender). */
   senderName?: string | null;
   senderPhone?: string | null;
@@ -350,7 +442,7 @@ export function transformDBToUIConversation(
     messages: sortedMessages.map(transformDBToUIMessage),
     clientMemory: conv.contact?.client_memory || getDefaultClientMemory(),
     notes: conv.contact?.notes || null,
-    primaryChannel: 'whatsapp',
+    primaryChannel: conv.channel ?? 'whatsapp',
     instance: (conv.metadata as { instance?: string } | null)?.instance,
     isGroup: (conv.metadata as { isGroup?: boolean } | null)?.isGroup
       ?? conv.contact?.phone_number?.endsWith('@g.us')
@@ -369,7 +461,8 @@ export function transformDBToUIMessage(msg: DBMessage): UIMessage {
     fromType: msg.from_type,
     mediaUrl: msg.media_url,
     whatsappMessageId: msg.whatsapp_message_id,
-    channel: 'whatsapp',
+    channel: msg.channel ?? 'whatsapp',
+    sentBy: msg.sent_by ?? null,
     senderName: (msg.metadata as { sender?: { name?: string | null } } | null)?.sender?.name ?? null,
     senderPhone: (msg.metadata as { sender?: { phone?: string | null } } | null)?.sender?.phone ?? null,
   };

@@ -23,10 +23,12 @@ const ROLE_LABEL: Record<TeamMember['role'], string> = {
 
 /**
  * Per-instance access control (checklist of users), opened from a
- * WhatsAppInstanceCard's "Acesso" button. Access now applies to EVERY role
- * (admin/manager included) — a user only sees numbers checked here. Toggling
- * calls the grant/revoke API immediately (same "call on change, toast on error"
- * convention as Team.tsx).
+ * WhatsAppInstanceCard's "Acesso" button. Managers and agents only see the
+ * numbers checked here; admins bypass the check entirely (migration
+ * 20260810110000) so a newly connected number is never invisible to everyone —
+ * the failure mode that hid a whole number during the first production trial.
+ * Toggling calls the grant/revoke API immediately (same "call on change, toast
+ * on error" convention as Team.tsx).
  *
  * A manager operator can only toggle agent rows: the RLS write policy scopes
  * managers to agent targets, so admin/manager rows are shown read-only for
@@ -70,7 +72,7 @@ export const InstanceAccessSheet: React.FC<InstanceAccessSheetProps> = ({
         <SheetHeader>
           <SheetTitle>Acesso a "{instanceName}"</SheetTitle>
           <SheetDescription>
-            Marque quais usuários podem ver e responder conversas deste número. O acesso vale para todos os papéis — inclusive admins e gestores só veem os números marcados aqui.
+            Marque quais usuários podem ver e responder conversas deste número. Gestores e atendentes só enxergam os números marcados aqui; admins veem todos os números, com ou sem marcação.
           </SheetDescription>
         </SheetHeader>
 

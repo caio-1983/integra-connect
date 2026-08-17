@@ -14,6 +14,19 @@ import {
 } from '@/types';
 import { toast } from 'sonner';
 
+/**
+ * Current operator's auth id, for `messages.sent_by`.
+ *
+ * Read from the session on demand rather than taken from `useAuth()` so this
+ * hook keeps working outside the AuthProvider tree (and in the mock-only
+ * harness). Returns undefined if there's no session — the reply still sends, it
+ * just lands unattributed rather than failing.
+ */
+async function currentOperatorId(): Promise<string | undefined> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user?.id;
+}
+
 /** Reads a File as bare base64 (strips the `data:...;base64,` prefix the backend doesn't want). */
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -428,7 +441,7 @@ export function useConversations() {
 
     try {
       // The realtime handler will detect and replace the temp message automatically
-      await sendConversationReply(conversationId, content);
+      await sendConversationReply(conversationId, content, await currentOperatorId());
     } catch (err) {
       console.error('[useConversations] Error sending message:', err);
       toast.error('Erro ao enviar mensagem');
@@ -488,7 +501,10 @@ export function useConversations() {
 
     try {
       const base64 = await fileToBase64(file);
-      await sendConversationMediaReply(conversationId, { base64, mimeType, fileName: file.name, caption: trimmedCaption });
+      await sendConversationMediaReply(conversationId, {
+        base64, mimeType, fileName: file.name, caption: trimmedCaption,
+        operatorId: await currentOperatorId(),
+      });
       // The realtime INSERT replaces the temp message with the real row.
     } catch (err) {
       console.error('[useConversations] Error sending attachment:', err);
@@ -554,36 +570,29 @@ export function useConversations() {
     }
   }, []);
 
-  // Assign conversation (and sync with deal)
-  const assignConversation = useCallback(async (conversationId: string, userId: string | null) => {
+  /**
+   * Assign a conversation to a team member (and its contact's deals with it).
+   *
+   * `teamMemberId` is a `team_members.id`. Deliberately NOT optimistic: the
+   * conversation stores the member's `auth.users.id`, a different id space, so
+   * writing `teamMemberId` into `assignedUserId` up front would paint the wrong
+   * value — the attendant chip would fail to resolve a name and the
+   * "Responsável" select would look cleared until realtime corrected it. The
+   * write is a single fast round trip, so applying state after it is both correct
+   * and simpler than faking it and reverting.
+   */
+  const assignConversation = useCallback(async (conversationId: string, teamMemberId: string | null) => {
     const conv = conversations.find(c => c.id === conversationId);
     if (!conv) return;
 
-    // Optimistic UI update
-    setConversations(prev => {
-      return prev.map(c => {
-        if (c.id === conversationId) {
-          return { ...c, assignedUserId: userId };
-        }
-        return c;
-      });
-    });
-
-    // Persist to database
     try {
-      await api.assignConversation(conversationId, userId, conv.contactId);
+      const { authUserId } = await api.assignConversation(conversationId, teamMemberId, conv.contactId);
+      setConversations(prev => prev.map(c => (
+        c.id === conversationId ? { ...c, assignedUserId: authUserId } : c
+      )));
       console.log('[useConversations] Conversation and deal assigned');
     } catch (err) {
       console.error('[useConversations] Error assigning conversation:', err);
-      // Revert on error
-      setConversations(prev => {
-        return prev.map(c => {
-          if (c.id === conversationId) {
-            return { ...c, assignedUserId: conv.assignedUserId };
-          }
-          return c;
-        });
-      });
       throw err;
     }
   }, [conversations]);

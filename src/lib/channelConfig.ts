@@ -52,4 +52,10 @@ export const CHANNEL_ORDER: ChannelType[] = ['whatsapp', 'instagram', 'facebook'
  * local mock flag — see BaseChannelProvider). Surfaced as "Em construção" and
  * non-interactive in Conexões instead of implying they can actually be used.
  */
-export const COMING_SOON_CHANNELS: ChannelType[] = ['instagram', 'facebook', 'telegram', 'webchat'];
+/**
+ * Channels with no working backend. Instagram and Facebook left this list once
+ * the Meta connector landed (backend/src/channels/meta) — they are configured
+ * server-side rather than paired from the UI, so MetaSection handles them
+ * instead of the generic ChannelSection.
+ */
+export const COMING_SOON_CHANNELS: ChannelType[] = ['telegram', 'webchat'];

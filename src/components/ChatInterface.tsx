@@ -178,6 +178,7 @@ const ChatInterface: React.FC = () => {
         loading={loading}
         sdrName={sdrName}
         onNewConversation={() => setNewConversationOpen(true)}
+        teamMembers={teamMembers}
       />
 
       <NewConversationDialog

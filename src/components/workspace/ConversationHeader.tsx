@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { WorkspaceActions } from './WorkspaceActions';
 import { GroupParticipantsModal } from './GroupParticipantsModal';
+import { AttendantTag } from './AttendantTag';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/Button';
 import { MOCK_PLAYGROUND_PRESETS } from '@/lib/mockAIData';
@@ -16,7 +17,8 @@ interface ConversationHeaderProps {
   onStatusChange: (status: ConversationStatus) => void;
   onToggleCustomerPanel: () => void;
   onSimulateCustomerMessage?: (content: string) => void;
-  teamMembers: Array<{ id: string; name: string }>;
+  /** `user_id` is the auth id; AttendantTag matches assigned_user_id against it. */
+  teamMembers: Array<{ id: string; name: string; user_id?: string | null }>;
   onTransfer: (userId: string) => void;
 }
 
@@ -134,6 +136,9 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
             <span className="text-xs text-primary font-medium truncate">
               {isGroup ? 'Grupo do WhatsApp' : conversation.contactPhone}
             </span>
+            {/* Para quem esta conversa foi direcionada — derivado de
+                assigned_user_id, não de conversations.tags (ver AttendantTag). */}
+            <AttendantTag assignedUserId={conversation.assignedUserId} teamMembers={teamMembers} />
           </div>
         </div>
       </div>
