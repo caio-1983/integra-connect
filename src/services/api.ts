@@ -13,7 +13,6 @@ import {
   InstanceAccessGrant,
   LossReason
 } from '../types';
-import { MOCK_CONTACTS, MOCK_TEAM, MOCK_APPOINTMENTS, MOCK_DEALS } from '../constants';
 
 // Helper function to get current user ID
 const getCurrentUserId = async (): Promise<string> => {

@@ -102,6 +102,8 @@ export async function channelWebhookRoutes(app: FastifyInstance): Promise<void> 
    */
   app.get('/webhooks/:provider/:secret', {
     validatorCompiler: noopValidator,
+    // Exempt from the global rate limit — see the POST handler below for why.
+    config: { rateLimit: false },
     schema: {
       tags: ['webhooks'],
       summary: 'Meta webhook subscription verification (hub.challenge handshake)',
@@ -127,6 +129,14 @@ export async function channelWebhookRoutes(app: FastifyInstance): Promise<void> 
 
   app.post('/webhooks/:provider/:secret', {
     validatorCompiler: noopValidator,
+    // The global rate limit keys on IP, and EVERY delivery from Evolution or
+    // Meta arrives from a single provider IP. A busy number would therefore
+    // rate-limit itself: past RATE_LIMIT_MAX in the window the provider gets
+    // 429s and inbound messages are dropped on the floor. The limit exists to
+    // cap cost on the paid OpenAI-backed endpoints, which these are not — the
+    // handler only checks the path secret and publishes to the event bus.
+    // Authentication here is the unguessable `:secret` segment, not throttling.
+    config: { rateLimit: false },
     schema: {
       tags: ['webhooks'],
       summary: 'Inbound channel webhook (thin ingress)',

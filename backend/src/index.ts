@@ -29,6 +29,15 @@ async function main(): Promise<void> {
     timeWindow: configService.getNumber('RATE_LIMIT_WINDOW_MS', 60_000),
   });
 
+  // The docs are a map of the whole attack surface: every route, param and
+  // auth scheme. Served unauthenticated they let anyone enumerate the API, so
+  // they stay off in production unless ENABLE_API_DOCS is explicitly set.
+  // Registering swagger itself is harmless (it only builds the spec in memory);
+  // it is swaggerUi that publishes /docs and /docs/json.
+  const docsEnabled =
+    (configService.get('ENABLE_API_DOCS') ?? '').toLowerCase() === 'true' ||
+    configService.get('NODE_ENV') !== 'production';
+
   await app.register(swagger, {
     openapi: {
       info: { title: 'Integra Connect — AI Runtime', version: '0.1.0' },
@@ -39,10 +48,14 @@ async function main(): Promise<void> {
       },
     },
   });
-  await app.register(swaggerUi, {
-    routePrefix: '/docs',
-    uiConfig: { persistAuthorization: true },
-  });
+  if (docsEnabled) {
+    await app.register(swaggerUi, {
+      routePrefix: '/docs',
+      uiConfig: { persistAuthorization: true },
+    });
+  } else {
+    logger.info('API docs disabled (NODE_ENV=production without ENABLE_API_DOCS=true)');
+  }
 
   await app.register(healthRoutes);
   await app.register(agentChatRoutes);
@@ -53,7 +66,7 @@ async function main(): Promise<void> {
 
   const port = configService.getNumber('PORT', 8787);
   await app.listen({ port, host: '0.0.0.0' });
-  logger.info(`AI Runtime listening on port ${port} — docs at /docs`);
+  logger.info(`AI Runtime listening on port ${port}${docsEnabled ? ' — docs at /docs' : ''}`);
 }
 
 main().catch((error) => {

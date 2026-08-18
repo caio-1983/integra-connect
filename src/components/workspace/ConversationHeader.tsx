@@ -9,6 +9,7 @@ import { AttendantTag } from './AttendantTag';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/Button';
 import { MOCK_PLAYGROUND_PRESETS } from '@/lib/mockAIData';
+import { isModuleEnabled } from '@/lib/platformPhase';
 
 interface ConversationHeaderProps {
   conversation: UIConversation;
@@ -144,7 +145,12 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        {conversation.status === 'nina' && onSimulateCustomerMessage && (
+        {/* Ferramenta de teste do módulo de IA: injeta uma mensagem falsa do
+            cliente e dispara o agente, o que também pode gravar mudança de
+            status na conversa real. Só aparece onde o módulo 'ia' está ligado
+            (fase 2) — na fase 1 um atendente veria um botão que sujaria uma
+            conversa de verdade. */}
+        {isModuleEnabled('ia') && conversation.status === 'nina' && onSimulateCustomerMessage && (
           <SimulateCustomerMessagePopover onSimulate={onSimulateCustomerMessage} />
         )}
         <WorkspaceActions
