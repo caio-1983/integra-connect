@@ -18,12 +18,31 @@ function instanceAlreadyExists(error: unknown): boolean {
   return text.toLowerCase().includes('already in use');
 }
 
+/**
+ * Is this error just "there was no live session to close"? Evolution reports
+ * that condition two different ways, and both must count as success for a
+ * logout whose whole goal is to leave the instance not connected:
+ *
+ *  - 400 "instance is not connected" — Evolution's own guard, when it knows
+ *    the instance is down before it reaches Baileys.
+ *  - 500 "Error: Connection Closed" — Baileys throwing from inside, when the
+ *    socket died without Evolution updating its view of the state. Surfaces
+ *    as a 500 because it is an unhandled exception upstream, not because
+ *    anything is wrong on our side.
+ *
+ * The second one is why this matters in practice: a session that drops on its
+ * own (phone offline, WhatsApp logged out remotely) leaves Evolution still
+ * advertising the instance as open, so the UI offers "Desconectar" and the
+ * click used to fail with a 502.
+ */
 function instanceAlreadyDisconnected(error: unknown): boolean {
-  if (!(error instanceof EvolutionApiError) || error.status !== 400) return false;
+  if (!(error instanceof EvolutionApiError)) return false;
+  if (error.status !== 400 && error.status !== 500) return false;
   const body = error.body as { response?: { message?: unknown }; message?: unknown } | undefined;
   const raw = body?.response?.message ?? body?.message;
   const text = Array.isArray(raw) ? raw.join(' ') : String(raw ?? '');
-  return text.toLowerCase().includes('not connected');
+  const normalized = text.toLowerCase();
+  return normalized.includes('not connected') || normalized.includes('connection closed');
 }
 
 /**
