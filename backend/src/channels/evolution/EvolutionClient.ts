@@ -19,23 +19,24 @@ function instanceAlreadyExists(error: unknown): boolean {
 }
 
 /**
- * Is this error just "there was no live session to close"? Evolution reports
- * that condition two different ways, and both must count as success for a
- * logout whose whole goal is to leave the instance not connected:
+ * Did this call fail because there was no live socket to act on? Evolution
+ * signals that two ways:
  *
- *  - 400 "instance is not connected" — Evolution's own guard, when it knows
- *    the instance is down before it reaches Baileys.
+ *  - 400 "instance is not connected" — its own guard, when it knows the
+ *    instance is down before the call reaches Baileys.
  *  - 500 "Error: Connection Closed" — Baileys throwing from inside, when the
- *    socket died without Evolution updating its view of the state. Surfaces
- *    as a 500 because it is an unhandled exception upstream, not because
- *    anything is wrong on our side.
+ *    socket is gone. A 500 because it is an unhandled exception upstream, not
+ *    because anything is wrong on our side.
  *
- * The second one is why this matters in practice: a session that drops on its
- * own (phone offline, WhatsApp logged out remotely) leaves Evolution still
- * advertising the instance as open, so the UI offers "Desconectar" and the
- * click used to fail with a 502.
+ * IMPORTANT: this says nothing about the state the instance ends up in. In
+ * particular Evolution can keep reporting an instance as `open` after a
+ * "Connection Closed" logout, meaning the logout achieved nothing — so callers
+ * must confirm the resulting state instead of treating this as success. Naming
+ * it after the symptom (dead socket) rather than the conclusion (already
+ * disconnected) is deliberate: the earlier name invited exactly that wrong
+ * inference, and shipped a success toast over an instance still shown online.
  */
-function instanceAlreadyDisconnected(error: unknown): boolean {
+function failedOnDeadSocket(error: unknown): boolean {
   if (!(error instanceof EvolutionApiError)) return false;
   if (error.status !== 400 && error.status !== 500) return false;
   const body = error.body as { response?: { message?: unknown }; message?: unknown } | undefined;
@@ -156,19 +157,70 @@ export class EvolutionClient {
     return this.request<RawFetchedInstance[]>('GET', '/instance/fetchInstances');
   }
 
-  /** DELETE /instance/logout/{instance} — disconnects the session, keeps the instance registered. */
+  /**
+   * DELETE /instance/logout/{instance} — disconnects the session, keeps the
+   * instance registered.
+   *
+   * A dead-socket failure is ambiguous, so it is resolved by asking for the
+   * state rather than assuming one:
+   *  - no longer `open` → there was nothing left to close; the caller's goal is
+   *    already met, so this succeeds quietly.
+   *  - still `open` → the logout did nothing and Evolution is stuck
+   *    advertising a session that no longer exists. Reporting success here is
+   *    what made the UI show "desconectado" over a card still reading
+   *    "conectado", so it fails loudly with the one thing that clears it.
+   */
   async logout(instanceName: string): Promise<void> {
     try {
       await this.request<unknown>('DELETE', `/instance/logout/${instanceName}`);
+      return;
     } catch (error) {
-      if (!instanceAlreadyDisconnected(error)) throw error;
-      logger.info({ instanceName }, '[evolution] instance already disconnected — treating logout as a no-op');
+      if (!failedOnDeadSocket(error)) throw error;
+
+      const state = await this.connectionState(instanceName).catch(() => undefined);
+      if (state?.state === 'open') {
+        throw new Error(
+          `A instância "${instanceName}" está em estado inconsistente na Evolution: ela ainda é `
+          + 'reportada como conectada, mas a sessão do WhatsApp já caiu, então desconectar não tem '
+          + 'efeito. Remova a instância e pareie o número novamente, ou reinicie a instância na Evolution.',
+        );
+      }
+      logger.info(
+        { instanceName, state: state?.state ?? 'indisponivel' },
+        '[evolution] logout sem sessão viva e instância já fora de "open" — tratando como no-op',
+      );
     }
   }
 
-  /** DELETE /instance/delete/{instance} — Evolution logs out internally first if still connected. */
+  /**
+   * DELETE /instance/delete/{instance} — Evolution logs out internally first if
+   * still connected, which means this inherits the same dead-socket failure as
+   * logout() above. It matters more here: this is what the logout error tells
+   * the user to fall back to, so it must not dead-end on the same stuck state.
+   *
+   * Resolved by outcome, never by assumption — for a delete, the only proof is
+   * that the instance is gone from the list. Anything less and we would be
+   * reporting a removal that did not happen, leaving the instance registered.
+   */
   async deleteInstance(instanceName: string): Promise<void> {
-    await this.request<unknown>('DELETE', `/instance/delete/${instanceName}`);
+    try {
+      await this.request<unknown>('DELETE', `/instance/delete/${instanceName}`);
+      return;
+    } catch (error) {
+      if (!failedOnDeadSocket(error)) throw error;
+
+      const stillListed = await this.fetchInstances()
+        .then((list) => list.some((raw) => (raw.instance?.instanceName ?? raw.name) === instanceName))
+        .catch(() => true); // Cannot confirm removal → treat as not removed.
+
+      if (stillListed) {
+        throw new Error(
+          `Não foi possível remover a instância "${instanceName}": a sessão do WhatsApp já caiu e a `
+          + 'Evolution não concluiu a remoção. Reinicie a instância na Evolution e tente de novo.',
+        );
+      }
+      logger.info({ instanceName }, '[evolution] delete falhou sem sessão viva, mas a instância saiu da lista — tratando como removida');
+    }
   }
 
   /** GET /group/findGroupInfos/{instance}?groupJid=... — v2 only. Throws on
