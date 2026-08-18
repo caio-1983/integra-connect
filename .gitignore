@@ -37,3 +37,6 @@ supabase/.temp
 
 # graphify knowledge graph — generated, regenerate with `graphify update .`
 graphify-out/
+
+# Dumps de banco — contem telefones e nomes reais, nunca versionar
+backups/
