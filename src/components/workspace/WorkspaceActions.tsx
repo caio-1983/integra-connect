@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, User, Pause, Info, ArrowRightLeft, CheckCircle, Tag, CalendarClock, TrendingUp } from 'lucide-react';
+import { Bot, User, Pause, Info, ArrowRightLeft, CheckCircle, Tag, CalendarClock, TrendingUp, MailX } from 'lucide-react';
 import { ConversationStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -21,6 +21,7 @@ interface WorkspaceActionsProps {
   teamMembers: TeamMemberOption[];
   assignedUserId?: string | null;
   onTransfer: (userId: string) => void;
+  onMarkAsUnread: () => void;
 }
 
 /** Atendente pode transferir a conversa pra qualquer outro membro da equipe. */
@@ -71,6 +72,7 @@ const TransferPopover: React.FC<{
 
 const WorkspaceActions: React.FC<WorkspaceActionsProps> = ({
   status, sdrName, showCustomerPanel, onStatusChange, onToggleCustomerPanel, teamMembers, assignedUserId, onTransfer,
+  onMarkAsUnread,
 }) => {
   return (
     <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -120,6 +122,14 @@ const WorkspaceActions: React.FC<WorkspaceActionsProps> = ({
       <div className="w-px h-5 bg-border" />
 
       <TransferPopover teamMembers={teamMembers} assignedUserId={assignedUserId} onTransfer={onTransfer} />
+      <button
+        type="button"
+        onClick={onMarkAsUnread}
+        title="Marcar como não lida"
+        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+      >
+        <MailX className="w-3.5 h-3.5" />
+      </button>
       <button disabled title="Em breve: Finalizar"          className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><CheckCircle    className="w-3.5 h-3.5" /></button>
       <button disabled title="Em breve: Etiquetas"          className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><Tag            className="w-3.5 h-3.5" /></button>
       <button disabled title="Em breve: Agendar retorno"    className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><CalendarClock  className="w-3.5 h-3.5" /></button>

@@ -21,6 +21,7 @@ interface ConversationHeaderProps {
   /** `user_id` is the auth id; AttendantTag matches assigned_user_id against it. */
   teamMembers: Array<{ id: string; name: string; user_id?: string | null }>;
   onTransfer: (userId: string) => void;
+  onMarkAsUnread: (conversationId: string) => void;
 }
 
 const SimulateCustomerMessagePopover: React.FC<{ onSimulate: (content: string) => void }> = ({ onSimulate }) => {
@@ -88,7 +89,7 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
 
 const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   conversation, sdrName, showCustomerPanel, onStatusChange, onToggleCustomerPanel, onSimulateCustomerMessage,
-  teamMembers, onTransfer,
+  teamMembers, onTransfer, onMarkAsUnread,
 }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel =
@@ -162,6 +163,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
           teamMembers={teamMembers}
           assignedUserId={conversation.assignedUserId}
           onTransfer={onTransfer}
+          onMarkAsUnread={() => onMarkAsUnread(conversation.id)}
         />
       </div>
 

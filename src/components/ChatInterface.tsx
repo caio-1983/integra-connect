@@ -17,7 +17,7 @@ import {
 } from './workspace';
 
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, assignConversation, appendLocalMessage, refetch } = useConversations();
+  const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, markAsUnread, assignConversation, appendLocalMessage, refetch } = useConversations();
   const { sdrName, companyName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
   const { grantsByInstance } = useInstanceAccessGrants();
@@ -74,10 +74,23 @@ const ChatInterface: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isTagSelectorOpen]);
 
+  // Holds a conversationId to skip the next auto-mark-as-read for — set right
+  // before a manual "mark as unread" call so the effect below doesn't
+  // immediately undo it while that conversation stays selected.
+  const skipAutoMarkReadRef = useRef<string | null>(null);
+
+  const handleMarkAsUnread = React.useCallback((conversationId: string) => {
+    skipAutoMarkReadRef.current = conversationId;
+    markAsUnread(conversationId);
+  }, [markAsUnread]);
+
   useEffect(() => {
-    if (selectedChatId && (activeChat?.unreadCount ?? 0) > 0) {
-      markAsRead(selectedChatId);
+    if (!selectedChatId || (activeChat?.unreadCount ?? 0) === 0) return;
+    if (skipAutoMarkReadRef.current === selectedChatId) {
+      skipAutoMarkReadRef.current = null;
+      return;
     }
+    markAsRead(selectedChatId);
   }, [selectedChatId, activeChat?.unreadCount, markAsRead]);
 
   useEffect(() => {
@@ -197,6 +210,7 @@ const ChatInterface: React.FC = () => {
             onStatusChange={handleStatusChange}
             onToggleCustomerPanel={() => setShowCustomerWorkspace(v => !v)}
             onSimulateCustomerMessage={handleSimulateCustomerMessage}
+            onMarkAsUnread={handleMarkAsUnread}
             teamMembers={eligibleTeamMembers}
             onTransfer={async (userId) => {
               try {

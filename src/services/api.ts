@@ -1451,6 +1451,41 @@ export const api = {
   },
 
   /**
+   * Mark a conversation as unread by flipping its latest incoming message
+   * back to 'delivered'. Only the latest message is touched so the
+   * conversation's derived unreadCount becomes exactly 1 — a clean
+   * "needs follow-up" signal instead of resurrecting a historical count.
+   */
+  markConversationUnread: async (conversationId: string): Promise<void> => {
+    const { data: latest, error: selectError } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('from_type', 'user')
+      .order('sent_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (selectError) {
+      console.error('[API] Error finding latest message to mark unread:', selectError);
+      throw selectError;
+    }
+    if (!latest) return;
+
+    const { error } = await supabase
+      .from('messages')
+      .update({ status: 'delivered', read_at: null })
+      .eq('id', latest.id);
+
+    if (error) {
+      console.error('[API] Error marking conversation unread:', error);
+      throw error;
+    }
+
+    console.log(`[API] Conversation ${conversationId} marked unread (message ${latest.id})`);
+  },
+
+  /**
    * Assign a conversation to a team member, and its contact's deals along with it.
    *
    * `teamMemberId` is a `team_members.id`, which is what every caller has in

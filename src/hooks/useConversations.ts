@@ -277,15 +277,16 @@ export function useConversations() {
           setConversations(prev => {
             return prev.map(conv => {
               if (conv.id === updatedMessage.conversation_id) {
-                return {
-                  ...conv,
-                  messages: conv.messages.map(msg => {
-                    if (msg.id === updatedMessage.id) {
-                      return transformDBToUIMessage(updatedMessage);
-                    }
-                    return msg;
-                  })
-                };
+                const messages = conv.messages.map(msg => {
+                  if (msg.id === updatedMessage.id) {
+                    return transformDBToUIMessage(updatedMessage);
+                  }
+                  return msg;
+                });
+                const unreadCount = messages.filter(
+                  m => m.fromType === 'user' && m.status !== 'read'
+                ).length;
+                return { ...conv, messages, unreadCount };
               }
               return conv;
             });
@@ -570,6 +571,32 @@ export function useConversations() {
     }
   }, []);
 
+  // Mark a conversation as unread (manual action, e.g. a manager who opened
+  // a conversation just to check on it flags it back as needing follow-up).
+  // Unlike markAsRead, this rolls back on failure: a false "unread" badge
+  // with no backing DB state would actively mislead the attendant.
+  const markAsUnread = useCallback(async (conversationId: string) => {
+    let previousUnreadCount = 0;
+    setConversations(prev => prev.map(conv => {
+      if (conv.id === conversationId) {
+        previousUnreadCount = conv.unreadCount;
+        return { ...conv, unreadCount: Math.max(conv.unreadCount, 1) };
+      }
+      return conv;
+    }));
+
+    try {
+      await api.markConversationUnread(conversationId);
+      console.log('[useConversations] Conversation marked unread in database');
+    } catch (err) {
+      console.error('[useConversations] Error marking conversation unread:', err);
+      setConversations(prev => prev.map(conv =>
+        conv.id === conversationId ? { ...conv, unreadCount: previousUnreadCount } : conv
+      ));
+      toast.error('Erro ao marcar como não lida');
+    }
+  }, []);
+
   /**
    * Assign a conversation to a team member (and its contact's deals with it).
    *
@@ -627,6 +654,7 @@ export function useConversations() {
     sendMediaMessage,
     updateStatus,
     markAsRead,
+    markAsUnread,
     assignConversation,
     appendLocalMessage,
     refetch: fetchConversations
