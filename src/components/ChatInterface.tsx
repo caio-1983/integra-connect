@@ -52,16 +52,17 @@ const ChatInterface: React.FC = () => {
     api.fetchTeam().then(setTeamMembers).catch(console.error);
   }, []);
 
-  // Seleção inicial única — depois que o usuário desseleciona (Esc), nenhuma
-  // conversa deve voltar a ser selecionada automaticamente (como no WhatsApp Web).
+  // Seleção inicial única — a página abre sem nenhuma conversa selecionada,
+  // a menos que a URL aponte para uma específica (deep link). Depois que o
+  // usuário desseleciona (Esc), nenhuma conversa deve voltar a ser
+  // selecionada automaticamente (como no WhatsApp Web).
   useEffect(() => {
     if (didInitRef.current || conversations.length === 0) return;
     const urlParams = new URLSearchParams(window.location.search);
     const conversationParam = urlParams.get('conversation');
-    const initialId = conversationParam && conversations.some(c => c.id === conversationParam)
-      ? conversationParam
-      : conversations[0].id;
-    setSelectedChatId(initialId);
+    if (conversationParam && conversations.some(c => c.id === conversationParam)) {
+      setSelectedChatId(conversationParam);
+    }
     didInitRef.current = true;
   }, [conversations]);
 
