@@ -5,6 +5,7 @@ import type { MessageDeliveryStatus } from '../types/messageStatus.js';
 export const ChannelEvents = {
   InboundWebhookReceived: 'InboundWebhookReceived',
   InboundMessageReceived: 'InboundMessageReceived',
+  OutboundEchoReceived: 'OutboundEchoReceived',
   OutboundMessageRequested: 'OutboundMessageRequested',
   OutboundMessageSent: 'OutboundMessageSent',
   MessageStatusUpdated: 'MessageStatusUpdated',
@@ -74,6 +75,28 @@ export interface InboundMessageReceivedPayload {
   /** Group only: the individual sender's phone digits and display name. */
   senderParticipant?: string;
   senderName?: string;
+  providerMessageId: string;
+  text: string;
+  tsSec?: number;
+  media?: InboundMedia;
+  isGroup?: boolean;
+}
+
+/**
+ * A message the company sent that reached us as a provider echo rather than
+ * through our own send pipeline — in practice, an attendant replying from the
+ * phone or WhatsApp Web instead of the platform composer.
+ *
+ * Distinct from `OutboundMessageSent`, which is OUR pipeline reporting its own
+ * send: that one knows the conversation and the operator, this one knows
+ * neither and has to resolve the conversation from the recipient's address.
+ */
+export interface OutboundEchoReceivedPayload {
+  provider: string;
+  channel: string;
+  instance: string;
+  /** The recipient's address — resolved to an EXISTING conversation downstream. */
+  externalContactId: string;
   providerMessageId: string;
   text: string;
   tsSec?: number;

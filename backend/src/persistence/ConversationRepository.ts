@@ -190,6 +190,33 @@ class ConversationRepository {
     return { conversationId: data.id, created: true };
   }
 
+  /**
+   * Read-only lookup of an already-existing active conversation for a contact
+   * address. Deliberately NOT a find-or-create: the only caller is the outbound
+   * echo path, and creating from an echo would break two invariants at once —
+   * a lead is created only when a real person makes contact (see
+   * `createLeadForContact`), and the company messaging a number first is not
+   * that person making contact. An echo to an unknown address is dropped.
+   */
+  async findActiveConversationByAddress(channel: string, externalId: string): Promise<string | null> {
+    const supabase = getSupabase();
+    const { data: contact } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('channel', channel)
+      .eq('external_id', externalId)
+      .maybeSingle();
+    if (!contact) return null;
+
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', contact.id)
+      .eq('is_active', true)
+      .maybeSingle();
+    return conversation?.id ?? null;
+  }
+
   /** Resolves provider + channel + account instance + recipient address for a
    * conversation, so a manual operator reply (no fresh inbound event to read
    * this from) can still be routed correctly. The recipient comes from
@@ -416,6 +443,9 @@ class ConversationRepository {
     fromType: 'nina' | 'human';
     /** Only meaningful for `fromType: 'human'` — see messages.sent_by. */
     operatorId?: string;
+    /** Provider timestamp, for a row we did not originate (an echo). Without it
+     *  a message typed hours ago on a phone would sort to "now" in the timeline. */
+    tsSec?: number;
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
     const { error } = await supabase.from('messages').insert({
@@ -427,15 +457,48 @@ class ConversationRepository {
       from_type: input.fromType,
       sent_by: input.fromType === 'human' ? (input.operatorId ?? null) : null,
       status: 'sent',
-      sent_at: new Date().toISOString(),
+      sent_at: input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString(),
     });
 
     if (error) {
-      if ((error as { code?: string }).code === '23505') return { inserted: false };
+      if ((error as { code?: string }).code === '23505') {
+        // Both halves of a platform send race for the same row: our own pipeline
+        // and the provider's echo of it. Whichever loses lands here. Only our
+        // pipeline knows the operator and the unsigned text, so when it is the
+        // loser it patches what the echo could not know rather than dropping it
+        // — otherwise a reply typed IN the platform would end up unattributed
+        // and displaying its own on-the-wire signature back to us.
+        await this.patchOutboundAttribution(input);
+        return { inserted: false };
+      }
       throw new Error(`[repo] failed to insert outbound message: ${error.message}`);
     }
     await this.touchConversation(input.conversationId);
     return { inserted: true };
+  }
+
+  /**
+   * Restores what only our own send pipeline knows onto a row the provider echo
+   * inserted first: the operator behind it, and the clean unsigned text.
+   * No-op for an echo losing to us (it knows neither), and never throws — the
+   * message is already stored, and attribution must not cost a delivery.
+   */
+  private async patchOutboundAttribution(input: {
+    providerMessageId?: string;
+    content: string;
+    fromType: 'nina' | 'human';
+    operatorId?: string;
+  }): Promise<void> {
+    if (!input.providerMessageId || !input.operatorId) return;
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .from('messages')
+      .update({ sent_by: input.operatorId, from_type: input.fromType, content: input.content })
+      .eq('whatsapp_message_id', input.providerMessageId)
+      .is('sent_by', null);
+    if (error) {
+      logger.warn({ err: error.message, providerMessageId: input.providerMessageId }, '[repo] failed to patch outbound attribution onto echoed row');
+    }
   }
 
   /** Uploads an outbound attachment to the shared public media bucket and
@@ -464,6 +527,8 @@ class ConversationRepository {
     mediaType: string;
     dbType: 'audio' | 'image' | 'video' | 'document';
     operatorId?: string;
+    /** Provider timestamp — see insertOutboundMessage. */
+    tsSec?: number;
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
     const { error } = await supabase.from('messages').insert({
@@ -477,11 +542,14 @@ class ConversationRepository {
       from_type: 'human',
       sent_by: input.operatorId ?? null,
       status: 'sent',
-      sent_at: new Date().toISOString(),
+      sent_at: input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString(),
     });
 
     if (error) {
-      if ((error as { code?: string }).code === '23505') return { inserted: false };
+      if ((error as { code?: string }).code === '23505') {
+        await this.patchOutboundAttribution({ ...input, content: input.content, fromType: 'human' });
+        return { inserted: false };
+      }
       throw new Error(`[repo] failed to insert outbound media message: ${error.message}`);
     }
     await this.touchConversation(input.conversationId);

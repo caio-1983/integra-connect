@@ -154,6 +154,24 @@ export interface NormalizedInbound {
   attribution?: InboundAttribution;
 }
 
+/**
+ * A message the company sent, as the provider echoes it back (`key.fromMe`).
+ * Carries no `contactName`/`attribution`/sender fields: on an echo those
+ * describe US, not the customer, so they must never reach the contact record.
+ */
+export interface NormalizedOutboundEcho {
+  channel: ChannelName;
+  instance: string;
+  /** The RECIPIENT here — same field, other direction. */
+  externalContactId: string;
+  providerMessageId: string;
+  text: string;
+  tsSec?: number;
+  media?: NormalizedInboundMedia;
+  pendingMedia?: { kind: InboundMediaKind; mimeType: string; fileName?: string };
+  isGroup?: boolean;
+}
+
 /** Channel-agnostic delivery-status change (Evolution's messages.update). */
 export interface NormalizedStatusUpdate {
   channel: ChannelName;
@@ -167,4 +185,5 @@ export interface NormalizedStatusUpdate {
  * about the channel's raw payload shape. */
 export type ParsedChannelEvent =
   | { kind: 'message'; data: NormalizedInbound }
+  | { kind: 'echo'; data: NormalizedOutboundEcho }
   | { kind: 'status'; data: NormalizedStatusUpdate };

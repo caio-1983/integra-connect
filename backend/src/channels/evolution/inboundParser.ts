@@ -1,4 +1,10 @@
-import type { InboundMediaKind, NormalizedInbound, NormalizedInboundMedia, NormalizedStatusUpdate } from './types.js';
+import type {
+  InboundMediaKind,
+  NormalizedInbound,
+  NormalizedInboundMedia,
+  NormalizedOutboundEcho,
+  NormalizedStatusUpdate,
+} from './types.js';
 import type { MessageDeliveryStatus } from '../../types/messageStatus.js';
 import type { InboundAttribution } from '../channelEvents.js';
 import { extractRefToken } from '../attributionToken.js';
@@ -79,13 +85,23 @@ function logAdReplyDiagnostic(instance: unknown, message: Record<string, any>): 
   logger.info({ instance, node: withContext[0], contextInfo }, '[evolution] inbound carries externalAdReply (CTWA) — raw payload');
 }
 
+/** One `messages.upsert` envelope, already normalized, plus the direction flag
+ *  the two public parsers below discriminate on. */
+interface ParsedEnvelope {
+  /** True when WhatsApp says WE sent this — either through the platform (an
+   *  echo of our own send) or from the phone/WhatsApp Web directly. */
+  fromMe: boolean;
+  message: NormalizedInbound;
+}
+
 /**
  * Shared across v1 and v2 — the inbound webhook envelope is near-identical
- * between versions. Returns null for anything we don't handle this pass
- * (non-message events, our own echoes, groups, non-text), so the orchestrator
+ * between versions, and identical in both directions (`key.fromMe` is the only
+ * thing that distinguishes them). Returns null for anything we don't handle
+ * (non-message events, non-text without handled media), so the orchestrator
  * simply drops it.
  */
-export function parseInbound(rawBody: unknown): NormalizedInbound | null {
+function parseMessageEnvelope(rawBody: unknown): ParsedEnvelope | null {
   const body = (rawBody ?? {}) as Record<string, any>;
 
   if (body.event !== 'messages.upsert') return null;
@@ -94,7 +110,7 @@ export function parseInbound(rawBody: unknown): NormalizedInbound | null {
   const data = body.data ?? {};
   const key = data.key ?? {};
 
-  if (key.fromMe === true) return null; // ignore our own outbound echo (prevents loops/double-insert)
+  const fromMe = key.fromMe === true;
 
   const remoteJid: string = key.remoteJid ?? '';
   if (!remoteJid) return null;
@@ -143,7 +159,7 @@ export function parseInbound(rawBody: unknown): NormalizedInbound | null {
     // Diagnostic: a message arrived but produced no text/media we handle — log
     // its type keys so an unrecognized WhatsApp message type (e.g. location,
     // contact card, poll) can be identified and added rather than silently dropped.
-    if (data.message && !key.fromMe) {
+    if (data.message && !fromMe) {
       logger.info({ instance, messageTypes: Object.keys(data.message) }, '[evolution] inbound message dropped — no handled text/media');
     }
     return null;
@@ -175,28 +191,64 @@ export function parseInbound(rawBody: unknown): NormalizedInbound | null {
   }
 
   return {
-    channel: 'whatsapp',
-    instance: String(instance),
-    externalContactId,
-    // pushName is frequently empty (known Evolution/Baileys issue); fall back to
-    // the business/notify name so fewer contacts land without any name at all.
-    contactName: data.pushName ?? data.verifiedBizName ?? data.notifyName ?? undefined,
-    providerMessageId: String(key.id),
-    text: String(text),
-    tsSec: typeof data.messageTimestamp === 'number' ? data.messageTimestamp : undefined,
-    media,
-    pendingMedia,
-    isGroup: isGroup || undefined,
-    // Groups only: who actually sent this message. key.participant is the
-    // sender's JID and pushName is their display name — kept per-message so the
-    // UI can attribute it, since the conversation contactName is the group
-    // subject (set downstream in EvolutionChannelConnector).
-    senderParticipant: isGroup
-      ? (String(key.participant ?? '').replace(/@s\.whatsapp\.net$/, '').replace(/@.*$/, '') || undefined)
-      : undefined,
-    senderName: isGroup ? (data.pushName ?? undefined) : undefined,
-    attribution,
+    fromMe,
+    message: {
+      channel: 'whatsapp',
+      instance: String(instance),
+      externalContactId,
+      // pushName is frequently empty (known Evolution/Baileys issue); fall back to
+      // the business/notify name so fewer contacts land without any name at all.
+      // On an echo these name the OUR side, not the customer — dropped below.
+      contactName: data.pushName ?? data.verifiedBizName ?? data.notifyName ?? undefined,
+      providerMessageId: String(key.id),
+      text: String(text),
+      tsSec: typeof data.messageTimestamp === 'number' ? data.messageTimestamp : undefined,
+      media,
+      pendingMedia,
+      isGroup: isGroup || undefined,
+      // Groups only: who actually sent this message. key.participant is the
+      // sender's JID and pushName is their display name — kept per-message so the
+      // UI can attribute it, since the conversation contactName is the group
+      // subject (set downstream in EvolutionChannelConnector).
+      senderParticipant: isGroup
+        ? (String(key.participant ?? '').replace(/@s\.whatsapp\.net$/, '').replace(/@.*$/, '') || undefined)
+        : undefined,
+      senderName: isGroup ? (data.pushName ?? undefined) : undefined,
+      attribution,
+    },
   };
+}
+
+/** A real message FROM the customer. Echoes of our own side are not inbound —
+ *  they go through `parseOutboundEcho`. */
+export function parseInbound(rawBody: unknown): NormalizedInbound | null {
+  const parsed = parseMessageEnvelope(rawBody);
+  if (!parsed || parsed.fromMe) return null;
+  return parsed.message;
+}
+
+/**
+ * A message WE sent, as WhatsApp echoes it back.
+ *
+ * Two things produce one: a reply typed in the platform (already persisted by
+ * `onOutboundSent`, deduped downstream on `whatsapp_message_id`), and a reply
+ * typed straight into the phone or WhatsApp Web on that number. The second is
+ * the reason this exists at all — those were being discarded here, so a
+ * conversation handled from a phone showed only the customer's half and every
+ * per-attendant/response-time metric built on `messages` was reading a void.
+ *
+ * `contactName` is deliberately dropped: on an echo, pushName is OUR business
+ * profile name, and letting it through would name the contact after ourselves.
+ * Attribution signals are dropped for the same reason — an ad click is
+ * something the customer did, never us.
+ */
+export function parseOutboundEcho(rawBody: unknown): NormalizedOutboundEcho | null {
+  const parsed = parseMessageEnvelope(rawBody);
+  if (!parsed || !parsed.fromMe) return null;
+
+  const { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup } =
+    parsed.message;
+  return { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup };
 }
 
 // Evolution forwards Baileys' numeric WAMessageStatus ack levels in some

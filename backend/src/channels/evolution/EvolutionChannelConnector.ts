@@ -1,6 +1,7 @@
 import type { ChannelConnector, OutboundMediaPayload } from '../ChannelConnector.js';
-import { parseInbound, parseStatusUpdate } from './inboundParser.js';
+import { parseInbound, parseOutboundEcho, parseStatusUpdate } from './inboundParser.js';
 import { getEvolutionClient } from './evolutionClientInstance.js';
+import type { NormalizedInbound, NormalizedOutboundEcho } from './types.js';
 
 // Group subject (display name) isn't on the message event itself — fetched
 // once per group and cached for the process lifetime (a rename won't be
@@ -14,6 +15,22 @@ async function resolveGroupSubject(instance: string, groupJid: string): Promise<
   const subject = await getEvolutionClient().fetchGroupSubject(instance, groupJid);
   groupSubjectCache.set(cacheKey, subject);
   return subject;
+}
+
+/**
+ * Media (audio/image/video/document/sticker) arrives as an encrypted URL —
+ * decrypt to base64 here (async, so kept out of the pure parser). A failure
+ * leaves the text/placeholder in place rather than dropping the message.
+ * getBase64FromMedia is generic across all media types and both directions.
+ */
+async function resolvePendingMedia(message: NormalizedInbound | NormalizedOutboundEcho): Promise<void> {
+  if (!message.pendingMedia) return;
+  const { kind, mimeType, fileName } = message.pendingMedia;
+  const result = await getEvolutionClient().getBase64FromMedia(message.instance, message.providerMessageId);
+  if (result?.base64) {
+    message.media = { kind, mimeType: result.mimetype || mimeType, base64: result.base64, fileName };
+  }
+  delete message.pendingMedia;
 }
 
 /** Evolution implementation of ChannelConnector — the only place the channel layer touches EvolutionClient/inboundParser. */
@@ -31,19 +48,17 @@ export const evolutionChannelConnector: ChannelConnector = {
         const subject = await resolveGroupSubject(message.instance, message.externalContactId);
         if (subject) message.contactName = subject;
       }
-      // Media (audio/image/video/document/sticker) arrives as an encrypted URL
-      // — decrypt to base64 here (async, so kept out of the pure parser). A
-      // failure leaves the text/placeholder in place rather than dropping the
-      // message. getBase64FromMedia is generic across all media types.
-      if (message.pendingMedia) {
-        const { kind, mimeType, fileName } = message.pendingMedia;
-        const result = await getEvolutionClient().getBase64FromMedia(message.instance, message.providerMessageId);
-        if (result?.base64) {
-          message.media = { kind, mimeType: result.mimetype || mimeType, base64: result.base64, fileName };
-        }
-        delete message.pendingMedia;
-      }
+      await resolvePendingMedia(message);
       return { kind: 'message', data: message };
+    }
+
+    // Our own side of the conversation, echoed back — the attendant replying
+    // from the phone instead of the platform. No group-subject lookup: an echo
+    // only ever attaches to a conversation that already exists.
+    const echo = parseOutboundEcho(rawBody);
+    if (echo) {
+      await resolvePendingMedia(echo);
+      return { kind: 'echo', data: echo };
     }
 
     const status = parseStatusUpdate(rawBody);

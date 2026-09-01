@@ -6,6 +6,7 @@ import {
   type InboundMessageReceivedPayload,
   type InboundWebhookReceivedPayload,
   type MessageStatusUpdatedPayload,
+  type OutboundEchoReceivedPayload,
 } from './channelEvents.js';
 
 /**
@@ -26,11 +27,17 @@ function register(): void {
     }
 
     const parsed = await connector.parseEvent(rawBody);
-    if (!parsed) return; // dropped: not a 1:1 text message, our own echo, a group, an unrecognized event, etc.
+    if (!parsed) return; // dropped: not a message/status event, or nothing we can render (no text, no handled media)
 
     if (parsed.kind === 'message') {
       const payload: InboundMessageReceivedPayload = { provider, ...parsed.data };
       await aiEventBus.publish({ type: ChannelEvents.InboundMessageReceived, payload: payload as unknown as Record<string, unknown>, timestamp: new Date() });
+      return;
+    }
+
+    if (parsed.kind === 'echo') {
+      const payload: OutboundEchoReceivedPayload = { provider, ...parsed.data };
+      await aiEventBus.publish({ type: ChannelEvents.OutboundEchoReceived, payload: payload as unknown as Record<string, unknown>, timestamp: new Date() });
       return;
     }
 

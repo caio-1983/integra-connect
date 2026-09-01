@@ -9,6 +9,7 @@ import {
   type ConversationLifecyclePayload,
   type InboundMessageReceivedPayload,
   type MessageStatusUpdatedPayload,
+  type OutboundEchoReceivedPayload,
   type OutboundMessageRequestedPayload,
   type OutboundMessageSentPayload,
 } from '../channels/channelEvents.js';
@@ -245,6 +246,66 @@ export async function startConversation(instance: string, phone: string, name?: 
   return { conversationId, contactId, created };
 }
 
+/**
+ * Persists the company's own half of a conversation when it did NOT come from
+ * our composer — an attendant answering from the phone or WhatsApp Web on that
+ * number. Until this existed, those replies were dropped at the parser, so a
+ * conversation handled from a phone looked, to anyone opening it here, like a
+ * customer talking to nobody.
+ *
+ * Three deliberate limits:
+ *  - Attaches only to an already-existing conversation. Creating one from an
+ *    echo would manufacture a lead out of us messaging someone first, which is
+ *    exactly the flood `createLeadForContact` was written to stop.
+ *  - Never runs the AI. This is our side of the conversation already answered;
+ *    replying to it would be replying to ourselves.
+ *  - `sent_by` stays null. A message typed on a phone carries no operator
+ *    identity — WhatsApp does not say who held it. The timeline is complete;
+ *    per-attendant reporting still requires replying in the platform, and that
+ *    gap is a workflow fact, not something code can recover.
+ */
+async function onOutboundEcho(event: AppEvent): Promise<void> {
+  const echo = event.payload as unknown as OutboundEchoReceivedPayload;
+
+  const conversationId = await conversationRepository.findActiveConversationByAddress(echo.channel, echo.externalContactId);
+  if (!conversationId) {
+    logger.info(
+      { instance: echo.instance, externalContactId: echo.externalContactId },
+      '[conversation] outbound echo for an address with no active conversation — dropped (never creates a contact/lead)',
+    );
+    return;
+  }
+
+  if (echo.media) {
+    const mediaUrl = await conversationRepository.storeOutboundMedia(conversationId, echo.media.base64, echo.media.mimeType, echo.media.fileName);
+    await conversationRepository.insertOutboundMediaMessage({
+      conversationId,
+      channel: echo.channel,
+      providerMessageId: echo.providerMessageId,
+      content: echo.text,
+      mediaUrl,
+      mediaType: echo.media.mimeType,
+      // From the mimetype, not the parser's kind: that keeps stickers
+      // (image/webp) landing as images, the only `type` the timeline can render.
+      dbType: mediaKindFromMime(echo.media.mimeType),
+      tsSec: echo.tsSec,
+    });
+  } else {
+    await conversationRepository.insertOutboundMessage({
+      conversationId,
+      channel: echo.channel,
+      providerMessageId: echo.providerMessageId,
+      content: echo.text,
+      fromType: 'human',
+      tsSec: echo.tsSec,
+    });
+  }
+
+  // A duplicate (our own send, echoed back) is the normal case and needs no
+  // event — insertOutbound* already returned inserted:false and the row the
+  // frontend is watching was written by the send pipeline.
+}
+
 async function onMessageStatusUpdated(event: AppEvent): Promise<void> {
   const update = event.payload as unknown as MessageStatusUpdatedPayload;
   await conversationRepository.updateMessageStatus(update.providerMessageId, update.status);
@@ -252,6 +313,7 @@ async function onMessageStatusUpdated(event: AppEvent): Promise<void> {
 
 function register(): void {
   aiEventBus.on(ChannelEvents.InboundMessageReceived, onInboundMessage);
+  aiEventBus.on(ChannelEvents.OutboundEchoReceived, onOutboundEcho);
   aiEventBus.on(ChannelEvents.OutboundMessageSent, onOutboundSent);
   aiEventBus.on(ChannelEvents.MessageStatusUpdated, onMessageStatusUpdated);
 }
