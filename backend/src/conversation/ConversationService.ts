@@ -268,9 +268,12 @@ export async function startConversation(instance: string, phone: string, name?: 
  * customer talking to nobody.
  *
  * Three deliberate limits:
- *  - Attaches only to an already-existing conversation. Creating one from an
- *    echo would manufacture a lead out of us messaging someone first, which is
- *    exactly the flood `createLeadForContact` was written to stop.
+ *  - Never creates a lead. A first message typed on the phone opens the thread
+ *    (contact + conversation, in human mode, like "Nova Conversa") so it shows
+ *    up here right away — otherwise it only appeared once the other side
+ *    replied. The lead stays tied to the other person making contact, which is
+ *    what `createLeadForContact` guards. Groups are still dropped: an echo
+ *    carries no group subject to name the thread with.
  *  - Never runs the AI. This is our side of the conversation already answered;
  *    replying to it would be replying to ourselves.
  *  - `sent_by` stays null. A message typed on a phone carries no operator
@@ -281,13 +284,22 @@ export async function startConversation(instance: string, phone: string, name?: 
 async function onOutboundEcho(event: AppEvent): Promise<void> {
   const echo = event.payload as unknown as OutboundEchoReceivedPayload;
 
-  const conversationId = await conversationRepository.findActiveConversationByAddress(echo.channel, echo.externalContactId, echo.instance);
+  let conversationId = await conversationRepository.findActiveConversationByAddress(echo.channel, echo.externalContactId, echo.instance);
   if (!conversationId) {
-    logger.info(
-      { instance: echo.instance, externalContactId: echo.externalContactId },
-      '[conversation] outbound echo for an address with no active conversation — dropped (never creates a contact/lead)',
-    );
-    return;
+    if (echo.isGroup) {
+      logger.info(
+        { instance: echo.instance, externalContactId: echo.externalContactId },
+        '[conversation] outbound echo for a group with no active conversation — dropped',
+      );
+      return;
+    }
+    // No name: on an echo pushName is OUR profile, not the other person's.
+    const { contactId } = await conversationRepository.findOrCreateContact(echo.channel, echo.externalContactId);
+    ({ conversationId } = await conversationRepository.findOrCreateConversation(contactId, echo.instance, {
+      channel: echo.channel,
+      provider: 'evolution',
+      humanHandled: true,
+    }));
   }
 
   if (echo.media) {

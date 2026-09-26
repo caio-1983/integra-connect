@@ -154,10 +154,12 @@ class ConversationRepository {
   async findOrCreateConversation(
     contactId: string,
     instance: string,
-    opts: { channel: string; provider: string; isGroup?: boolean },
+    /** `humanHandled`: a person is already talking on this thread (an echo from
+     *  the phone), so it must not start in AI mode like a customer-opened one. */
+    opts: { channel: string; provider: string; isGroup?: boolean; humanHandled?: boolean },
   ): Promise<FindOrCreateConversationResult> {
     const supabase = getSupabase();
-    const { isGroup, channel, provider } = opts;
+    const { isGroup, channel, provider, humanHandled } = opts;
     const existingId = await this.findActiveConversationForInstance(contactId, instance);
     if (existingId) return { conversationId: existingId, created: false };
 
@@ -165,7 +167,7 @@ class ConversationRepository {
       .from('conversations')
       .insert({
         contact_id: contactId,
-        status: isGroup ? 'human' : 'nina',
+        status: isGroup || humanHandled ? 'human' : 'nina',
         is_active: true,
         user_id: null,
         channel,
@@ -183,11 +185,8 @@ class ConversationRepository {
 
   /**
    * Read-only lookup of an already-existing active conversation for a contact
-   * address. Deliberately NOT a find-or-create: the only caller is the outbound
-   * echo path, and creating from an echo would break two invariants at once —
-   * a lead is created only when a real person makes contact (see
-   * `createLeadForContact`), and the company messaging a number first is not
-   * that person making contact. An echo to an unknown address is dropped.
+   * address. The outbound echo path tries this first and only falls back to
+   * creating the thread (never a lead) for a 1:1 chat — see onOutboundEcho.
    */
   async findActiveConversationByAddress(channel: string, externalId: string, instance: string): Promise<string | null> {
     const supabase = getSupabase();
