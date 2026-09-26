@@ -199,7 +199,7 @@ serve(async (req) => {
               .from('conversations')
               .insert({
                 contact_id: contact.id,
-                status: 'nina',
+                status: 'human', // AI agent not live yet — see AI_AUTOSTART in backend
                 is_active: true,
                 user_id: null
               })

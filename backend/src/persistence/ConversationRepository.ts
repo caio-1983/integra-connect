@@ -2,6 +2,7 @@ import type { ConversationMode, IncomingMessage, MessageDeliveryStatus } from '.
 import type { InboundAttribution, InboundMedia } from '../channels/channelEvents.js';
 import { getSupabase } from './supabaseClient.js';
 import { logger } from '../logger/Logger.js';
+import { configService } from '../config/ConfigService.js';
 
 // Reuses the existing public `audio-messages` bucket for ALL inbound media
 // (audio/image/video/document) — it's already public and provisioned, so no new
@@ -83,6 +84,11 @@ function modeToStatus(mode: ConversationMode): DbStatus {
   }
 }
 
+/** Whether new conversations may start in AI mode. Off until the AI agent goes live. */
+function aiAutostart(): boolean {
+  return (configService.get('AI_AUTOSTART') ?? '').toLowerCase() === 'true';
+}
+
 export interface FindOrCreateContactResult { contactId: string; }
 export interface FindOrCreateConversationResult { conversationId: string; created: boolean; }
 /** Resolved routing target for an outbound message on an existing conversation. */
@@ -150,7 +156,10 @@ class ConversationRepository {
    * Group conversations default to `status: 'human'` (never 'nina') so the AI
    * doesn't auto-reply from the moment the group thread is created — belt and
    * suspenders alongside ConversationService's hard isGroup guard, which is
-   * what actually prevents it even if someone later flips the mode. */
+   * what actually prevents it even if someone later flips the mode.
+   *
+   * Every other conversation also starts as 'human' unless AI_AUTOSTART=true:
+   * the AI agent isn't live yet, so nothing should open in AI mode. */
   async findOrCreateConversation(
     contactId: string,
     instance: string,
@@ -167,7 +176,7 @@ class ConversationRepository {
       .from('conversations')
       .insert({
         contact_id: contactId,
-        status: isGroup || humanHandled ? 'human' : 'nina',
+        status: isGroup || humanHandled || !aiAutostart() ? 'human' : 'nina',
         is_active: true,
         user_id: null,
         channel,
