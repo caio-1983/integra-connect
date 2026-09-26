@@ -543,6 +543,7 @@ class ConversationRepository {
   }
 
   private async patchOutboundAttribution(input: {
+    conversationId: string;
     providerMessageId?: string;
     content: string;
     fromType: 'nina' | 'human';
@@ -559,6 +560,9 @@ class ConversationRepository {
         content: input.content,
         ...(input.replyToId ? { reply_to_id: input.replyToId } : {}),
       })
+      // Scoped to the conversation: the same provider id also exists as the
+      // inbound row when the recipient is another number on this platform.
+      .eq('conversation_id', input.conversationId)
       .eq('whatsapp_message_id', input.providerMessageId)
       .is('sent_by', null);
     if (error) {
@@ -632,7 +636,10 @@ class ConversationRepository {
     const { error } = await supabase
       .from('messages')
       .update({ status })
-      .eq('whatsapp_message_id', providerMessageId);
+      .eq('whatsapp_message_id', providerMessageId)
+      // Delivery acks are for what we sent; the same id can also be the
+      // recipient's inbound row when both numbers are on this platform.
+      .neq('from_type', 'user');
 
     if (error) logger.warn({ providerMessageId, status, err: error.message }, '[repo] failed to update message status');
   }
