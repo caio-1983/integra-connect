@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
-import { Zap, Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Zap, Plus, Pencil, Trash2, Loader2, ImagePlus, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { SectionBlock } from '@/components/layout';
 import { Button } from '@/components/Button';
-import { normalizeShortcut, useQuickReplies, type QuickReply } from '@/hooks/useQuickReplies';
+import {
+  normalizeShortcut, useQuickReplies, type QuickReply,
+  QUICK_REPLY_IMAGE_TYPES, QUICK_REPLY_IMAGE_MAX_BYTES,
+} from '@/hooks/useQuickReplies';
 
-interface Draft { id?: string; shortcut: string; message: string }
+interface Draft { id?: string; shortcut: string; message: string; imageUrl?: string | null }
 
 const EMPTY_DRAFT: Draft = { shortcut: '', message: '' };
 
@@ -16,17 +19,38 @@ const EMPTY_DRAFT: Draft = { shortcut: '', message: '' };
 export const QuickRepliesSettings: React.FC = () => {
   const { quickReplies, loading, save, remove } = useQuickReplies();
   const [draft, setDraft] = useState<Draft | null>(null);
+  // undefined = keep the draft's current image, null = remove it, File = replace it.
+  const [imageFile, setImageFile] = useState<File | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  const newImagePreview = useMemo(() => (imageFile ? URL.createObjectURL(imageFile) : null), [imageFile]);
+  useEffect(() => () => { if (newImagePreview) URL.revokeObjectURL(newImagePreview); }, [newImagePreview]);
+  const imagePreview = imageFile === undefined ? draft?.imageUrl ?? null : newImagePreview;
+
+  const openDraft = (next: Draft | null) => {
+    setDraft(next);
+    setImageFile(undefined);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!QUICK_REPLY_IMAGE_TYPES.includes(file.type)) { toast.error('Use uma imagem JPG, PNG ou WEBP.'); return; }
+    if (file.size > QUICK_REPLY_IMAGE_MAX_BYTES) { toast.error('Imagem muito grande (máx. 5 MB).'); return; }
+    setImageFile(file);
+  };
 
   const handleSave = async () => {
     if (!draft) return;
     if (!normalizeShortcut(draft.shortcut)) { toast.error('Informe um atalho.'); return; }
-    if (!draft.message.trim()) { toast.error('Informe a mensagem.'); return; }
+    if (!draft.message.trim() && !imagePreview) { toast.error('Informe a mensagem ou uma imagem.'); return; }
     setSaving(true);
     try {
-      await save(draft);
+      await save(draft, imageFile);
       toast.success(draft.id ? 'Resposta rápida atualizada.' : 'Resposta rápida criada.');
-      setDraft(null);
+      openDraft(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao salvar.');
     } finally {
@@ -37,7 +61,7 @@ export const QuickRepliesSettings: React.FC = () => {
   const handleRemove = async (reply: QuickReply) => {
     if (!confirm(`Excluir a resposta rápida /${reply.shortcut}?`)) return;
     try {
-      await remove(reply.id);
+      await remove(reply);
       toast.success('Resposta rápida excluída.');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erro ao excluir.');
@@ -52,7 +76,7 @@ export const QuickRepliesSettings: React.FC = () => {
     >
       <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
         {!draft && (
-          <Button size="sm" onClick={() => setDraft(EMPTY_DRAFT)}>
+          <Button size="sm" onClick={() => openDraft(EMPTY_DRAFT)}>
             <Plus className="w-4 h-4 mr-1.5" /> Nova resposta rápida
           </Button>
         )}
@@ -84,8 +108,36 @@ export const QuickRepliesSettings: React.FC = () => {
                 className="w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground outline-none focus:ring-1 focus:ring-ring/50 resize-y"
               />
             </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Imagem (opcional)</label>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept={QUICK_REPLY_IMAGE_TYPES.join(',')}
+                className="hidden"
+                onChange={handleImageChange}
+              />
+              {imagePreview ? (
+                <div className="flex items-start gap-3">
+                  <img src={imagePreview} alt="" className="w-24 h-24 rounded-lg object-cover border border-border" />
+                  <div className="flex flex-col gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => imageInputRef.current?.click()}>
+                      <ImagePlus className="w-4 h-4 mr-1.5" /> Trocar
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setImageFile(null)}>
+                      <X className="w-4 h-4 mr-1.5" /> Remover
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button variant="ghost" size="sm" onClick={() => imageInputRef.current?.click()}>
+                  <ImagePlus className="w-4 h-4 mr-1.5" /> Adicionar imagem
+                </Button>
+              )}
+              <p className="text-[11px] text-muted-foreground">JPG, PNG ou WEBP até 5 MB. A mensagem vai como legenda.</p>
+            </div>
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setDraft(null)} disabled={saving}>Cancelar</Button>
+              <Button variant="ghost" size="sm" onClick={() => openDraft(null)} disabled={saving}>Cancelar</Button>
               <Button size="sm" onClick={handleSave} disabled={saving}>
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar'}
               </Button>
@@ -102,11 +154,14 @@ export const QuickRepliesSettings: React.FC = () => {
             {quickReplies.map((reply) => (
               <li key={reply.id} className="flex items-start gap-3 py-3">
                 <span className="text-sm font-semibold text-primary font-mono flex-shrink-0">/{reply.shortcut}</span>
+                {reply.imageUrl && (
+                  <img src={reply.imageUrl} alt="" className="w-10 h-10 rounded-md object-cover border border-border flex-shrink-0" />
+                )}
                 <p className="flex-1 min-w-0 text-sm text-foreground whitespace-pre-wrap line-clamp-3">{reply.message}</p>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     type="button"
-                    onClick={() => setDraft({ id: reply.id, shortcut: reply.shortcut, message: reply.message })}
+                    onClick={() => openDraft({ id: reply.id, shortcut: reply.shortcut, message: reply.message, imageUrl: reply.imageUrl })}
                     title="Editar"
                     className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
                   >

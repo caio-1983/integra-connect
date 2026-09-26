@@ -3,7 +3,7 @@ import { Paperclip, Mic, Send, X, Zap, Reply } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useQuickReplies } from '@/hooks/useQuickReplies';
+import { fetchQuickReplyImage, useQuickReplies, type QuickReply } from '@/hooks/useQuickReplies';
 import { EmojiPicker } from './EmojiPicker';
 
 interface MessageComposerProps {
@@ -50,6 +50,9 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
   const [highlighted, setHighlighted] = useState(0);
   const [dismissedSlash, setDismissedSlash] = useState<string | null>(null);
   const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
+  // Image of a picked quick reply, sent on the next send with the text as caption.
+  const [pendingImage, setPendingImage] = useState<QuickReply | null>(null);
+  const [sendingImage, setSendingImage] = useState(false);
 
   const stopStream = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -138,14 +141,32 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     : quickReplies.filter(r => r.shortcut.includes(slashQuery) || r.message.toLowerCase().includes(slashQuery)).slice(0, 8);
   const activeSuggestion = Math.min(highlighted, Math.max(suggestions.length - 1, 0));
 
-  const applySuggestion = (message: string) => {
+  const applySuggestion = (reply: QuickReply) => {
+    const { message } = reply;
     onChange(message);
+    if (reply.imageUrl) setPendingImage(reply);
     requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (!el) return;
       el.focus();
       el.setSelectionRange(message.length, message.length);
     });
+  };
+
+  const canSend = !!value.trim() || !!pendingImage;
+
+  const handleSend = async () => {
+    if (!pendingImage) { onSend(); return; }
+    if (sendingImage || !onAttach) return;
+    setSendingImage(true);
+    try {
+      onAttach(await fetchQuickReplyImage(pendingImage));
+      setPendingImage(null);
+    } catch {
+      toast.error('Não foi possível carregar a imagem da resposta rápida.');
+    } finally {
+      setSendingImage(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -158,7 +179,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        applySuggestion(suggestions[activeSuggestion].message);
+        applySuggestion(suggestions[activeSuggestion]);
         return;
       }
       if (e.key === 'Escape') {
@@ -176,7 +197,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      onSend();
+      handleSend();
     }
   };
 
@@ -217,6 +238,23 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
           </button>
         </div>
       )}
+      {pendingImage?.imageUrl && !isRecording && (
+        <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/60 px-2 py-1.5">
+          <img src={pendingImage.imageUrl} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
+          <span className="flex-1 min-w-0 text-xs text-muted-foreground">
+            Imagem de <span className="font-mono text-primary">/{pendingImage.shortcut}</span> — o texto vai como legenda
+          </span>
+          <button
+            type="button"
+            onClick={() => setPendingImage(null)}
+            title="Remover imagem"
+            aria-label="Remover imagem"
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground flex-shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       <div className="flex items-end gap-2">
         {/* Attachment actions */}
         {!isRecording && (
@@ -245,11 +283,20 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
                       <button
                         key={reply.id}
                         type="button"
-                        onClick={() => { insertText(reply.message); setQuickRepliesOpen(false); }}
-                        className="text-left px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors"
+                        onClick={() => {
+                          insertText(reply.message);
+                          if (reply.imageUrl) setPendingImage(reply);
+                          setQuickRepliesOpen(false);
+                        }}
+                        className="flex items-start gap-2 text-left px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors"
                       >
-                        <span className="block text-xs font-semibold text-primary font-mono">/{reply.shortcut}</span>
-                        <span className="block text-xs text-muted-foreground line-clamp-2">{reply.message}</span>
+                        {reply.imageUrl && (
+                          <img src={reply.imageUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                        )}
+                        <span className="min-w-0">
+                          <span className="block text-xs font-semibold text-primary font-mono">/{reply.shortcut}</span>
+                          <span className="block text-xs text-muted-foreground line-clamp-2">{reply.message}</span>
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -312,14 +359,19 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
                     aria-selected={i === activeSuggestion}
                     onMouseDown={(e) => e.preventDefault()} // keep textarea focus
                     onMouseEnter={() => setHighlighted(i)}
-                    onClick={() => applySuggestion(reply.message)}
+                    onClick={() => applySuggestion(reply)}
                     className={cn(
-                      'w-full text-left px-2.5 py-1.5 rounded-lg transition-colors',
+                      'w-full flex items-center gap-2 text-left px-2.5 py-1.5 rounded-lg transition-colors',
                       i === activeSuggestion ? 'bg-muted' : 'hover:bg-muted/60',
                     )}
                   >
-                    <span className="block text-xs font-semibold text-primary font-mono">/{reply.shortcut}</span>
-                    <span className="block text-xs text-muted-foreground truncate">{reply.message}</span>
+                    {reply.imageUrl && (
+                      <img src={reply.imageUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                    )}
+                    <span className="min-w-0">
+                      <span className="block text-xs font-semibold text-primary font-mono">/{reply.shortcut}</span>
+                      <span className="block text-xs text-muted-foreground truncate">{reply.message}</span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -339,12 +391,12 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
         {/* Send */}
         <button
           type="button"
-          onClick={() => (isRecording ? finishRecording(false) : onSend())}
-          disabled={!isRecording && !value.trim()}
+          onClick={() => (isRecording ? finishRecording(false) : handleSend())}
+          disabled={!isRecording && (!canSend || sendingImage)}
           title={isRecording ? 'Enviar áudio' : undefined}
           className={cn(
             'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all',
-            isRecording || value.trim()
+            isRecording || canSend
               ? 'bg-gradient-to-br from-cyan-600 to-teal-700 text-white shadow-sm hover:scale-105 active:scale-95'
               : 'bg-muted text-muted-foreground cursor-not-allowed opacity-40',
           )}
