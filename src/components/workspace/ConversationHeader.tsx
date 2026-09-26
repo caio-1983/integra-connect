@@ -20,6 +20,8 @@ interface ConversationHeaderProps {
   /** `user_id` is the auth id; AttendantTag matches assigned_user_id against it. */
   teamMembers: Array<{ id: string; name: string; user_id?: string | null }>;
   onTransfer: (userId: string) => void;
+  /** Troca ou remove (null) o atendente pela própria tag. */
+  onChangeAttendant: (teamMemberId: string | null) => void;
   onMarkAsUnread: (conversationId: string) => void;
 }
 
@@ -88,7 +90,7 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
 
 const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   conversation, sdrName, showCustomerPanel, onToggleCustomerPanel, onSimulateCustomerMessage,
-  teamMembers, onTransfer, onMarkAsUnread,
+  teamMembers, onTransfer, onChangeAttendant, onMarkAsUnread,
 }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel =
@@ -139,7 +141,11 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
             </span>
             {/* Para quem esta conversa foi direcionada — derivado de
                 assigned_user_id, não de conversations.tags (ver AttendantTag). */}
-            <AttendantTag assignedUserId={conversation.assignedUserId} teamMembers={teamMembers} />
+            <AttendantTag
+              assignedUserId={conversation.assignedUserId}
+              teamMembers={teamMembers}
+              onChange={onChangeAttendant}
+            />
           </div>
         </div>
       </div>

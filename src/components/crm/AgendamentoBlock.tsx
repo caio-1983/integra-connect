@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CalendarCheck, Clock, Plus, Loader2, X } from 'lucide-react';
+import { CalendarCheck, Clock, Plus, Loader2, X, Trash2 } from 'lucide-react';
 import { Appointment } from '@/types';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
@@ -42,6 +42,7 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [date, setDate] = useState(tomorrowStr());
   const [time, setTime] = useState('09:00');
   const [description, setDescription] = useState('');
@@ -82,6 +83,20 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
       toast.error(e instanceof Error ? e.message : 'Erro ao agendar');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Excluir este agendamento?')) return;
+    setDeletingId(id);
+    try {
+      await api.deleteAppointment(id);
+      setAppointments(prev => prev.filter(a => a.id !== id));
+      toast.success('Agendamento excluído');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao excluir agendamento');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -162,6 +177,17 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
                   </span>
                 </div>
               </div>
+              <button
+                onClick={() => handleDelete(ap.id)}
+                disabled={deletingId === ap.id}
+                title="Excluir agendamento"
+                aria-label="Excluir agendamento"
+                className="p-1 -m-0.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-50 transition-colors flex-shrink-0"
+              >
+                {deletingId === ap.id
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : <Trash2 className="w-3.5 h-3.5" />}
+              </button>
             </div>
           ))}
           {appointments.length > 4 && (

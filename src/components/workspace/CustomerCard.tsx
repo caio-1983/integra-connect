@@ -137,7 +137,9 @@ const CustomerCard: React.FC<CustomerCardProps> = ({
                   <span className="text-foreground">{tagDef?.label || tagKey}</span>
                   <button
                     onClick={() => onToggleTag(tagKey)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remover tag"
+                    aria-label={`Remover tag ${tagDef?.label || tagKey}`}
+                    className="opacity-60 hover:opacity-100 transition-opacity"
                   >
                     <X className="w-2.5 h-2.5 text-muted-foreground hover:text-foreground" />
                   </button>

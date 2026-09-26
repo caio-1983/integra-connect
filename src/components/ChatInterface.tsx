@@ -225,6 +225,14 @@ const ChatInterface: React.FC = () => {
                 toast.error('Erro ao transferir conversa.');
               }
             }}
+            onChangeAttendant={async (teamMemberId) => {
+              try {
+                await assignConversation(activeChat.id, teamMemberId);
+                toast.success(teamMemberId ? 'Atendente alterado.' : 'Atendente removido.');
+              } catch {
+                toast.error('Erro ao alterar atendente.');
+              }
+            }}
           />
 
           <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar relative z-0">
