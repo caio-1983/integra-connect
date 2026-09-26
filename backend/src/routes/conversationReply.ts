@@ -16,6 +16,7 @@ const paramsSchema = z.object({ conversationId: z.string().min(1) });
 const bodySchema = z.object({
   content: z.string().min(1),
   operatorId: z.string().uuid().optional(),
+  replyToMessageId: z.string().uuid().optional(),
 });
 
 // 32 MB cap: base64 inflates a file by ~33%, so this admits real WhatsApp media
@@ -53,6 +54,11 @@ const replyBodyJsonSchema = {
   properties: {
     content: { type: 'string', minLength: 1, description: 'Texto da resposta do atendente.' },
     operatorId: OPERATOR_ID_DOC,
+    replyToMessageId: {
+      type: 'string',
+      format: 'uuid',
+      description: 'ID (messages.id) da mensagem desta conversa que está sendo respondida — enviada citada no WhatsApp.',
+    },
   },
 } as const;
 
@@ -150,7 +156,12 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     if (!bodyResult.success) return reply.code(400).send({ error: 'content obrigatório' });
 
     try {
-      await requestManualReply(paramsResult.data.conversationId, bodyResult.data.content, bodyResult.data.operatorId);
+      await requestManualReply(
+        paramsResult.data.conversationId,
+        bodyResult.data.content,
+        bodyResult.data.operatorId,
+        bodyResult.data.replyToMessageId,
+      );
       return reply.code(202).send({ accepted: true });
     } catch (error) {
       request.log.error(error);

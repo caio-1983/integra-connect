@@ -85,6 +85,22 @@ function logAdReplyDiagnostic(instance: unknown, message: Record<string, any>): 
   logger.info({ instance, node: withContext[0], contextInfo }, '[evolution] inbound carries externalAdReply (CTWA) — raw payload');
 }
 
+/**
+ * Provider id of the message this one quotes (WhatsApp "responder"). Baileys
+ * puts `contextInfo.stanzaId` on whichever node carries the content
+ * (extendedTextMessage, imageMessage, ...); Evolution v2 also mirrors it at
+ * `data.contextInfo`. Reads both.
+ */
+function extractQuotedId(data: Record<string, any>, message: Record<string, any>): string | undefined {
+  const fromData = data.contextInfo?.stanzaId;
+  if (fromData) return String(fromData);
+  for (const node of Object.values(message ?? {})) {
+    const stanzaId = node && typeof node === 'object' ? (node as Record<string, any>).contextInfo?.stanzaId : undefined;
+    if (stanzaId) return String(stanzaId);
+  }
+  return undefined;
+}
+
 /** One `messages.upsert` envelope, already normalized, plus the direction flag
  *  the two public parsers below discriminate on. */
 interface ParsedEnvelope {
@@ -215,6 +231,7 @@ function parseMessageEnvelope(rawBody: unknown): ParsedEnvelope | null {
         : undefined,
       senderName: isGroup ? (data.pushName ?? undefined) : undefined,
       attribution,
+      quotedProviderMessageId: extractQuotedId(data, msg),
     },
   };
 }
@@ -246,9 +263,9 @@ export function parseOutboundEcho(rawBody: unknown): NormalizedOutboundEcho | nu
   const parsed = parseMessageEnvelope(rawBody);
   if (!parsed || !parsed.fromMe) return null;
 
-  const { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup } =
+  const { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId } =
     parsed.message;
-  return { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup };
+  return { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId };
 }
 
 // Evolution forwards Baileys' numeric WAMessageStatus ack levels in some

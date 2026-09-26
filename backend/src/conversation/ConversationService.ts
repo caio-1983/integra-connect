@@ -42,6 +42,7 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
     media: msg.media,
     // Attribute the sender in group threads (contactName is the group subject).
     sender: msg.isGroup ? { name: msg.senderName, phone: msg.senderParticipant } : undefined,
+    quotedProviderMessageId: msg.quotedProviderMessageId,
   });
   if (!inserted) return; // duplicate delivery — already handled
 
@@ -117,6 +118,7 @@ async function onOutboundSent(event: AppEvent): Promise<void> {
     content: sent.text,
     fromType: sent.fromType,
     operatorId: sent.operatorId,
+    replyToId: sent.replyToId,
   });
 }
 
@@ -127,11 +129,21 @@ async function onOutboundSent(event: AppEvent): Promise<void> {
  * creation time). Reuses the exact same OutboundMessageRequested pipeline
  * the AI uses, so it goes out through the same connector/EventBus.
  */
-export async function requestManualReply(conversationId: string, content: string, operatorId?: string): Promise<void> {
+export async function requestManualReply(
+  conversationId: string,
+  content: string,
+  operatorId?: string,
+  replyToMessageId?: string,
+): Promise<void> {
   const info = await conversationRepository.getConversationChannelInfo(conversationId);
   if (!info) {
     throw new Error('Conversa sem instância associada (anterior a este recurso, ou contato não encontrado).');
   }
+
+  // Scoped to this conversation, so a stray id can never quote another thread.
+  const replyTarget = replyToMessageId
+    ? await conversationRepository.getReplyTarget(conversationId, replyToMessageId)
+    : null;
 
   // Signed only on the wire: OutboundMessageService prefixes the attendant's
   // name onto what the provider receives, while the row we store keeps `content`
@@ -148,6 +160,8 @@ export async function requestManualReply(conversationId: string, content: string
     fromType: 'human',
     operatorId,
     signature,
+    replyToId: replyTarget?.id,
+    quotedProviderMessageId: replyTarget?.providerMessageId ?? undefined,
   };
   await aiEventBus.publish({
     type: ChannelEvents.OutboundMessageRequested,
@@ -267,7 +281,7 @@ export async function startConversation(instance: string, phone: string, name?: 
 async function onOutboundEcho(event: AppEvent): Promise<void> {
   const echo = event.payload as unknown as OutboundEchoReceivedPayload;
 
-  const conversationId = await conversationRepository.findActiveConversationByAddress(echo.channel, echo.externalContactId);
+  const conversationId = await conversationRepository.findActiveConversationByAddress(echo.channel, echo.externalContactId, echo.instance);
   if (!conversationId) {
     logger.info(
       { instance: echo.instance, externalContactId: echo.externalContactId },
@@ -289,6 +303,7 @@ async function onOutboundEcho(event: AppEvent): Promise<void> {
       // (image/webp) landing as images, the only `type` the timeline can render.
       dbType: mediaKindFromMime(echo.media.mimeType),
       tsSec: echo.tsSec,
+      quotedProviderMessageId: echo.quotedProviderMessageId,
     });
   } else {
     await conversationRepository.insertOutboundMessage({
@@ -298,6 +313,7 @@ async function onOutboundEcho(event: AppEvent): Promise<void> {
       content: echo.text,
       fromType: 'human',
       tsSec: echo.tsSec,
+      quotedProviderMessageId: echo.quotedProviderMessageId,
     });
   }
 

@@ -45,7 +45,10 @@ export interface EvolutionAdapter {
   readonly major: EvolutionMajor;
   createInstanceBody(params: CreateInstanceParams): Record<string, unknown>;
   setWebhookBody(params: { url: string; events: string[] }): Record<string, unknown>;
-  sendTextBody(params: { number: string; text: string }): Record<string, unknown>;
+  /** `quotedId` is the provider id of the message being replied to (WhatsApp
+   *  "responder"); Evolution resolves the rest of the quoted message from its
+   *  own store by that id. */
+  sendTextBody(params: { number: string; text: string; quotedId?: string }): Record<string, unknown>;
   sendMediaBody(params: SendMediaParams): Record<string, unknown>;
   parseQr(response: unknown): QrResult;
   parseSendResult(response: unknown): SendTextResult;
@@ -152,6 +155,8 @@ export interface NormalizedInbound {
   /** Origin signals found on this message (Meta click-to-WhatsApp ad, or a
    *  `[ref:...]` token from a site link). Absent when the message carried none. */
   attribution?: InboundAttribution;
+  /** Provider id of the message this one quotes ("responder"), if any. */
+  quotedProviderMessageId?: string;
 }
 
 /**
@@ -170,6 +175,7 @@ export interface NormalizedOutboundEcho {
   media?: NormalizedInboundMedia;
   pendingMedia?: { kind: InboundMediaKind; mimeType: string; fileName?: string };
   isGroup?: boolean;
+  quotedProviderMessageId?: string;
 }
 
 /** Channel-agnostic delivery-status change (Evolution's messages.update). */

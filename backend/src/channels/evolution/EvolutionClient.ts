@@ -137,9 +137,9 @@ export class EvolutionClient {
     return { state: 'unknown' };
   }
 
-  async sendText(instanceName: string, number: string, text: string): Promise<SendTextResult> {
+  async sendText(instanceName: string, number: string, text: string, quotedId?: string): Promise<SendTextResult> {
     const adapter = await this.getAdapter();
-    const response = await this.request<unknown>('POST', `/message/sendText/${instanceName}`, adapter.sendTextBody({ number, text }));
+    const response = await this.request<unknown>('POST', `/message/sendText/${instanceName}`, adapter.sendTextBody({ number, text, quotedId }));
     return adapter.parseSendResult(response);
   }
 

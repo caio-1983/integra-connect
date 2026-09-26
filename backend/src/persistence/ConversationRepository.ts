@@ -158,17 +158,8 @@ class ConversationRepository {
   ): Promise<FindOrCreateConversationResult> {
     const supabase = getSupabase();
     const { isGroup, channel, provider } = opts;
-    // No channel predicate needed: the contact itself is now scoped by channel
-    // (contacts is keyed on channel + external_id), so one active conversation
-    // per contact is already one active conversation per channel.
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('id')
-      .eq('contact_id', contactId)
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (existing) return { conversationId: existing.id, created: false };
+    const existingId = await this.findActiveConversationForInstance(contactId, instance);
+    if (existingId) return { conversationId: existingId, created: false };
 
     const { data, error } = await supabase
       .from('conversations')
@@ -198,7 +189,7 @@ class ConversationRepository {
    * `createLeadForContact`), and the company messaging a number first is not
    * that person making contact. An echo to an unknown address is dropped.
    */
-  async findActiveConversationByAddress(channel: string, externalId: string): Promise<string | null> {
+  async findActiveConversationByAddress(channel: string, externalId: string, instance: string): Promise<string | null> {
     const supabase = getSupabase();
     const { data: contact } = await supabase
       .from('contacts')
@@ -208,13 +199,39 @@ class ConversationRepository {
       .maybeSingle();
     if (!contact) return null;
 
-    const { data: conversation } = await supabase
+    return this.findActiveConversationForInstance(contact.id, instance);
+  }
+
+  /**
+   * The active conversation between a contact and ONE of our numbers. A contact
+   * is shared across numbers (contacts is keyed on channel + external_id), so
+   * matching on contact alone merged a customer's messages to a second number
+   * into the thread of the first — and replies then left from the first number.
+   * Legacy rows with no recorded instance are still adopted, as before.
+   */
+  async findActiveConversationForInstance(contactId: string, instance: string): Promise<string | null> {
+    const supabase = getSupabase();
+    const { data: sameInstance } = await supabase
       .from('conversations')
       .select('id')
-      .eq('contact_id', contact.id)
+      .eq('contact_id', contactId)
       .eq('is_active', true)
+      .eq('metadata->>instance', instance)
+      .order('last_message_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
-    return conversation?.id ?? null;
+    if (sameInstance) return sameInstance.id;
+
+    const { data: legacy } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', contactId)
+      .eq('is_active', true)
+      .is('metadata->>instance', null)
+      .order('last_message_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return legacy?.id ?? null;
   }
 
   /** Resolves provider + channel + account instance + recipient address for a
@@ -401,8 +418,10 @@ class ConversationRepository {
     /** Group only: who sent this message, stored on messages.metadata so the UI
      *  can label each bubble (the conversation contactName is the group subject). */
     sender?: { name?: string; phone?: string };
+    quotedProviderMessageId?: string;
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
+    const replyToId = await this.resolveReplyToId(input.conversationId, input);
     const sentAt = input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString();
 
     const mediaUrl = input.media
@@ -424,6 +443,7 @@ class ConversationRepository {
       from_type: 'user',
       status: 'sent',
       sent_at: sentAt,
+      reply_to_id: replyToId,
       ...(sender ? { metadata: { sender } } : {}),
     });
 
@@ -446,8 +466,13 @@ class ConversationRepository {
     /** Provider timestamp, for a row we did not originate (an echo). Without it
      *  a message typed hours ago on a phone would sort to "now" in the timeline. */
     tsSec?: number;
+    /** Our own `messages.id` being replied to (platform send). */
+    replyToId?: string;
+    /** Provider id of the quoted message (echo from the phone). */
+    quotedProviderMessageId?: string;
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
+    const replyToId = await this.resolveReplyToId(input.conversationId, input);
     const { error } = await supabase.from('messages').insert({
       conversation_id: input.conversationId,
       channel: input.channel,
@@ -458,6 +483,7 @@ class ConversationRepository {
       sent_by: input.fromType === 'human' ? (input.operatorId ?? null) : null,
       status: 'sent',
       sent_at: input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString(),
+      reply_to_id: replyToId,
     });
 
     if (error) {
@@ -468,7 +494,7 @@ class ConversationRepository {
         // loser it patches what the echo could not know rather than dropping it
         // — otherwise a reply typed IN the platform would end up unattributed
         // and displaying its own on-the-wire signature back to us.
-        await this.patchOutboundAttribution(input);
+        await this.patchOutboundAttribution({ ...input, replyToId: replyToId ?? undefined });
         return { inserted: false };
       }
       throw new Error(`[repo] failed to insert outbound message: ${error.message}`);
@@ -483,17 +509,56 @@ class ConversationRepository {
    * No-op for an echo losing to us (it knows neither), and never throws — the
    * message is already stored, and attribution must not cost a delivery.
    */
+  /** The message an operator chose to reply to, checked to belong to this
+   *  conversation. `providerMessageId` is null for rows the provider never
+   *  acknowledged — the reply is then stored as a reply but sent unquoted. */
+  async getReplyTarget(conversationId: string, messageId: string): Promise<{ id: string; providerMessageId: string | null } | null> {
+    const supabase = getSupabase();
+    const { data } = await supabase
+      .from('messages')
+      .select('id, whatsapp_message_id')
+      .eq('id', messageId)
+      .eq('conversation_id', conversationId)
+      .maybeSingle();
+    return data ? { id: data.id, providerMessageId: data.whatsapp_message_id ?? null } : null;
+  }
+
+  /** `reply_to_id` for a row being inserted: our own id when the platform sent
+   *  the reply, otherwise the quoted provider id resolved within the same
+   *  conversation. A quote of a message we never stored stays null. */
+  private async resolveReplyToId(
+    conversationId: string,
+    input: { replyToId?: string; quotedProviderMessageId?: string },
+  ): Promise<string | null> {
+    if (input.replyToId) return input.replyToId;
+    if (!input.quotedProviderMessageId) return null;
+    const { data } = await getSupabase()
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('whatsapp_message_id', input.quotedProviderMessageId)
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
+  }
+
   private async patchOutboundAttribution(input: {
     providerMessageId?: string;
     content: string;
     fromType: 'nina' | 'human';
     operatorId?: string;
+    replyToId?: string;
   }): Promise<void> {
     if (!input.providerMessageId || !input.operatorId) return;
     const supabase = getSupabase();
     const { error } = await supabase
       .from('messages')
-      .update({ sent_by: input.operatorId, from_type: input.fromType, content: input.content })
+      .update({
+        sent_by: input.operatorId,
+        from_type: input.fromType,
+        content: input.content,
+        ...(input.replyToId ? { reply_to_id: input.replyToId } : {}),
+      })
       .eq('whatsapp_message_id', input.providerMessageId)
       .is('sent_by', null);
     if (error) {
@@ -529,8 +594,10 @@ class ConversationRepository {
     operatorId?: string;
     /** Provider timestamp — see insertOutboundMessage. */
     tsSec?: number;
+    quotedProviderMessageId?: string;
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
+    const replyToId = await this.resolveReplyToId(input.conversationId, input);
     const { error } = await supabase.from('messages').insert({
       conversation_id: input.conversationId,
       channel: input.channel,
@@ -543,6 +610,7 @@ class ConversationRepository {
       sent_by: input.operatorId ?? null,
       status: 'sent',
       sent_at: input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString(),
+      reply_to_id: replyToId,
     });
 
     if (error) {

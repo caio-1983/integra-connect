@@ -24,7 +24,9 @@ function register(): void {
     // unsigned original, so the timeline and the AI's history never carry the
     // attendant's name as if the customer had been told it twice.
     const outgoing = applySignature(req.text, req.signature, req.channel);
-    const { providerMessageId } = await connector.sendText(req.instance, req.to, outgoing);
+    const { providerMessageId } = await connector.sendText(req.instance, req.to, outgoing, {
+      quotedProviderMessageId: req.quotedProviderMessageId,
+    });
 
     const sent: OutboundMessageSentPayload = {
       conversationId: req.conversationId,
@@ -33,6 +35,7 @@ function register(): void {
       text: req.text,
       fromType: req.fromType,
       operatorId: req.operatorId,
+      replyToId: req.replyToId,
     };
     await aiEventBus.publish({ type: ChannelEvents.OutboundMessageSent, payload: sent as unknown as Record<string, unknown>, timestamp: new Date() });
   });

@@ -80,6 +80,8 @@ export interface InboundMessageReceivedPayload {
   tsSec?: number;
   media?: InboundMedia;
   isGroup?: boolean;
+  /** Provider id of the message the customer quoted ("responder"), if any. */
+  quotedProviderMessageId?: string;
 }
 
 /**
@@ -102,6 +104,7 @@ export interface OutboundEchoReceivedPayload {
   tsSec?: number;
   media?: InboundMedia;
   isGroup?: boolean;
+  quotedProviderMessageId?: string;
 }
 
 export interface OutboundMessageRequestedPayload {
@@ -120,6 +123,10 @@ export interface OutboundMessageRequestedPayload {
    *  send time only — the stored `messages.content` keeps the clean text
    *  (see channels/outboundSignature.ts). */
   signature?: string;
+  /** Our `messages.id` this replies to → persisted as `messages.reply_to_id`. */
+  replyToId?: string;
+  /** Provider id of that same message, for the provider-side quote. */
+  quotedProviderMessageId?: string;
 }
 
 export interface OutboundMessageSentPayload {
@@ -131,6 +138,7 @@ export interface OutboundMessageSentPayload {
   text: string;
   fromType: 'nina' | 'human';
   operatorId?: string;
+  replyToId?: string;
 }
 
 export interface MessageStatusUpdatedPayload {

@@ -26,8 +26,13 @@ export const v1Adapter: EvolutionAdapter = {
     };
   },
 
-  sendTextBody(params: { number: string; text: string }): Record<string, unknown> {
-    return { number: params.number, textMessage: { text: params.text } };
+  // v1: `quoted` lives under `options`; looked up by key.id like v2.
+  sendTextBody(params: { number: string; text: string; quotedId?: string }): Record<string, unknown> {
+    return {
+      number: params.number,
+      textMessage: { text: params.text },
+      ...(params.quotedId ? { options: { quoted: { key: { id: params.quotedId } } } } : {}),
+    };
   },
 
   // v1: media params nested under `mediaMessage` (mirrors the sendText nesting).

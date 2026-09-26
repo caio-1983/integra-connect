@@ -31,8 +31,13 @@ export const v2Adapter: EvolutionAdapter = {
     };
   },
 
-  sendTextBody(params: { number: string; text: string }): Record<string, unknown> {
-    return { number: params.number, text: params.text };
+  // v2: `quoted` is top-level; with no `message` Evolution looks it up by key.id.
+  sendTextBody(params: { number: string; text: string; quotedId?: string }): Record<string, unknown> {
+    return {
+      number: params.number,
+      text: params.text,
+      ...(params.quotedId ? { quoted: { key: { id: params.quotedId } } } : {}),
+    };
   },
 
   // v2: flat payload (verified against source `main` — same shape as sendText).
