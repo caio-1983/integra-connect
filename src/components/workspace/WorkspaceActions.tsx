@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, User, Pause, Info, ArrowRightLeft, CheckCircle, Tag, CalendarClock, TrendingUp, MailX } from 'lucide-react';
-import { ConversationStatus } from '@/types';
+import { Info, ArrowRightLeft, CheckCircle, Tag, CalendarClock, TrendingUp, MailX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
@@ -13,10 +12,7 @@ interface TeamMemberOption {
 }
 
 interface WorkspaceActionsProps {
-  status: ConversationStatus;
-  sdrName: string;
   showCustomerPanel: boolean;
-  onStatusChange: (status: ConversationStatus) => void;
   onToggleCustomerPanel: () => void;
   teamMembers: TeamMemberOption[];
   assignedUserId?: string | null;
@@ -71,56 +67,10 @@ const TransferPopover: React.FC<{
 };
 
 const WorkspaceActions: React.FC<WorkspaceActionsProps> = ({
-  status, sdrName, showCustomerPanel, onStatusChange, onToggleCustomerPanel, teamMembers, assignedUserId, onTransfer,
-  onMarkAsUnread,
+  showCustomerPanel, onToggleCustomerPanel, teamMembers, assignedUserId, onTransfer, onMarkAsUnread,
 }) => {
   return (
     <div className="flex items-center gap-1.5 flex-shrink-0">
-      {/* Status switcher */}
-      <div className="flex items-center bg-muted rounded-lg p-0.5 border border-border">
-        <button
-          onClick={() => onStatusChange('nina')}
-          title={`Ativar ${sdrName} (IA)`}
-          className={cn(
-            'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
-            status === 'nina'
-              ? 'bg-violet-100 text-violet-700'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <Bot className="w-3.5 h-3.5" />
-          <span className="hidden xl:inline">{sdrName}</span>
-        </button>
-        <button
-          onClick={() => onStatusChange('human')}
-          title="Assumir conversa"
-          className={cn(
-            'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
-            status === 'human'
-              ? 'bg-emerald-100 text-emerald-700'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <User className="w-3.5 h-3.5" />
-          <span className="hidden xl:inline">Humano</span>
-        </button>
-        <button
-          onClick={() => onStatusChange('paused')}
-          title="Pausar conversa"
-          className={cn(
-            'flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium transition-all',
-            status === 'paused'
-              ? 'bg-amber-100 text-amber-700'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <Pause className="w-3.5 h-3.5" />
-          <span className="hidden xl:inline">Pausar</span>
-        </button>
-      </div>
-
-      <div className="w-px h-5 bg-border" />
-
       <TransferPopover teamMembers={teamMembers} assignedUserId={assignedUserId} onTransfer={onTransfer} />
       <button
         type="button"

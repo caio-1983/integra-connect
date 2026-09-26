@@ -94,11 +94,16 @@ export async function importWhatsappContacts(instanceName: string): Promise<Impo
  * without it the reply is anonymous and the per-attendant report cannot count
  * it. The backend gateway has no per-user identity of its own (shared bearer
  * token), so the frontend is the only thing that knows who is typing. */
-export async function sendConversationReply(conversationId: string, content: string, operatorId?: string): Promise<void> {
+export async function sendConversationReply(
+  conversationId: string,
+  content: string,
+  operatorId?: string,
+  replyToMessageId?: string,
+): Promise<void> {
   const res = await fetch(`${base()}/v1/conversations/${encodeURIComponent(conversationId)}/reply`, {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ content, operatorId }),
+    body: JSON.stringify({ content, operatorId, replyToMessageId }),
   });
   await handle<{ accepted: true }>(res);
 }

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, KeyRound, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { useSidebar } from '@/components/ui/sidebar';
 import {
@@ -34,6 +35,25 @@ export const SidebarFooter: React.FC = () => {
   const { role } = useCompanySettings();
   const navigate = useNavigate();
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+  const [memberName, setMemberName] = useState<string | null>(null);
+
+  // team_members.name is what admins edit in /team; user_metadata.full_name is
+  // frozen at account creation, so a renamed member kept showing the old name.
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    supabase
+      .from('team_members')
+      .select('name')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setMemberName(data?.name?.trim() || null);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  const fullName = memberName || (user?.user_metadata?.full_name as string | undefined);
 
   const handleLogout = async () => {
     try {
@@ -46,7 +66,7 @@ export const SidebarFooter: React.FC = () => {
   };
 
   const getUserInitials = (): string => {
-    const name = user?.user_metadata?.full_name as string | undefined;
+    const name = fullName;
     if (name?.trim()) {
       const parts = name.trim().split(/\s+/);
       if (parts.length >= 2) {
@@ -58,7 +78,7 @@ export const SidebarFooter: React.FC = () => {
   };
 
   const getDisplayName = (): string => {
-    return (user?.user_metadata?.full_name as string | undefined) || 'Usuário';
+    return fullName || 'Usuário';
   };
 
   const getRole = (): string => (role ? ROLE_LABEL[role] : 'Colaborador');

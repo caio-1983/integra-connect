@@ -3,6 +3,8 @@ import { MessageSquare, Clock, Bot, User, Pause, Calendar, Loader2 } from 'lucid
 import { supabase } from '@/integrations/supabase/client';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { cn } from '@/lib/utils';
+import { appointmentTypeLabel } from '@/lib/appointmentTypes';
+import { AppointmentDetailDialog, type AppointmentDetail } from './AppointmentDetailDialog';
 
 interface RecentConversation {
   id: string;
@@ -13,13 +15,7 @@ interface RecentConversation {
   unreadCount: number;
 }
 
-interface UpcomingAppointment {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  type: string;
-}
+type UpcomingAppointment = AppointmentDetail;
 
 const statusConfig = {
   nina:   { icon: Bot,   label: 'IA',       color: 'text-cyan-700 bg-cyan-50 border-cyan-200' },
@@ -52,6 +48,7 @@ const OperationalSummary: React.FC = () => {
   const [conversations, setConversations] = useState<RecentConversation[]>([]);
   const [appointments, setAppointments] = useState<UpcomingAppointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedAppointment, setSelectedAppointment] = useState<UpcomingAppointment | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -68,7 +65,7 @@ const OperationalSummary: React.FC = () => {
             .limit(6),
           supabase
             .from('appointments')
-            .select('id, title, date, time, type')
+            .select('id, title, date, time, type, duration, description, attendees, user_id, metadata, contact:contacts(name, phone_number)')
             .gte('date', today)
             .lte('date', tomorrow)
             .order('date', { ascending: true })
@@ -90,7 +87,7 @@ const OperationalSummary: React.FC = () => {
         }
 
         if (apptRes.data) {
-          setAppointments(apptRes.data as UpcomingAppointment[]);
+          setAppointments(apptRes.data as unknown as UpcomingAppointment[]);
         }
       } catch {
         /* silent */
@@ -198,25 +195,36 @@ const OperationalSummary: React.FC = () => {
             {appointments.map((appt) => {
               const typeColor = appointmentTypeColor[appt.type] || 'text-muted-foreground';
               return (
-                <li key={appt.id} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 transition-colors">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted border border-border flex-shrink-0">
-                    <Clock className={cn('w-3.5 h-3.5', typeColor)} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate leading-none">{appt.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {appt.date.split('-').reverse().join('/')} às {appt.time}
-                    </p>
-                  </div>
-                  <span className={cn('text-[10px] font-semibold uppercase tracking-wide flex-shrink-0', typeColor)}>
-                    {appt.type}
-                  </span>
+                <li key={appt.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedAppointment(appt)}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/40 transition-colors"
+                  >
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted border border-border flex-shrink-0">
+                      <Clock className={cn('w-3.5 h-3.5', typeColor)} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate leading-none">{appt.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {appt.date.split('-').reverse().join('/')} às {appt.time.slice(0, 5)}
+                      </p>
+                    </div>
+                    <span className={cn('text-[10px] font-semibold uppercase tracking-wide flex-shrink-0', typeColor)}>
+                      {appointmentTypeLabel(appt.type)}
+                    </span>
+                  </button>
                 </li>
               );
             })}
           </ul>
         )}
       </div>
+
+      <AppointmentDetailDialog
+        appointment={selectedAppointment}
+        onOpenChange={(open) => { if (!open) setSelectedAppointment(null); }}
+      />
     </div>
   );
 };

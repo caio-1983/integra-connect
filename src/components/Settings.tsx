@@ -3,6 +3,7 @@ import { Shield, RotateCcw, Lock, Settings as SettingsIcon } from 'lucide-react'
 import { PageContainer, PageHeader } from '@/components/layout';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
+import { QuickRepliesSettings } from '@/components/settings/QuickRepliesSettings';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { Button } from './Button';
 import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
@@ -62,6 +63,8 @@ const Settings: React.FC = () => {
       />
 
       <div className="space-y-10">
+        <QuickRepliesSettings />
+
         <AppearanceSettings />
 
         <EmptyState

@@ -15,7 +15,6 @@ interface ConversationHeaderProps {
   conversation: UIConversation;
   sdrName: string;
   showCustomerPanel: boolean;
-  onStatusChange: (status: ConversationStatus) => void;
   onToggleCustomerPanel: () => void;
   onSimulateCustomerMessage?: (content: string) => void;
   /** `user_id` is the auth id; AttendantTag matches assigned_user_id against it. */
@@ -88,7 +87,7 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
 };
 
 const ConversationHeader: React.FC<ConversationHeaderProps> = ({
-  conversation, sdrName, showCustomerPanel, onStatusChange, onToggleCustomerPanel, onSimulateCustomerMessage,
+  conversation, sdrName, showCustomerPanel, onToggleCustomerPanel, onSimulateCustomerMessage,
   teamMembers, onTransfer, onMarkAsUnread,
 }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
@@ -155,10 +154,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
           <SimulateCustomerMessagePopover onSimulate={onSimulateCustomerMessage} />
         )}
         <WorkspaceActions
-          status={conversation.status}
-          sdrName={sdrName}
           showCustomerPanel={showCustomerPanel}
-          onStatusChange={onStatusChange}
           onToggleCustomerPanel={onToggleCustomerPanel}
           teamMembers={teamMembers}
           assignedUserId={conversation.assignedUserId}

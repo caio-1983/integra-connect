@@ -606,7 +606,8 @@ export const api = {
         name: a.contact.name,
         phone_number: a.contact.phone_number
       } : undefined,
-      metadata: a.metadata as Appointment['metadata']
+      metadata: a.metadata as Appointment['metadata'],
+      user_id: a.user_id ?? undefined
     }));
   },
 

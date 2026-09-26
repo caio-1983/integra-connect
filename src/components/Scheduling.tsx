@@ -1,21 +1,41 @@
-import React, { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, AlignLeft, X, Loader2, LayoutGrid, List, Columns, Video, User, UserCircle, Bot, Pencil } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, AlignLeft, X, Loader2, LayoutGrid, List, Columns, User, UserCircle, Bot, Pencil } from 'lucide-react';
 import { Button } from './Button';
 import { Appointment, Contact } from '../types';
 import { api } from '../services/api';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { PageContainer, PageHeader } from '@/components/layout';
+import { appointmentTypeLabel } from '@/lib/appointmentTypes';
 
 type ViewMode = 'month' | 'week' | 'day';
 
+const typeLabel = appointmentTypeLabel;
+
+// One color per user. Assigned by position in the team list (not by hash) so
+// two people never share a color while the team fits the palette.
+const USER_COLORS = [
+  { chip: 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100', header: 'bg-cyan-50', dot: 'bg-cyan-500' },
+  { chip: 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100', header: 'bg-violet-50', dot: 'bg-violet-500' },
+  { chip: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100', header: 'bg-emerald-50', dot: 'bg-emerald-500' },
+  { chip: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100', header: 'bg-orange-50', dot: 'bg-orange-500' },
+  { chip: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100', header: 'bg-rose-50', dot: 'bg-rose-500' },
+  { chip: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100', header: 'bg-blue-50', dot: 'bg-blue-500' },
+  { chip: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100', header: 'bg-amber-50', dot: 'bg-amber-500' },
+  { chip: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-100', header: 'bg-fuchsia-50', dot: 'bg-fuchsia-500' },
+  { chip: 'bg-lime-50 text-lime-800 border-lime-200 hover:bg-lime-100', header: 'bg-lime-50', dot: 'bg-lime-500' },
+  { chip: 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100', header: 'bg-teal-50', dot: 'bg-teal-500' },
+];
+const NO_USER_COLOR = { chip: 'bg-muted text-muted-foreground border-border hover:bg-muted/80', header: 'bg-muted', dot: 'bg-muted-foreground' };
+
+type TeamUser = { user_id: string; name: string };
+
 const Scheduling: React.FC = () => {
-  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -65,6 +85,13 @@ const Scheduling: React.FC = () => {
     };
 
     loadData();
+
+    supabase
+      .from('team_members')
+      .select('user_id, name')
+      .not('user_id', 'is', null)
+      .order('name', { ascending: true })
+      .then(({ data }) => setTeamUsers((data ?? []) as TeamUser[]));
 
     // Setup realtime subscription
     const channel = supabase
@@ -252,25 +279,29 @@ const Scheduling: React.FC = () => {
     }
   };
 
-  const getEventTypeHeaderBg = (type: string) => {
-    switch (type) {
-      case 'demo':    return 'bg-cyan-50';
-      case 'meeting': return 'bg-violet-50';
-      case 'support': return 'bg-emerald-50';
-      case 'followup': return 'bg-orange-50';
-      default: return 'bg-muted';
+  // Team order first, then any appointment owner not in the team list.
+  const userOrder = useMemo(() => {
+    const ids = teamUsers.map(u => u.user_id);
+    for (const a of appointments) {
+      if (a.user_id && !ids.includes(a.user_id)) ids.push(a.user_id);
     }
+    return ids;
+  }, [teamUsers, appointments]);
+
+  const getUserColor = (userId?: string) => {
+    if (!userId) return NO_USER_COLOR;
+    const idx = userOrder.indexOf(userId);
+    return idx < 0 ? NO_USER_COLOR : USER_COLORS[idx % USER_COLORS.length];
   };
 
-  const getEventTypeColor = (type: string) => {
-    switch (type) {
-        case 'demo': return 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100';
-        case 'meeting': return 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100';
-        case 'support': return 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100';
-        case 'followup': return 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100';
-        default: return 'bg-muted text-muted-foreground border-border';
-    }
-  };
+  const getUserName = (userId?: string) =>
+    teamUsers.find(u => u.user_id === userId)?.name ?? (userId ? 'Usuário' : 'Sem responsável');
+
+  const legendUsers = useMemo(() => {
+    const present = new Set(appointments.map(a => a.user_id ?? ''));
+    return userOrder.filter(id => present.has(id));
+  }, [userOrder, appointments]);
+  const hasUnowned = appointments.some(a => !a.user_id);
 
   // --- RENDERERS ---
 
@@ -304,12 +335,13 @@ const Scheduling: React.FC = () => {
                             {dayAppointments.map(app => (
                                 <div
                                     key={app.id}
-                                    className={`text-[10px] px-2 py-1 rounded border truncate font-medium cursor-pointer relative ${getEventTypeColor(app.type)}`}
+                                    className={`text-[10px] px-2 py-1 rounded border truncate font-medium cursor-pointer relative ${getUserColor(app.user_id).chip}`}
                                     onClick={(e) => handleAppointmentClick(app, e)}
                                 >
                                     {app.metadata?.source === 'nina_ai' && (
                                       <Bot className="w-2.5 h-2.5 inline-block mr-0.5 text-cyan-600" />
                                     )}
+                                    <span className="uppercase font-bold opacity-75 mr-1">{typeLabel(app.type)}</span>
                                     {app.time} - {app.title}
                                 </div>
                             ))}
@@ -387,7 +419,7 @@ const Scheduling: React.FC = () => {
                                         {apps.map(app => (
                                             <div
                                                 key={app.id}
-                                                className={`mb-1 p-2 rounded text-xs border cursor-pointer hover:brightness-110 relative z-10 shadow-sm ${getEventTypeColor(app.type)}`}
+                                                className={`mb-1 p-2 rounded text-xs border cursor-pointer hover:brightness-110 relative z-10 shadow-sm ${getUserColor(app.user_id).chip}`}
                                                 onClick={(e) => handleAppointmentClick(app, e)}
                                                 style={{ minHeight: `${Math.max(40, (app.duration / 60) * 80)}px` }}
                                             >
@@ -398,6 +430,7 @@ const Scheduling: React.FC = () => {
                                                     {app.title}
                                                 </div>
                                                 <div className="text-[10px] opacity-80">{app.time} - {calculateEndTime(app.time, app.duration)}</div>
+                                                <div className="text-[9px] opacity-75 uppercase tracking-wider font-bold mt-0.5">{typeLabel(app.type)}</div>
                                             </div>
                                         ))}
                                     </div>
@@ -444,7 +477,7 @@ const Scheduling: React.FC = () => {
                                 {apps.map(app => (
                                     <div
                                         key={app.id}
-                                        className={`mb-2 p-3 rounded-lg border flex justify-between items-center shadow-md relative z-10 cursor-pointer hover:brightness-110 ${getEventTypeColor(app.type)}`}
+                                        className={`mb-2 p-3 rounded-lg border flex justify-between items-center shadow-md relative z-10 cursor-pointer hover:brightness-110 ${getUserColor(app.user_id).chip}`}
                                         onClick={(e) => handleAppointmentClick(app, e)}
                                         style={{ minHeight: `${Math.max(60, (app.duration / 60) * 100)}px` }}
                                     >
@@ -459,7 +492,7 @@ const Scheduling: React.FC = () => {
                                         </div>
                                         <div className="text-right">
                                              <div className="font-mono text-sm">{app.time} - {calculateEndTime(app.time, app.duration)}</div>
-                                             <div className="text-[10px] opacity-75 uppercase tracking-wider font-bold mt-1">{app.type} • {app.duration}min</div>
+                                             <div className="text-[10px] opacity-75 uppercase tracking-wider font-bold mt-1">{typeLabel(app.type)} • {app.duration}min</div>
                                         </div>
                                     </div>
                                 ))}
@@ -524,6 +557,23 @@ const Scheduling: React.FC = () => {
           </div>
         }
       />
+
+      {(legendUsers.length > 0 || hasUnowned) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3 text-xs text-muted-foreground">
+          {legendUsers.map(id => (
+            <span key={id} className="flex items-center gap-1.5">
+              <span className={`w-2.5 h-2.5 rounded-full ${getUserColor(id).dot}`} />
+              {getUserName(id)}
+            </span>
+          ))}
+          {hasUnowned && (
+            <span className="flex items-center gap-1.5">
+              <span className={`w-2.5 h-2.5 rounded-full ${NO_USER_COLOR.dot}`} />
+              Sem responsável
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Main Calendar Area */}
       <div className="flex-1 bg-card border border-border rounded-xl overflow-hidden shadow-2xl flex flex-col relative">
@@ -690,15 +740,15 @@ const Scheduling: React.FC = () => {
          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
              <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
                  {/* Header */}
-                 <div className={`p-6 border-b border-border relative overflow-hidden shrink-0 ${getEventTypeHeaderBg(selectedAppointment.type)}`}>
+                 <div className={`p-6 border-b border-border relative overflow-hidden shrink-0 ${getUserColor(selectedAppointment.user_id).header}`}>
                      <div className="absolute top-0 right-0 p-4 opacity-5">
                          <CalendarIcon className="w-32 h-32" />
                      </div>
                      <div className="relative z-10">
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex items-center gap-2">
-                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${getEventTypeColor(selectedAppointment.type)}`}>
-                                    {selectedAppointment.type}
+                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${getUserColor(selectedAppointment.user_id).chip}`}>
+                                    {typeLabel(selectedAppointment.type)}
                                 </span>
                                 {selectedAppointment.metadata?.source === 'nina_ai' && (
                                     <span className="px-2 py-1 rounded text-[10px] font-bold uppercase border bg-cyan-50 text-cyan-700 border-cyan-200 flex items-center gap-1">
@@ -727,6 +777,14 @@ const Scheduling: React.FC = () => {
 
                  {/* Body */}
                  <div className="p-6 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
+                     <div className="space-y-2">
+                         <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Agendado por</h4>
+                         <div className="flex items-center gap-2 text-sm text-foreground">
+                             <span className={`w-2.5 h-2.5 rounded-full ${getUserColor(selectedAppointment.user_id).dot}`} />
+                             {getUserName(selectedAppointment.user_id)}
+                         </div>
+                     </div>
+
                      {selectedAppointment.description && (
                          <div className="space-y-2">
                              <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Descrição</h4>
@@ -753,24 +811,6 @@ const Scheduling: React.FC = () => {
                          </div>
                      )}
 
-                     <div className="space-y-2">
-                         <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Participantes</h4>
-                         <div className="flex flex-wrap items-center gap-2">
-                             {selectedAppointment.attendees && selectedAppointment.attendees.length > 0 ? (
-                                 selectedAppointment.attendees.map((attendee, i) => (
-                                     <div key={i} className="flex items-center gap-2 bg-muted px-3 py-1.5 rounded-full border border-border">
-                                         <div className="w-5 h-5 rounded-full bg-cyan-600 flex items-center justify-center text-[10px] text-white font-bold">
-                                             {attendee.charAt(0)}
-                                         </div>
-                                         <span className="text-xs text-foreground">{attendee}</span>
-                                     </div>
-                                 ))
-                             ) : (
-                                 <span className="text-sm text-muted-foreground">Nenhum participante adicional.</span>
-                             )}
-                         </div>
-                     </div>
-
                      <div className="space-y-3">
                           <div className="flex gap-2">
                               <Button
@@ -793,20 +833,6 @@ const Scheduling: React.FC = () => {
                                   Editar
                               </Button>
                           </div>
-
-                          <Button
-                             className="w-full shadow-lg shadow-cyan-500/20 py-3"
-                             size="lg"
-                             onClick={() => {
-                                 navigate(`/meeting/${selectedAppointment.id}`);
-                             }}
-                          >
-                              <Video className="w-5 h-5 mr-2" />
-                              Entrar na Sala de Reunião
-                          </Button>
-                          <p className="text-center text-xs text-muted-foreground">
-                              A sala estará disponível 5 minutos antes do horário.
-                          </p>
                       </div>
                  </div>
              </div>

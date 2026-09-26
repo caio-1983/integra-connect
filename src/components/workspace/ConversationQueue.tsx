@@ -18,6 +18,8 @@ interface ConversationQueueProps {
   /** Used both to name the assigned attendant on each row and to populate the
    *  "Atendente" filter. */
   teamMembers?: TeamMemberOption[];
+  onMarkAsUnread?: (id: string) => void;
+  onMarkAsRead?: (id: string) => void;
 }
 
 function applyFilter(
@@ -67,6 +69,7 @@ function buildCounts(conversations: UIConversation[]): Record<QueueFilter, numbe
 
 const ConversationQueue: React.FC<ConversationQueueProps> = ({
   conversations, selectedId, onSelect, loading, sdrName, onNewConversation, teamMembers = [],
+  onMarkAsUnread, onMarkAsRead,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<QueueFilter>('all');
@@ -199,6 +202,8 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
               onClick={() => onSelect(conv.id)}
               sdrName={sdrName}
               teamMembers={teamMembers}
+              onMarkAsUnread={onMarkAsUnread && (() => onMarkAsUnread(conv.id))}
+              onMarkAsRead={onMarkAsRead && (() => onMarkAsRead(conv.id))}
             />
           ))
         )}

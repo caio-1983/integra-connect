@@ -407,7 +407,7 @@ export function useConversations() {
   }, [fetchConversations, fetchAndAddConversation]);
 
   // Send message
-  const sendMessage = useCallback(async (conversationId: string, content: string) => {
+  const sendMessage = useCallback(async (conversationId: string, content: string, replyToId?: string) => {
     if (!content.trim()) return;
 
     // Optimistic update with temporary ID
@@ -421,7 +421,8 @@ export function useConversations() {
       status: 'sent',
       fromType: 'human',
       mediaUrl: null,
-      whatsappMessageId: null
+      whatsappMessageId: null,
+      replyToId: replyToId ?? null,
     };
 
     setConversations(prev => {
@@ -442,7 +443,7 @@ export function useConversations() {
 
     try {
       // The realtime handler will detect and replace the temp message automatically
-      await sendConversationReply(conversationId, content, await currentOperatorId());
+      await sendConversationReply(conversationId, content, await currentOperatorId(), replyToId);
     } catch (err) {
       console.error('[useConversations] Error sending message:', err);
       toast.error('Erro ao enviar mensagem');

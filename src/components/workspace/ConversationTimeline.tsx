@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { MessageSquare, Bot, User, Check, CheckCheck, Play, Pause, Paperclip, Download } from 'lucide-react';
+import React, { useMemo, useRef, useState } from 'react';
+import { MessageSquare, Bot, User, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply } from 'lucide-react';
 import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn, contactDisplayName } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
@@ -67,9 +67,41 @@ interface ConversationTimelineProps {
   primaryChannel: ChannelType;
   /** Group thread — incoming messages are then labeled with their sender. */
   isGroup?: boolean;
+  /** Customer's display name, used to label a quoted incoming message. */
+  contactName?: string;
+  /** Starts a reply to this message (WhatsApp "responder"). */
+  onReply?: (msg: UIMessage) => void;
 }
 
-const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, messagesEndRef, primaryChannel, isGroup }) => {
+/** One-line preview of a message, as shown inside a quote or the reply bar. */
+export function messagePreview(msg: UIMessage): string {
+  switch (msg.type) {
+    case MessageType.IMAGE: return msg.content ? `📷 ${msg.content}` : '📷 Imagem';
+    case MessageType.AUDIO: return '🎵 Áudio';
+    default: return msg.content || 'Mensagem';
+  }
+}
+
+/** Who wrote a message, from the attendant's point of view. */
+export function messageAuthor(msg: UIMessage, contactName?: string, isGroup?: boolean): string {
+  if (msg.direction === MessageDirection.OUTGOING) return msg.fromType === 'nina' ? 'IA' : 'Você';
+  if (isGroup) return contactDisplayName(msg.senderName, msg.senderPhone, 'Participante');
+  return contactName || 'Cliente';
+}
+
+const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
+  messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply,
+}) => {
+  const messagesById = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages]);
+  const [flashId, setFlashId] = useState<string | null>(null);
+
+  /** Scrolls to the quoted original and briefly highlights it. */
+  const jumpTo = (id: string) => {
+    document.getElementById(`msg-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setFlashId(id);
+    setTimeout(() => setFlashId(current => (current === id ? null : current)), 1500);
+  };
+
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [audioDurations, setAudioDurations] = useState<Record<string, number>>({});
   const [audioProgress, setAudioProgress] = useState<Record<string, number>>({});
@@ -254,14 +286,30 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
         const showChannelHint = msgChannel !== primaryChannel;
         const channelCfg = CHANNEL_CONFIG[msgChannel];
         const ChannelIcon = channelCfg.icon;
+        const quoted = msg.replyToId ? messagesById.get(msg.replyToId) : undefined;
+        const canReply = !!onReply && !msg.id.startsWith('temp-');
+        const replyButton = canReply && (
+          <button
+            type="button"
+            onClick={() => onReply!(msg)}
+            title="Responder"
+            aria-label="Responder"
+            className="self-center p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
+          >
+            <Reply className="w-3.5 h-3.5" />
+          </button>
+        );
         return (
           <div
             key={msg.id}
+            id={`msg-${msg.id}`}
             className={cn(
-              'flex group animate-in fade-in slide-in-from-bottom-2 duration-300',
+              'flex group gap-1 animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-xl transition-colors',
               isOutgoing ? 'justify-end' : 'justify-start',
+              flashId === msg.id && 'bg-primary/10',
             )}
           >
+            {isOutgoing && replyButton}
             <div className={cn('flex flex-col max-w-[75%]', isOutgoing ? 'items-end' : 'items-start')}>
               {showChannelHint && (
                 <span className={cn('flex items-center gap-1 mb-1 px-1.5 py-0.5 rounded text-[10px] font-medium border', channelCfg.color)}>
@@ -282,6 +330,27 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
                     : 'bg-primary text-primary-foreground rounded-tr-sm'
                   : 'bg-muted text-foreground rounded-tl-sm border border-border',
               )}>
+                {msg.replyToId && (
+                  <button
+                    type="button"
+                    onClick={() => quoted && jumpTo(quoted.id)}
+                    disabled={!quoted}
+                    className={cn(
+                      'block w-full text-left mb-1.5 px-2.5 py-1.5 rounded-lg border-l-4 text-xs',
+                      isOutgoing ? 'bg-black/10 border-white/60' : 'bg-background/70 border-primary',
+                      quoted ? 'cursor-pointer hover:opacity-90' : 'cursor-default',
+                    )}
+                  >
+                    {quoted ? (
+                      <>
+                        <span className="block font-semibold">{messageAuthor(quoted, contactName, isGroup)}</span>
+                        <span className="block line-clamp-2 opacity-80">{messagePreview(quoted)}</span>
+                      </>
+                    ) : (
+                      <span className="italic opacity-80">Mensagem original não carregada</span>
+                    )}
+                  </button>
+                )}
                 {renderMessageContent(msg)}
               </div>
 
@@ -300,6 +369,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({ messages, m
                 )}
               </div>
             </div>
+            {!isOutgoing && replyButton}
           </div>
         );
       })}

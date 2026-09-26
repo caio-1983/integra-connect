@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Paperclip, Mic, Send, X } from 'lucide-react';
+import { Paperclip, Mic, Send, X, Zap, Reply } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useQuickReplies } from '@/hooks/useQuickReplies';
 import { EmojiPicker } from './EmojiPicker';
 
 interface MessageComposerProps {
@@ -12,6 +14,9 @@ interface MessageComposerProps {
   onAttach?: (file: File) => void;
   isNinaActive: boolean;
   sdrName: string;
+  /** Message being replied to — shown above the input until sent or cancelled. */
+  replyingTo?: { author: string; preview: string } | null;
+  onCancelReply?: () => void;
 }
 
 const RECORDING_MIME_CANDIDATES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
@@ -27,7 +32,9 @@ function formatDuration(totalSeconds: number): string {
   return `${minutes}:${seconds}`;
 }
 
-const MessageComposer: React.FC<MessageComposerProps> = ({ value, onChange, onSend, onAttach, isNinaActive, sdrName }) => {
+const MessageComposer: React.FC<MessageComposerProps> = ({
+  value, onChange, onSend, onAttach, isNinaActive, sdrName, replyingTo, onCancelReply,
+}) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,6 +45,11 @@ const MessageComposer: React.FC<MessageComposerProps> = ({ value, onChange, onSe
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const discardRef = useRef(false);
+
+  const { quickReplies } = useQuickReplies();
+  const [highlighted, setHighlighted] = useState(0);
+  const [dismissedSlash, setDismissedSlash] = useState<string | null>(null);
+  const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
 
   const stopStream = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -50,6 +62,13 @@ const MessageComposer: React.FC<MessageComposerProps> = ({ value, onChange, onSe
       timerRef.current = null;
     }
   };
+
+  // Starting a reply puts the caret in the input, like WhatsApp.
+  // Keyed on the text, not the object: the parent builds a new object each render.
+  const replyKey = replyingTo ? `${replyingTo.author}\n${replyingTo.preview}` : null;
+  useEffect(() => {
+    if (replyKey) textareaRef.current?.focus();
+  }, [replyKey]);
 
   // Release the microphone if the component unmounts mid-recording.
   useEffect(() => () => {
@@ -111,37 +130,132 @@ const MessageComposer: React.FC<MessageComposerProps> = ({ value, onChange, onSe
     e.target.value = ''; // allow re-picking the same file
   };
 
+  // Quick replies, WhatsApp Business style: a message that is just "/atalho"
+  // opens the suggestion list above the input.
+  const slashQuery = /^\/([^\s/]*)$/.exec(value)?.[1]?.toLowerCase();
+  const suggestions = slashQuery === undefined || dismissedSlash === value
+    ? []
+    : quickReplies.filter(r => r.shortcut.includes(slashQuery) || r.message.toLowerCase().includes(slashQuery)).slice(0, 8);
+  const activeSuggestion = Math.min(highlighted, Math.max(suggestions.length - 1, 0));
+
+  const applySuggestion = (message: string) => {
+    onChange(message);
+    requestAnimationFrame(() => {
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(message.length, message.length);
+    });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (suggestions.length > 0) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const step = e.key === 'ArrowDown' ? 1 : -1;
+        setHighlighted((activeSuggestion + step + suggestions.length) % suggestions.length);
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        applySuggestion(suggestions[activeSuggestion].message);
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation(); // don't also close the conversation
+        setDismissedSlash(value);
+        return;
+      }
+    }
+    if (e.key === 'Escape' && replyingTo) {
+      e.preventDefault();
+      e.stopPropagation(); // cancel the reply, keep the conversation open
+      onCancelReply?.();
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onSend();
     }
   };
 
-  /** Inserts an emoji at the caret (or replacing the selection), then restores
+  /** Inserts text at the caret (or replacing the selection), then restores
    *  focus + caret so typing continues naturally. Falls back to append if the
    *  textarea ref isn't available. */
-  const insertEmoji = (emoji: string) => {
+  const insertText = (text: string) => {
     const ta = textareaRef.current;
     const start = ta?.selectionStart ?? value.length;
     const end = ta?.selectionEnd ?? value.length;
-    onChange(value.slice(0, start) + emoji + value.slice(end));
+    onChange(value.slice(0, start) + text + value.slice(end));
     requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (!el) return;
       el.focus();
-      const pos = start + emoji.length;
+      const pos = start + text.length;
       el.setSelectionRange(pos, pos);
     });
   };
 
   return (
     <div className="px-4 py-3 bg-card border-t border-border flex-shrink-0">
+      {replyingTo && !isRecording && (
+        <div className="mb-2 flex items-start gap-2 rounded-lg border-l-4 border-primary bg-muted/60 px-3 py-2">
+          <Reply className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0 text-xs">
+            <span className="block font-semibold text-primary">Respondendo a {replyingTo.author}</span>
+            <span className="block text-muted-foreground truncate">{replyingTo.preview}</span>
+          </div>
+          <button
+            type="button"
+            onClick={onCancelReply}
+            title="Cancelar resposta"
+            aria-label="Cancelar resposta"
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground flex-shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       <div className="flex items-end gap-2">
         {/* Attachment actions */}
         {!isRecording && (
           <div className="flex items-center gap-0.5 pb-1">
-            <EmojiPicker onSelect={insertEmoji} />
+            <EmojiPicker onSelect={insertText} />
+            <Popover open={quickRepliesOpen} onOpenChange={setQuickRepliesOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  title="Respostas rápidas"
+                  aria-label="Respostas rápidas"
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                >
+                  <Zap className="w-4 h-4" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-80 p-2">
+                <p className="text-xs font-bold text-foreground uppercase tracking-wider px-2 pt-1 pb-2">Respostas rápidas</p>
+                {quickReplies.length === 0 ? (
+                  <p className="text-xs text-muted-foreground px-2 pb-2">
+                    Nenhuma cadastrada. Admin ou gestor cadastra em Configurações.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-0.5 max-h-72 overflow-y-auto">
+                    {quickReplies.map((reply) => (
+                      <button
+                        key={reply.id}
+                        type="button"
+                        onClick={() => { insertText(reply.message); setQuickRepliesOpen(false); }}
+                        className="text-left px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors"
+                      >
+                        <span className="block text-xs font-semibold text-primary font-mono">/{reply.shortcut}</span>
+                        <span className="block text-xs text-muted-foreground line-clamp-2">{reply.message}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
             <input
               ref={fileInputRef}
               type="file"
@@ -187,7 +301,29 @@ const MessageComposer: React.FC<MessageComposerProps> = ({ value, onChange, onSe
             <span className="text-xs text-muted-foreground">Gravando áudio...</span>
           </div>
         ) : (
-          <div className="flex-1 bg-background rounded-xl border border-border focus-within:ring-1 focus-within:ring-ring/30 focus-within:border-ring/50 transition-all">
+          <div className="relative flex-1 bg-background rounded-xl border border-border focus-within:ring-1 focus-within:ring-ring/30 focus-within:border-ring/50 transition-all">
+            {suggestions.length > 0 && (
+              <div role="listbox" className="absolute bottom-full left-0 right-0 mb-2 rounded-xl border border-border bg-popover shadow-lg p-1.5 z-20 max-h-72 overflow-y-auto">
+                {suggestions.map((reply, i) => (
+                  <button
+                    key={reply.id}
+                    type="button"
+                    role="option"
+                    aria-selected={i === activeSuggestion}
+                    onMouseDown={(e) => e.preventDefault()} // keep textarea focus
+                    onMouseEnter={() => setHighlighted(i)}
+                    onClick={() => applySuggestion(reply.message)}
+                    className={cn(
+                      'w-full text-left px-2.5 py-1.5 rounded-lg transition-colors',
+                      i === activeSuggestion ? 'bg-muted' : 'hover:bg-muted/60',
+                    )}
+                  >
+                    <span className="block text-xs font-semibold text-primary font-mono">/{reply.shortcut}</span>
+                    <span className="block text-xs text-muted-foreground truncate">{reply.message}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <textarea
               ref={textareaRef}
               value={value}

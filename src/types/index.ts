@@ -108,6 +108,7 @@ export interface Appointment {
     phone_number: string;
   };
   metadata?: AppointmentMetadata;
+  user_id?: string;
 }
 
 export interface Deal {
@@ -407,6 +408,8 @@ export interface UIMessage {
   /** Group only: who sent this incoming message (from messages.metadata.sender). */
   senderName?: string | null;
   senderPhone?: string | null;
+  /** `messages.id` this message replies to (WhatsApp "responder"). */
+  replyToId?: string | null;
 }
 
 // ============= Utility Functions =============
@@ -465,6 +468,7 @@ export function transformDBToUIMessage(msg: DBMessage): UIMessage {
     sentBy: msg.sent_by ?? null,
     senderName: (msg.metadata as { sender?: { name?: string | null } } | null)?.sender?.name ?? null,
     senderPhone: (msg.metadata as { sender?: { phone?: string | null } } | null)?.sender?.phone ?? null,
+    replyToId: msg.reply_to_id ?? null,
   };
 }
 

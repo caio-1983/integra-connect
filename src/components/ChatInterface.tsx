@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Loader2, MessageSquare } from 'lucide-react';
-import { ConversationStatus, TagDefinition } from '../types';
+import { TagDefinition, UIMessage } from '../types';
+import { messageAuthor, messagePreview } from './workspace/ConversationTimeline';
 import { useConversations } from '../hooks/useConversations';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { useInstanceAccessGrants } from '@/hooks/useInstanceAccessGrants';
@@ -31,6 +32,7 @@ const ChatInterface: React.FC = () => {
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const [notesValue, setNotesValue] = useState('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<UIMessage | null>(null);
 
   const activeChat = conversations.find(c => c.id === selectedChatId);
 
@@ -81,9 +83,11 @@ const ChatInterface: React.FC = () => {
   const skipAutoMarkReadRef = useRef<string | null>(null);
 
   const handleMarkAsUnread = React.useCallback((conversationId: string) => {
-    skipAutoMarkReadRef.current = conversationId;
+    // Only the open conversation needs the skip — flagging a background row
+    // from the list must still be marked read once the user opens it.
+    if (conversationId === selectedChatId) skipAutoMarkReadRef.current = conversationId;
     markAsUnread(conversationId);
-  }, [markAsUnread]);
+  }, [markAsUnread, selectedChatId]);
 
   useEffect(() => {
     if (!selectedChatId || (activeChat?.unreadCount ?? 0) === 0) return;
@@ -96,6 +100,7 @@ const ChatInterface: React.FC = () => {
 
   useEffect(() => {
     if (activeChat) setNotesValue(activeChat.notes || '');
+    setReplyingTo(null); // a pending reply belongs to the conversation it was started in
   }, [activeChat?.id]);
 
   useEffect(() => {
@@ -143,8 +148,10 @@ const ChatInterface: React.FC = () => {
   const handleSendMessage = async () => {
     if (!inputText.trim() || !activeChat) return;
     const content = inputText.trim();
+    const replyToId = replyingTo?.id;
     setInputText('');
-    await sendMessage(activeChat.id, content);
+    setReplyingTo(null);
+    await sendMessage(activeChat.id, content, replyToId);
   };
 
   const handleSendMedia = async (file: File) => {
@@ -155,10 +162,6 @@ const ChatInterface: React.FC = () => {
     await sendMediaMessage(activeChat.id, file, caption || undefined);
   };
 
-  const handleStatusChange = async (status: ConversationStatus) => {
-    if (!activeChat) return;
-    await updateStatus(activeChat.id, status);
-  };
 
   const handleSimulateCustomerMessage = async (content: string) => {
     if (!activeChat) return;
@@ -193,6 +196,8 @@ const ChatInterface: React.FC = () => {
         sdrName={sdrName}
         onNewConversation={() => setNewConversationOpen(true)}
         teamMembers={teamMembers}
+        onMarkAsUnread={handleMarkAsUnread}
+        onMarkAsRead={markAsRead}
       />
 
       <NewConversationDialog
@@ -208,7 +213,6 @@ const ChatInterface: React.FC = () => {
             conversation={activeChat}
             sdrName={sdrName}
             showCustomerPanel={showCustomerWorkspace}
-            onStatusChange={handleStatusChange}
             onToggleCustomerPanel={() => setShowCustomerWorkspace(v => !v)}
             onSimulateCustomerMessage={handleSimulateCustomerMessage}
             onMarkAsUnread={handleMarkAsUnread}
@@ -229,6 +233,8 @@ const ChatInterface: React.FC = () => {
               messagesEndRef={messagesEndRef}
               primaryChannel={activeChat.primaryChannel}
               isGroup={activeChat.isGroup}
+              contactName={activeChat.contactName}
+              onReply={setReplyingTo}
             />
           </div>
 
@@ -239,6 +245,11 @@ const ChatInterface: React.FC = () => {
             onAttach={handleSendMedia}
             isNinaActive={activeChat.status === 'nina'}
             sdrName={sdrName}
+            replyingTo={replyingTo && {
+              author: messageAuthor(replyingTo, activeChat.contactName, activeChat.isGroup),
+              preview: messagePreview(replyingTo),
+            }}
+            onCancelReply={() => setReplyingTo(null)}
           />
         </div>
       ) : (

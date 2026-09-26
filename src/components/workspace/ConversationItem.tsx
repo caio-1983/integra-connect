@@ -1,5 +1,8 @@
 import React from 'react';
-import { Bot, User, Pause } from 'lucide-react';
+import { Bot, User, Pause, ChevronDown, MailX, MailOpen } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { MessageType, UIConversation, ConversationStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
@@ -12,6 +15,8 @@ interface ConversationItemProps {
   sdrName: string;
   /** Needed to name the assigned attendant on the queue row. */
   teamMembers?: Array<{ id: string; name: string; user_id?: string | null }>;
+  onMarkAsUnread?: () => void;
+  onMarkAsRead?: () => void;
 }
 
 const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color: string }> = {
@@ -20,7 +25,7 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
   paused: { icon: Pause, color: 'bg-amber-50 text-amber-700 border-amber-200' },
 };
 
-const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName, teamMembers = [] }) => {
+const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName, teamMembers = [], onMarkAsUnread, onMarkAsRead }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel = conversation.status === 'nina' ? sdrName : conversation.status === 'human' ? 'Humano' : 'Pausado';
   const channelCfg = CHANNEL_CONFIG[conversation.primaryChannel];
@@ -32,7 +37,10 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
     lastMsgType === MessageType.AUDIO ? '🎵 Áudio' :
     conversation.lastMessage || 'Sem mensagens';
 
+  const isUnread = conversation.unreadCount > 0;
+
   return (
+    <div className="relative group">
     <button
       onClick={onClick}
       className={cn(
@@ -95,6 +103,34 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
         </div>
       </div>
     </button>
+
+    {/* Menu da conversa (como o chevron do WhatsApp) — aparece no hover. */}
+    {(onMarkAsUnread || onMarkAsRead) && (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            title="Opções da conversa"
+            aria-label="Opções da conversa"
+            className="absolute right-2 top-7 p-0.5 rounded-md bg-card border border-border text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 transition-opacity"
+          >
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          {isUnread ? (
+            <DropdownMenuItem onSelect={() => onMarkAsRead?.()}>
+              <MailOpen className="h-4 w-4 text-muted-foreground" /> Marcar como lida
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onSelect={() => onMarkAsUnread?.()}>
+              <MailX className="h-4 w-4 text-muted-foreground" /> Marcar como não lida
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )}
+    </div>
   );
 };
 

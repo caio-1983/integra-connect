@@ -173,18 +173,7 @@ export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-1 group/label">
-                  <h3 className="font-semibold text-foreground text-sm truncate">{label}</h3>
-                  {canManageUsers && (
-                    <button
-                      onClick={startEditLabel}
-                      className="p-0.5 text-muted-foreground hover:text-foreground opacity-0 group-hover/label:opacity-100 transition-opacity shrink-0"
-                      title="Renomear card"
-                    >
-                      <Pencil className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
+                <h3 className="font-semibold text-foreground text-sm truncate">{label}</h3>
                 <p className="text-[11px] text-muted-foreground truncate">{formatNumber(instance.number)}</p>
               </>
             )}
@@ -232,6 +221,11 @@ export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({
         ) : (
           <Button variant="primary" size="sm" onClick={() => setSheetOpen(true)}>
             <QrCode className="w-3.5 h-3.5 mr-1.5" /> Conectar
+          </Button>
+        )}
+        {canManageUsers && (
+          <Button variant="outline" size="sm" onClick={startEditLabel} disabled={editingLabel}>
+            <Pencil className="w-3.5 h-3.5 mr-1.5" /> Renomear
           </Button>
         )}
         {canManageUsers && (
