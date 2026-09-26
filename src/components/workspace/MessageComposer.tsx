@@ -53,6 +53,16 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
   // Image of a picked quick reply, sent on the next send with the text as caption.
   const [pendingImage, setPendingImage] = useState<QuickReply | null>(null);
   const [sendingImage, setSendingImage] = useState(false);
+  // File pasted with Ctrl+V (e.g. a screenshot), sent on the next send with the text as caption.
+  const [pastedFile, setPastedFile] = useState<File | null>(null);
+  const [pastedPreview, setPastedPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pastedFile?.type.startsWith('image/')) { setPastedPreview(null); return; }
+    const url = URL.createObjectURL(pastedFile);
+    setPastedPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pastedFile]);
 
   const stopStream = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -144,7 +154,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
   const applySuggestion = (reply: QuickReply) => {
     const { message } = reply;
     onChange(message);
-    if (reply.imageUrl) setPendingImage(reply);
+    if (reply.imageUrl) { setPendingImage(reply); setPastedFile(null); }
     requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (!el) return;
@@ -153,9 +163,27 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     });
   };
 
-  const canSend = !!value.trim() || !!pendingImage;
+  // Screenshots and copied files arrive as clipboard files. Text copied from
+  // Word/Excel also carries an image rendition — keep that as a text paste.
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = e.clipboardData.files[0];
+    if (!file || !onAttach || e.clipboardData.getData('text/plain')) return;
+    e.preventDefault();
+    const name = file.name && file.name !== 'image.png'
+      ? file.name
+      : `print-${Date.now()}.${file.type.split('/')[1] || 'png'}`;
+    setPastedFile(new File([file], name, { type: file.type }));
+    setPendingImage(null);
+  };
+
+  const canSend = !!value.trim() || !!pendingImage || !!pastedFile;
 
   const handleSend = async () => {
+    if (pastedFile && onAttach) {
+      onAttach(pastedFile);
+      setPastedFile(null);
+      return;
+    }
     if (!pendingImage) { onSend(); return; }
     if (sendingImage || !onAttach) return;
     setSendingImage(true);
@@ -238,6 +266,25 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
           </button>
         </div>
       )}
+      {pastedFile && !isRecording && (
+        <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/60 px-2 py-1.5">
+          {pastedPreview
+            ? <img src={pastedPreview} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
+            : <Paperclip className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+          <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
+            {pastedPreview ? 'Imagem colada' : pastedFile.name} — o texto vai como legenda
+          </span>
+          <button
+            type="button"
+            onClick={() => setPastedFile(null)}
+            title="Remover anexo"
+            aria-label="Remover anexo"
+            className="p-0.5 rounded text-muted-foreground hover:text-foreground flex-shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       {pendingImage?.imageUrl && !isRecording && (
         <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/60 px-2 py-1.5">
           <img src={pendingImage.imageUrl} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
@@ -285,7 +332,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
                         type="button"
                         onClick={() => {
                           insertText(reply.message);
-                          if (reply.imageUrl) setPendingImage(reply);
+                          if (reply.imageUrl) { setPendingImage(reply); setPastedFile(null); }
                           setQuickRepliesOpen(false);
                         }}
                         className="flex items-start gap-2 text-left px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors"
@@ -381,6 +428,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
               value={value}
               onChange={(e) => onChange(e.target.value)}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder={isNinaActive ? `${sdrName} está respondendo automaticamente...` : 'Digite sua mensagem... (Enter para enviar)'}
               className="w-full bg-transparent border-none p-3 max-h-28 min-h-[40px] text-sm text-foreground focus:ring-0 resize-none outline-none placeholder:text-muted-foreground"
               rows={1}
