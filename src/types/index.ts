@@ -317,6 +317,8 @@ export interface DBConversation {
   contact_id: string;
   status: ConversationStatus;
   is_active: boolean;
+  /** Set while the conversation is archived (hidden from the main queue). */
+  archived_at: string | null;
   channel: ChannelType;
   provider: string | null;
   assigned_user_id: string | null;
@@ -367,6 +369,9 @@ export interface UIConversation {
   contactEmail: string | null;
   status: ConversationStatus;
   isActive: boolean;
+  /** Archived conversations leave the main queue and live under "Arquivadas";
+   *  a new inbound message unarchives them (DB trigger). */
+  isArchived: boolean;
   assignedTeam: string | null;
   assignedUserId: string | null;
   assignedUserName: string | null;
@@ -435,6 +440,7 @@ export function transformDBToUIConversation(
     contactEmail: conv.contact?.email || null,
     status: conv.status,
     isActive: conv.is_active,
+    isArchived: !!conv.archived_at,
     assignedTeam: conv.assigned_team,
     assignedUserId: conv.assigned_user_id,
     assignedUserName: null, // Will be populated if needed

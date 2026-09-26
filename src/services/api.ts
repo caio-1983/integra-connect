@@ -1283,21 +1283,28 @@ export const api = {
   fetchConversations: async (): Promise<UIConversation[]> => {
     console.log('[API] Fetching conversations from Supabase...');
     
-    // Fetch active conversations with contact data
-    const { data: conversations, error: convError } = await supabase
+    // Fetch active conversations with contact data. Archived ones are loaded in
+    // a separate query so they never push live conversations out of the limit.
+    const activeQuery = () => supabase
       .from('conversations')
       .select(`
         *,
         contact:contacts(*)
       `)
       .eq('is_active', true)
-      .order('last_message_at', { ascending: false })
-      .limit(50);
+      .order('last_message_at', { ascending: false });
 
+    const [inbox, archived] = await Promise.all([
+      activeQuery().is('archived_at', null).limit(50),
+      activeQuery().not('archived_at', 'is', null).limit(100),
+    ]);
+
+    const convError = inbox.error ?? archived.error;
     if (convError) {
       console.error('[API] Error fetching conversations:', convError);
       throw convError;
     }
+    const conversations = [...(inbox.data ?? []), ...(archived.data ?? [])];
 
     if (!conversations || conversations.length === 0) {
       console.log('[API] No conversations found');
@@ -1427,6 +1434,22 @@ export const api = {
     }
 
     console.log(`[API] Conversation ${conversationId} status updated to ${status}`);
+  },
+
+  /**
+   * Archive / unarchive a conversation (WhatsApp-style). A new inbound message
+   * unarchives it automatically via the unarchive_conversation_on_inbound trigger.
+   */
+  setConversationArchived: async (conversationId: string, archived: boolean): Promise<void> => {
+    const { error } = await supabase
+      .from('conversations')
+      .update({ archived_at: archived ? new Date().toISOString() : null })
+      .eq('id', conversationId);
+
+    if (error) {
+      console.error('[API] Error updating conversation archive state:', error);
+      throw error;
+    }
   },
 
   /**

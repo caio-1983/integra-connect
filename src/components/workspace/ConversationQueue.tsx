@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Loader2, MessageSquare, Smartphone, ChevronDown } from 'lucide-react';
+import { Search, Plus, Loader2, MessageSquare, Smartphone, ChevronDown, Archive, ArrowLeft } from 'lucide-react';
 import { UIConversation } from '@/types';
 import { ConversationItem } from './ConversationItem';
 import { ConversationFilters, QueueFilter } from './ConversationFilters';
@@ -25,6 +25,7 @@ interface ConversationQueueProps {
   teamMembers?: TeamMemberOption[];
   onMarkAsUnread?: (id: string) => void;
   onMarkAsRead?: (id: string) => void;
+  onSetArchived?: (id: string, archived: boolean) => void;
 }
 
 function applyFilter(
@@ -66,9 +67,10 @@ function buildCounts(conversations: UIConversation[]): Record<QueueFilter, numbe
 
 const ConversationQueue: React.FC<ConversationQueueProps> = ({
   conversations, selectedId, onSelect, loading, sdrName, onNewConversation, teamMembers = [],
-  onMarkAsUnread, onMarkAsRead,
+  onMarkAsUnread, onMarkAsRead, onSetArchived,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showArchived, setShowArchived] = useState(false);
   const [activeFilter, setActiveFilter] = useState<QueueFilter>('all');
   const [instanceFilter, setInstanceFilter] = useState('all');
   const { instances: connectedInstances } = useWhatsappInstances();
@@ -99,19 +101,36 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
     ...conversations.map(c => c.instance).filter((i): i is string => !!i),
   ])).sort((a, b) => (labels[a] ?? a).localeCompare(labels[b] ?? b));
 
+  // WhatsApp-style archive: the main queue hides archived conversations (they
+  // live behind the "Arquivadas" row), but a search there still finds them.
+  const inbox = conversations.filter(c => !c.isArchived);
+  const archived = conversations.filter(c => c.isArchived);
+  const viewBase = showArchived ? archived : inbox;
+  const searchBase = showArchived || !searchQuery ? viewBase : conversations;
+
   // Status counts reflect the instance currently selected.
-  const instanceScoped = instanceFilter === 'all'
-    ? conversations
-    : conversations.filter(c => c.instance === instanceFilter);
-  const counts = buildCounts(instanceScoped);
-  const filtered = applyFilter(conversations, activeFilter, searchQuery, instanceFilter);
+  const byInstance = (list: UIConversation[]) => instanceFilter === 'all'
+    ? list
+    : list.filter(c => c.instance === instanceFilter);
+  const counts = buildCounts(byInstance(inbox));
+  const archivedCount = byInstance(archived).length;
+  const filtered = applyFilter(searchBase, showArchived ? 'all' : activeFilter, searchQuery, instanceFilter);
 
   return (
     <div className="w-64 xl:w-72 border-r border-border flex flex-col bg-card flex-shrink-0">
       {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-border flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">Conversas</h2>
+          {showArchived ? (
+            <button
+              onClick={() => { setShowArchived(false); setSearchQuery(''); }}
+              className="flex items-center gap-1.5 text-xs font-bold text-foreground uppercase tracking-wider hover:text-primary transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Arquivadas
+            </button>
+          ) : (
+            <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">Conversas</h2>
+          )}
           <button
             onClick={onNewConversation}
             title="Nova conversa"
@@ -124,7 +143,7 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Buscar..."
+            placeholder={showArchived ? 'Buscar nas arquivadas...' : 'Buscar...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-7 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground transition-all"
@@ -139,10 +158,10 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
               onChange={(e) => setInstanceFilter(e.target.value)}
               className="w-full pl-7 pr-6 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground focus:ring-1 focus:ring-ring/50 outline-none transition-all appearance-none cursor-pointer"
             >
-              <option value="all">Todos os números ({conversations.length})</option>
+              <option value="all">Todos os números ({viewBase.length})</option>
               {instances.map(inst => (
                 <option key={inst} value={inst}>
-                  {labels[inst] ?? inst} ({conversations.filter(c => c.instance === inst).length})
+                  {labels[inst] ?? inst} ({viewBase.filter(c => c.instance === inst).length})
                 </option>
               ))}
             </select>
@@ -153,14 +172,28 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
       </div>
 
       {/* Filters */}
-      <div className="pt-2 flex-shrink-0">
-        <ConversationFilters active={activeFilter} onChange={setActiveFilter} counts={counts} />
-      </div>
+      {!showArchived && (
+        <div className="pt-2 flex-shrink-0">
+          <ConversationFilters active={activeFilter} onChange={setActiveFilter} counts={counts} />
+        </div>
+      )}
+
+      {/* Entrada para as arquivadas, como no WhatsApp */}
+      {!showArchived && !searchQuery && archivedCount > 0 && (
+        <button
+          onClick={() => { setShowArchived(true); setSearchQuery(''); }}
+          className="mx-3 mb-2 flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-foreground/80 hover:bg-muted transition-colors flex-shrink-0"
+        >
+          <Archive className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="font-medium">Arquivadas</span>
+          <span className="ml-auto text-[10px] text-muted-foreground font-medium">{archivedCount}</span>
+        </button>
+      )}
 
       {/* Count */}
       <div className="px-4 pb-2 flex-shrink-0">
         <p className="text-[10px] text-muted-foreground/60">
-          {filtered.length} conversa{filtered.length !== 1 ? 's' : ''}
+          {filtered.length} conversa{filtered.length !== 1 ? 's' : ''}{showArchived ? ' arquivada' + (filtered.length !== 1 ? 's' : '') : ''}
         </p>
       </div>
 
@@ -175,9 +208,9 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
           <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
             <MessageSquare className="w-8 h-8 text-muted-foreground/30 mb-3" />
             <p className="text-xs text-muted-foreground">
-              {searchQuery || activeFilter !== 'all' || instanceFilter !== 'all'
+              {searchQuery || (!showArchived && activeFilter !== 'all') || instanceFilter !== 'all'
                 ? 'Nenhuma conversa encontrada'
-                : 'Aguardando conversas'}
+                : showArchived ? 'Nenhuma conversa arquivada' : 'Aguardando conversas'}
             </p>
           </div>
         ) : (
@@ -191,6 +224,8 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
               teamMembers={teamMembers}
               onMarkAsUnread={onMarkAsUnread && (() => onMarkAsUnread(conv.id))}
               onMarkAsRead={onMarkAsRead && (() => onMarkAsRead(conv.id))}
+              onToggleArchived={onSetArchived && (() => onSetArchived(conv.id, !conv.isArchived))}
+              showArchivedBadge={!showArchived}
             />
           ))
         )}

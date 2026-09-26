@@ -316,6 +316,7 @@ export type Database = {
       }
       conversations: {
         Row: {
+          archived_at: string | null
           assigned_team: Database["public"]["Enums"]["team_assignment"] | null
           assigned_at: string | null
           assigned_user_id: string | null
@@ -335,6 +336,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          archived_at?: string | null
           assigned_at?: string | null
           assigned_team?: Database["public"]["Enums"]["team_assignment"] | null
           assigned_user_id?: string | null
@@ -354,6 +356,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          archived_at?: string | null
           assigned_at?: string | null
           assigned_team?: Database["public"]["Enums"]["team_assignment"] | null
           assigned_user_id?: string | null

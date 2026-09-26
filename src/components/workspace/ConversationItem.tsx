@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, User, Pause, ChevronDown, MailX, MailOpen } from 'lucide-react';
+import { Bot, User, Pause, ChevronDown, MailX, MailOpen, Archive, ArchiveRestore } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -17,6 +17,9 @@ interface ConversationItemProps {
   teamMembers?: Array<{ id: string; name: string; user_id?: string | null }>;
   onMarkAsUnread?: () => void;
   onMarkAsRead?: () => void;
+  onToggleArchived?: () => void;
+  /** Shows an "Arquivada" chip — used when archived rows appear in a search. */
+  showArchivedBadge?: boolean;
 }
 
 const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color: string }> = {
@@ -25,7 +28,7 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
   paused: { icon: Pause, color: 'bg-amber-50 text-amber-700 border-amber-200' },
 };
 
-const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName, teamMembers = [], onMarkAsUnread, onMarkAsRead }) => {
+const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName, teamMembers = [], onMarkAsUnread, onMarkAsRead, onToggleArchived, showArchivedBadge }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel = conversation.status === 'nina' ? sdrName : conversation.status === 'human' ? 'Humano' : 'Pausado';
   const channelCfg = CHANNEL_CONFIG[conversation.primaryChannel];
@@ -90,6 +93,11 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
           {/* Para quem a conversa foi direcionada — vem antes das tags porque é a
               informação que o gestor procura ao varrer a fila. */}
           <AttendantTag assignedUserId={conversation.assignedUserId} teamMembers={teamMembers} compact />
+          {showArchivedBadge && conversation.isArchived && (
+            <span className="px-1.5 py-0.5 bg-muted border border-border text-muted-foreground text-[10px] rounded font-medium flex items-center gap-1 flex-shrink-0">
+              <Archive className="w-2.5 h-2.5" /> Arquivada
+            </span>
+          )}
           {conversation.tags.slice(0, 1).map(tag => (
             <span key={tag} className="px-1.5 py-0.5 bg-muted border border-border text-muted-foreground text-[10px] rounded font-medium truncate max-w-[60px]">
               {tag}
@@ -105,7 +113,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
     </button>
 
     {/* Menu da conversa (como o chevron do WhatsApp) — aparece no hover. */}
-    {(onMarkAsUnread || onMarkAsRead) && (
+    {(onMarkAsUnread || onMarkAsRead || onToggleArchived) && (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -125,6 +133,15 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
           ) : (
             <DropdownMenuItem onSelect={() => onMarkAsUnread?.()}>
               <MailX className="h-4 w-4 text-muted-foreground" /> Marcar como não lida
+            </DropdownMenuItem>
+          )}
+          {onToggleArchived && (
+            <DropdownMenuItem onSelect={() => onToggleArchived()}>
+              {conversation.isArchived ? (
+                <><ArchiveRestore className="h-4 w-4 text-muted-foreground" /> Desarquivar conversa</>
+              ) : (
+                <><Archive className="h-4 w-4 text-muted-foreground" /> Arquivar conversa</>
+              )}
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>

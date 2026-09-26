@@ -252,7 +252,9 @@ export function useConversations() {
                 // Increment unread if it's from user
                 unreadCount: newMessage.from_type === 'user'
                   ? conv.unreadCount + 1
-                  : conv.unreadCount
+                  : conv.unreadCount,
+                // Mirrors the unarchive_conversation_on_inbound trigger.
+                isArchived: newMessage.from_type === 'user' ? false : conv.isArchived
               };
             }
 
@@ -375,6 +377,7 @@ export function useConversations() {
                   ...conv,
                   status: updated.status,
                   isActive: updated.is_active,
+                  isArchived: !!updated.archived_at,
                   assignedTeam: updated.assigned_team
                 };
               }
@@ -598,6 +601,24 @@ export function useConversations() {
     }
   }, []);
 
+  // Archive / unarchive. Optimistic with rollback, like markAsUnread.
+  const setArchived = useCallback(async (conversationId: string, archived: boolean) => {
+    setConversations(prev => prev.map(conv =>
+      conv.id === conversationId ? { ...conv, isArchived: archived } : conv
+    ));
+
+    try {
+      await api.setConversationArchived(conversationId, archived);
+      toast.success(archived ? 'Conversa arquivada' : 'Conversa desarquivada');
+    } catch (err) {
+      console.error('[useConversations] Error updating archive state:', err);
+      setConversations(prev => prev.map(conv =>
+        conv.id === conversationId ? { ...conv, isArchived: !archived } : conv
+      ));
+      toast.error(archived ? 'Erro ao arquivar conversa' : 'Erro ao desarquivar conversa');
+    }
+  }, []);
+
   /**
    * Assign a conversation to a team member (and its contact's deals with it).
    *
@@ -656,6 +677,7 @@ export function useConversations() {
     updateStatus,
     markAsRead,
     markAsUnread,
+    setArchived,
     assignConversation,
     appendLocalMessage,
     refetch: fetchConversations

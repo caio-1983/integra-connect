@@ -18,7 +18,7 @@ import {
 } from './workspace';
 
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, markAsUnread, assignConversation, appendLocalMessage, refetch } = useConversations();
+  const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, markAsUnread, setArchived, assignConversation, appendLocalMessage, refetch } = useConversations();
   const { sdrName, companyName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
   const { grantsByInstance } = useInstanceAccessGrants();
@@ -198,6 +198,7 @@ const ChatInterface: React.FC = () => {
         teamMembers={teamMembers}
         onMarkAsUnread={handleMarkAsUnread}
         onMarkAsRead={markAsRead}
+        onSetArchived={setArchived}
       />
 
       <NewConversationDialog
