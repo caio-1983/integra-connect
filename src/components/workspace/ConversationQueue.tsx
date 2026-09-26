@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
-import { Search, Plus, Loader2, MessageSquare, Smartphone, ChevronDown, UserCheck } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Search, Plus, Loader2, MessageSquare, Smartphone, ChevronDown } from 'lucide-react';
 import { UIConversation } from '@/types';
 import { ConversationItem } from './ConversationItem';
 import { ConversationFilters, QueueFilter } from './ConversationFilters';
 import { useWhatsappInstances } from '@/hooks/useWhatsappInstances';
+import { useInstanceLabels } from '@/hooks/useInstanceLabels';
+import { useInstanceAccessGrants } from '@/hooks/useInstanceAccessGrants';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
+import { useAuth } from '@/hooks/useAuth';
+import { api } from '@/services/api';
 import { cn } from '@/lib/utils';
 
 interface TeamMemberOption { id: string; name: string; user_id?: string | null }
@@ -27,18 +32,10 @@ function applyFilter(
   filter: QueueFilter,
   query: string,
   instance: string,
-  attendant: string,
 ): UIConversation[] {
   let result = conversations;
   if (instance !== 'all') {
     result = result.filter(c => c.instance === instance);
-  }
-  // 'unassigned' is a first-class choice, not the absence of one: an unrouted
-  // conversation is precisely what a supervisor hunts for.
-  if (attendant === 'unassigned') {
-    result = result.filter(c => !c.assignedUserId);
-  } else if (attendant !== 'all') {
-    result = result.filter(c => c.assignedUserId === attendant);
   }
   if (query) {
     const q = query.toLowerCase();
@@ -74,30 +71,40 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<QueueFilter>('all');
   const [instanceFilter, setInstanceFilter] = useState('all');
-  const [attendantFilter, setAttendantFilter] = useState('all');
   const { instances: connectedInstances } = useWhatsappInstances();
+  const { labels } = useInstanceLabels();
+  const { grantsByInstance } = useInstanceAccessGrants();
+  const { isAdmin } = useCompanySettings();
+  const { user } = useAuth();
+  const [privateInstances, setPrivateInstances] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    api.fetchPrivateInstances().then(setPrivateInstances);
+  }, []);
+
+  // Mirrors can_access_conversation: a private number belongs to its owner
+  // only; otherwise admins see all and everyone else needs a grant.
+  const canSeeInstance = (name: string) => {
+    const owner = privateInstances[name];
+    if (owner) return owner === user?.id;
+    return isAdmin || (!!user && !!grantsByInstance.get(name)?.has(user.id));
+  };
 
   // All WhatsApp numbers the operator might filter by: every connected instance
-  // (so a freshly-connected number shows up even before it has any messages)
-  // unioned with any instance that already owns conversations (covers a number
-  // that was since disconnected but still has history in the queue).
+  // they can access (so a freshly-connected number shows up even before it has
+  // any messages) unioned with any instance that already owns conversations
+  // (already RLS-filtered; covers a number since disconnected).
   const instances = Array.from(new Set([
-    ...connectedInstances.map(i => i.name),
+    ...connectedInstances.map(i => i.name).filter(canSeeInstance),
     ...conversations.map(c => c.instance).filter((i): i is string => !!i),
-  ])).sort();
+  ])).sort((a, b) => (labels[a] ?? a).localeCompare(labels[b] ?? b));
 
   // Status counts reflect the instance currently selected.
   const instanceScoped = instanceFilter === 'all'
     ? conversations
     : conversations.filter(c => c.instance === instanceFilter);
   const counts = buildCounts(instanceScoped);
-  const filtered = applyFilter(conversations, activeFilter, searchQuery, instanceFilter, attendantFilter);
-
-  // Only members who actually hold conversations are offered, so the dropdown
-  // doesn't list the whole company when two people are on the inbox.
-  const assignedIds = new Set(conversations.map(c => c.assignedUserId).filter((id): id is string => !!id));
-  const attendantOptions = teamMembers.filter(m => m.user_id && assignedIds.has(m.user_id));
-  const unassignedCount = conversations.filter(c => !c.assignedUserId).length;
+  const filtered = applyFilter(conversations, activeFilter, searchQuery, instanceFilter);
 
   return (
     <div className="w-64 xl:w-72 border-r border-border flex flex-col bg-card flex-shrink-0">
@@ -132,10 +139,10 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
               onChange={(e) => setInstanceFilter(e.target.value)}
               className="w-full pl-7 pr-6 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground focus:ring-1 focus:ring-ring/50 outline-none transition-all appearance-none cursor-pointer"
             >
-              <option value="all">Todas as instâncias ({conversations.length})</option>
+              <option value="all">Todos os números ({conversations.length})</option>
               {instances.map(inst => (
                 <option key={inst} value={inst}>
-                  {inst} ({conversations.filter(c => c.instance === inst).length})
+                  {labels[inst] ?? inst} ({conversations.filter(c => c.instance === inst).length})
                 </option>
               ))}
             </select>
@@ -143,26 +150,6 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
           </div>
         )}
 
-        {(attendantOptions.length > 0 || unassignedCount > 0) && (
-          <div className="relative mt-2">
-            <UserCheck className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
-            <select
-              value={attendantFilter}
-              onChange={(e) => setAttendantFilter(e.target.value)}
-              aria-label="Filtrar por atendente"
-              className="w-full pl-7 pr-6 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground focus:ring-1 focus:ring-ring/50 outline-none transition-all appearance-none cursor-pointer"
-            >
-              <option value="all">Todos os atendentes</option>
-              {unassignedCount > 0 && <option value="unassigned">Não atribuídas ({unassignedCount})</option>}
-              {attendantOptions.map(m => (
-                <option key={m.id} value={m.user_id!}>
-                  {m.name} ({conversations.filter(c => c.assignedUserId === m.user_id).length})
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
-          </div>
-        )}
       </div>
 
       {/* Filters */}
@@ -188,7 +175,7 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
           <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
             <MessageSquare className="w-8 h-8 text-muted-foreground/30 mb-3" />
             <p className="text-xs text-muted-foreground">
-              {searchQuery || activeFilter !== 'all' || attendantFilter !== 'all'
+              {searchQuery || activeFilter !== 'all' || instanceFilter !== 'all'
                 ? 'Nenhuma conversa encontrada'
                 : 'Aguardando conversas'}
             </p>

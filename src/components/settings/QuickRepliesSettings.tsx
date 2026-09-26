@@ -3,7 +3,6 @@ import { Zap, Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SectionBlock } from '@/components/layout';
 import { Button } from '@/components/Button';
-import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { normalizeShortcut, useQuickReplies, type QuickReply } from '@/hooks/useQuickReplies';
 
 interface Draft { id?: string; shortcut: string; message: string }
@@ -12,10 +11,9 @@ const EMPTY_DRAFT: Draft = { shortcut: '', message: '' };
 
 /**
  * Respostas rápidas da empresa (como no WhatsApp Business). Todo mundo vê a
- * lista; só admin/gestor cadastra, edita e apaga — a RLS impõe o mesmo.
+ * lista, cadastra, edita e apaga qualquer uma, sem restrição de papel ou autor.
  */
 export const QuickRepliesSettings: React.FC = () => {
-  const { canManageUsers: canEdit } = useCompanySettings();
   const { quickReplies, loading, save, remove } = useQuickReplies();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
@@ -53,7 +51,7 @@ export const QuickRepliesSettings: React.FC = () => {
       description="Mensagens prontas para usar nas conversas. No chat, digite / ou clique no raio para escolher uma."
     >
       <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
-        {canEdit && !draft && (
+        {!draft && (
           <Button size="sm" onClick={() => setDraft(EMPTY_DRAFT)}>
             <Plus className="w-4 h-4 mr-1.5" /> Nova resposta rápida
           </Button>
@@ -105,26 +103,24 @@ export const QuickRepliesSettings: React.FC = () => {
               <li key={reply.id} className="flex items-start gap-3 py-3">
                 <span className="text-sm font-semibold text-primary font-mono flex-shrink-0">/{reply.shortcut}</span>
                 <p className="flex-1 min-w-0 text-sm text-foreground whitespace-pre-wrap line-clamp-3">{reply.message}</p>
-                {canEdit && (
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setDraft({ id: reply.id, shortcut: reply.shortcut, message: reply.message })}
-                      title="Editar"
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(reply)}
-                      title="Excluir"
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ id: reply.id, shortcut: reply.shortcut, message: reply.message })}
+                    title="Editar"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(reply)}
+                    title="Excluir"
+                    className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

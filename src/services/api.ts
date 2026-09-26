@@ -1623,6 +1623,27 @@ export const api = {
   },
 
   /**
+   * Private WhatsApp numbers as { instanceName -> ownerUserId }. Only the owner
+   * sees a private number (admin bypass and grants don't apply, enforced by RLS).
+   */
+  fetchPrivateInstances: async (): Promise<Record<string, string>> => {
+    const { data, error } = await (supabase as any)
+      .from('whatsapp_private_instances')
+      .select('instance_name, owner_user_id');
+
+    if (error) {
+      console.error('[API] Error fetching private instances:', error);
+      return {};
+    }
+
+    const map: Record<string, string> = {};
+    for (const row of (data ?? []) as { instance_name: string; owner_user_id: string }[]) {
+      map[row.instance_name] = row.owner_user_id;
+    }
+    return map;
+  },
+
+  /**
    * Renames a WhatsApp connection card. An empty label resets to the default
    * (deletes the row). RLS restricts writes to admins/managers.
    */
