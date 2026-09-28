@@ -34,7 +34,7 @@ export function logAgentStarted(conversationId: string, personId: string, agentN
   });
 }
 
-export function logAgentTransferred(conversationId: string, personId: string, reason: HandoffReason | undefined, agentName = 'Nina'): void {
+export function logAgentTransferred(conversationId: string, personId: string, reason: HandoffReason | undefined, agentName = 'Lu'): void {
   const reasonLabel = reason ? HANDOFF_REASON_LABEL[reason] : 'necessidade de atendimento humano';
   pushEntry({
     id: makeId(),
@@ -50,7 +50,7 @@ export function logAgentTransferred(conversationId: string, personId: string, re
   });
 }
 
-export function logAgentAction(conversationId: string, personId: string, content: string, metadata?: Record<string, unknown>, agentName = 'Nina'): void {
+export function logAgentAction(conversationId: string, personId: string, content: string, metadata?: Record<string, unknown>, agentName = 'Lu'): void {
   pushEntry({
     id: makeId(),
     type: 'ai_action',

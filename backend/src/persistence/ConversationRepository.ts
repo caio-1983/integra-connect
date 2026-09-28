@@ -667,6 +667,30 @@ class ConversationRepository {
       .map((m) => ({ fromType: m.from_type as IncomingMessage['fromType'], content: m.content as string }));
   }
 
+  /** Latest `limit` text messages in chronological order, plus the contact name — the input for the Lu summary. */
+  async getSummaryTranscript(conversationId: string, limit = 80): Promise<{ contactName: string | null; messages: IncomingMessage[] }> {
+    const supabase = getSupabase();
+    const [{ data: conv }, { data, error }] = await Promise.all([
+      supabase.from('conversations').select('contacts(name, call_name)').eq('id', conversationId).maybeSingle(),
+      supabase
+        .from('messages')
+        .select('content, from_type, sent_at')
+        .eq('conversation_id', conversationId)
+        .order('sent_at', { ascending: false })
+        .limit(limit),
+    ]);
+
+    const contact = (conv as { contacts?: { name?: string | null; call_name?: string | null } | null } | null)?.contacts;
+    const messages = error || !data
+      ? []
+      : data
+        .filter((m) => typeof m.content === 'string' && m.content.length > 0)
+        .reverse()
+        .map((m) => ({ fromType: m.from_type as IncomingMessage['fromType'], content: m.content as string }));
+
+    return { contactName: contact?.name || contact?.call_name || null, messages };
+  }
+
   async getConversationMode(conversationId: string): Promise<ConversationMode> {
     const supabase = getSupabase();
     const { data } = await supabase.from('conversations').select('status').eq('id', conversationId).maybeSingle();

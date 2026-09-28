@@ -4,7 +4,7 @@ import { ATENDIMENTO_PROMPT } from '../../prompts/atendimento.prompts.js';
 
 const CONFIG: AgentConfig = {
   id: 'atendimento',
-  name: 'Nina — Atendimento',
+  name: 'Lu — Atendimento',
   description: 'Atende o cliente de forma autônoma e assiste o operador como Copilot após o handoff.',
   status: 'active',
   priority: 2,

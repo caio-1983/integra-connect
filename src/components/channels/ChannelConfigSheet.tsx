@@ -51,7 +51,7 @@ export const ChannelConfigSheet: React.FC<ChannelConfigSheetProps> = ({ channel,
             <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card">
               <div>
                 <p className="text-sm text-foreground font-medium">IA habilitada</p>
-                <p className="text-[11px] text-muted-foreground">Nina responde automaticamente neste canal</p>
+                <p className="text-[11px] text-muted-foreground">Lu responde automaticamente neste canal</p>
               </div>
               <Switch checked={form.aiEnabled} onCheckedChange={(checked) => setForm({ ...form, aiEnabled: checked })} />
             </div>

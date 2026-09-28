@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
       },
       {
         title: 'Suporte - Configuração IA',
-        description: 'Ajuda com configuração do assistente Nina',
+        description: 'Ajuda com configuração do assistente Lu',
         date: new Date(currentYear, currentMonth, 12).toISOString().split('T')[0],
         time: '10:30:00',
         duration: 45,

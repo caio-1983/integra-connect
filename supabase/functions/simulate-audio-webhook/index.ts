@@ -267,7 +267,7 @@ serve(async (req) => {
       .update({ last_message_at: new Date().toISOString() })
       .eq('id', conversation.id);
 
-    // Queue for Nina processing if status is 'nina'
+    // Queue for Lu processing if status is 'nina'
     let queuedForNina = false;
     if (conversation.status === 'nina') {
       const { error: queueError } = await supabase
@@ -281,10 +281,10 @@ serve(async (req) => {
         });
 
       if (queueError) {
-        console.error('Error queuing for Nina:', queueError);
+        console.error('Error queuing for Lu:', queueError);
       } else {
         queuedForNina = true;
-        console.log(`[simulate-audio-webhook] Queued message for Nina processing`);
+        console.log(`[simulate-audio-webhook] Queued message for Lu processing`);
 
         // Trigger nina-orchestrator
         try {

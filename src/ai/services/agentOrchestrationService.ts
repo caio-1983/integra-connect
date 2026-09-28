@@ -31,7 +31,7 @@ export async function handleIncomingCustomerMessage(context: AgentContext): Prom
   const session = getOrInitSession(context.conversationId, 'atendimento');
   const isFirstMessage = session.processedMessageIds.length === 0 && session.handoffHistory.length === 0;
   if (isFirstMessage) {
-    logAgentStarted(context.conversationId, context.contactId, 'Nina');
+    logAgentStarted(context.conversationId, context.contactId, 'Lu');
   }
 
   const agent = getAgent(session.activeAgentId);

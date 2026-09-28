@@ -1,5 +1,5 @@
 import type {
-  AgentContext, AgentId, ConversationSummary, CopilotState, ExtractedInfo,
+  AgentContext, AgentId, CopilotState, ExtractedInfo,
   IntentClassification, SentimentClassification, SuggestedDeal, SuggestedReply, SuggestedTask,
 } from '@/ai/types';
 import { classifyIntent, classifySentiment, extractEntities } from './nlpHeuristics';
@@ -7,7 +7,8 @@ import { buildContext, type EnrichedContext } from './ContextBuilder';
 import { getAgent } from './agent-factory';
 import { getMemoryProvider } from '@/ai/memory';
 import { publishAIEvent } from './aiEventBus';
-import { SUGGESTED_REPLY_TEMPLATES, PROXIMO_PASSO_HINTS } from '@/ai/prompts/copilot.prompts';
+import { SUGGESTED_REPLY_TEMPLATES } from '@/ai/prompts/copilot.prompts';
+import { fetchConversationSummary } from './backendAgentClient';
 
 const STORAGE_KEY = 'ic_copilot_state_v1';
 
@@ -36,21 +37,6 @@ export function getCopilotState(conversationId: string): CopilotState | undefine
   return readAll()[conversationId];
 }
 
-function buildSummary(enriched: EnrichedContext, intent: IntentClassification): ConversationSummary {
-  const personName = enriched.crm.person?.name ?? enriched.agentContext.contactName;
-  const lastHistory = enriched.timelineEntries[0]?.content;
-  const openDeals = enriched.crm.deals.filter((d) => !d.wonAt && !d.lostAt);
-
-  return {
-    motivo: `Cliente entrou em contato sobre ${intent.intent.toLowerCase()}.`,
-    contexto: `${personName} conversando via ${enriched.agentContext.channel}.${lastHistory ? ` Último registro: ${lastHistory}` : ' Sem histórico anterior registrado.'}`,
-    pendencias: openDeals.map((d) => `Negócio em aberto: ${d.title}`),
-    ultimaAcao: 'IA analisou a última mensagem do cliente e classificou a intenção.',
-    proximoPasso: PROXIMO_PASSO_HINTS[intent.intent],
-    updatedAt: new Date().toISOString(),
-  };
-}
-
 function buildSuggestedReplies(intent: IntentClassification): SuggestedReply[] {
   return SUGGESTED_REPLY_TEMPLATES[intent.intent].map((text, i) => ({ id: `sr-${intent.intent}-${i}`, text }));
 }
@@ -70,7 +56,12 @@ function buildSuggestedDeal(intent: IntentClassification, enriched: EnrichedCont
 /** Recomputes the full Copilot panel state for a conversation — summary, intent, sentiment, suggestions, extraction. */
 export async function refreshCopilotState(context: AgentContext, agentId: AgentId = 'atendimento'): Promise<CopilotState> {
   const agent = getAgent(agentId);
-  const enriched = await buildContext(context, agent.config);
+  // The summary is Lu's (real model, backend reads the persisted conversation);
+  // intent/sentiment/suggestions below are still local heuristics.
+  const [enriched, summary] = await Promise.all([
+    buildContext(context, agent.config),
+    fetchConversationSummary(context.conversationId),
+  ]);
 
   const lastText = context.latestCustomerMessage?.content
     ?? context.messages[context.messages.length - 1]?.content
@@ -89,7 +80,6 @@ export async function refreshCopilotState(context: AgentContext, agentId: AgentI
     });
   }
 
-  const summary = buildSummary(enriched, intent);
   const at = new Date().toISOString();
   publishAIEvent({ type: 'SummaryUpdated', conversationId: context.conversationId, summary, at });
   publishAIEvent({ type: 'IntentDetected', conversationId: context.conversationId, intent, at });

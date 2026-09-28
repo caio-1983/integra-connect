@@ -1882,7 +1882,7 @@ const transformConversation = (dbConv: DBConversation): UIConversation => {
                 <div className="bg-muted rounded p-3 mb-3">
                   <p className="text-xs text-foreground font-mono mb-2">Quando message_breaking_enabled = true:</p>
                   <ul className="text-xs text-muted-foreground space-y-1">
-                    <li>• Nina retorna resposta com delimitador <code className="text-emerald-600">\n\n</code></li>
+                    <li>• Lu retorna resposta com delimitador <code className="text-emerald-600">\n\n</code></li>
                     <li>• whatsapp-sender split() por <code>\n\n</code></li>
                     <li>• Cada chunk vira uma mensagem separada na send_queue</li>
                     <li>• scheduled_at aumenta ~1.5s entre chunks</li>
@@ -1952,7 +1952,7 @@ const transformConversation = (dbConv: DBConversation): UIConversation => {
                   </ul>
                 </div>
                 <div className="bg-muted rounded p-3">
-                  <p className="text-xs text-foreground font-mono mb-2">Nina Insights visíveis no deal:</p>
+                  <p className="text-xs text-foreground font-mono mb-2">Lu Insights visíveis no deal:</p>
                   <ul className="text-xs text-muted-foreground space-y-1">
                     <li>• qualification_score (0-100)</li>
                     <li>• interests[], pain_points[]</li>
@@ -2091,7 +2091,7 @@ const transformConversation = (dbConv: DBConversation): UIConversation => {
                       <span className="text-violet-400">•</span>
                       <div>
                         <span className="font-bold">Agendamento Nativo:</span>{' '}
-                        <span className="text-muted-foreground">Integrado via Nina (create/reschedule/cancel appointment)</span>
+                        <span className="text-muted-foreground">Integrado via Lu (create/reschedule/cancel appointment)</span>
                       </div>
                     </li>
                   </ul>
@@ -2231,7 +2231,7 @@ const transformConversation = (dbConv: DBConversation): UIConversation => {
                     <div>
                       <p className="text-xs font-bold text-pink-400 mb-2">Agendamento</p>
                       <ul className="text-sm text-foreground space-y-1 pl-4">
-                        <li className="text-xs">✅ Agendamento é <strong>nativo</strong> via Nina (create/reschedule/cancel)</li>
+                        <li className="text-xs">✅ Agendamento é <strong>nativo</strong> via Lu (create/reschedule/cancel)</li>
                         <li className="text-xs">Dados salvos na tabela <code>appointments</code></li>
                       </ul>
                     </div>

@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
 import { requestManualReply, requestManualMediaReply, startConversation } from '../conversation/ConversationService.js';
 import { evolutionConnectionService } from '../channels/evolution/EvolutionConnectionService.js';
+import { summarizeConversation } from '../conversation/ConversationSummaryService.js';
+import { configService } from '../config/ConfigService.js';
 
 const paramsSchema = z.object({ conversationId: z.string().min(1) });
 
@@ -135,6 +137,34 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     } catch (error) {
       request.log.error(error);
       return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao carregar participantes.' });
+    }
+  });
+
+  app.post('/v1/conversations/:conversationId/summary', {
+    preHandler: authMiddleware,
+    validatorCompiler: noopValidator,
+    // Each call pays for a real model request — same bound as agent chat.
+    config: {
+      rateLimit: {
+        max: configService.getNumber('AGENT_CHAT_RATE_LIMIT_MAX', 20),
+        timeWindow: configService.getNumber('RATE_LIMIT_WINDOW_MS', 60_000),
+      },
+    },
+    schema: {
+      tags: ['conversations'],
+      summary: 'Summarize a conversation with Lu (motivo, contexto, pendências, última ação, próximo passo)',
+      security: [{ bearerAuth: [] }],
+      params: conversationParamsJsonSchema,
+    },
+  }, async (request, reply) => {
+    const parsed = paramsSchema.safeParse(request.params);
+    if (!parsed.success) return reply.code(400).send({ error: 'conversationId obrigatório' });
+
+    try {
+      return reply.send(await summarizeConversation(parsed.data.conversationId));
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(502).send({ error: error instanceof Error ? error.message : 'Erro ao gerar o resumo.' });
     }
   });
 

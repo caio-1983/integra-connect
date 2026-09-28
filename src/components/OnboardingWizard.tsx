@@ -425,7 +425,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ isOpen, onCl
         business_hours_end: businessHoursEnd || '18:00',
         business_days: businessDays?.length > 0 ? businessDays : [1, 2, 3, 4, 5],
         
-        // Ensure Nina is active
+        // Ensure Lu is active
         is_active: true,
         auto_response_enabled: true,
       };

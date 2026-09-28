@@ -310,7 +310,7 @@ async function sendMessage(supabase: any, settings: any, queueItem: any) {
       // Don't throw - message was sent successfully
     }
   } else {
-    // INSERT new message (for Nina messages)
+    // INSERT new message (for Lu messages)
     console.log('[Sender] Creating new message record');
     const { error: msgError } = await supabase
       .from('messages')

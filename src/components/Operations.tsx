@@ -184,7 +184,7 @@ const Operations: React.FC = () => {
             value={kpiValue(kpis.tempoResposta)}
             trend={kpis.tempoResposta?.trend}
             trendUp={kpis.tempoResposta?.trendUp}
-            subLabel="tempo de resposta da Nina"
+            subLabel="tempo de resposta da Lu"
             icon={Clock}
             color="amber"
             loading={loadingKpis}

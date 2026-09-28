@@ -1,5 +1,5 @@
-import type { AgentContext, AgentExecutionResult, AgentId } from '@/ai/types';
-import { backendBaseUrl, backendHeaders } from '@/services/backendGateway';
+import type { AgentContext, AgentExecutionResult, AgentId, ConversationSummary } from '@/ai/types';
+import { backendAuthOnlyHeaders, backendBaseUrl, backendHeaders } from '@/services/backendGateway';
 
 /**
  * Thin HTTP client to the Sprint 010 AI Runtime backend. Used only when an
@@ -41,4 +41,19 @@ export async function chatWithBackendAgent(agentId: AgentId, context: AgentConte
     },
     handoff: data.handoff,
   };
+}
+
+/** Lu reads the persisted conversation on the backend (not the client's copy) and returns a structured summary. */
+export async function fetchConversationSummary(conversationId: string): Promise<ConversationSummary> {
+  const response = await fetch(`${backendBaseUrl()}/v1/conversations/${encodeURIComponent(conversationId)}/summary`, {
+    method: 'POST',
+    headers: backendAuthOnlyHeaders(),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(body?.error ?? `A Lu não conseguiu resumir a conversa (${response.status}).`);
+  }
+
+  return response.json();
 }

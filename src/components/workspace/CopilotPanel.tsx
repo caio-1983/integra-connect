@@ -32,14 +32,20 @@ const SENTIMENT_COLOR: Record<SentimentType, string> = {
 const CopilotPanel: React.FC<CopilotPanelProps> = ({ conversation, sdrName, onInsertToComposer }) => {
   const { copilot, mode, agentDisplayName, refreshSummary } = useAgentSession(conversation);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [summaryError, setSummaryError] = React.useState<string | null>(null);
+
+  React.useEffect(() => setSummaryError(null), [conversation.id]);
 
   const lastCustomerMessage = [...conversation.messages].reverse().find((m) => m.fromType === 'user');
   const knowledgeHits = lastCustomerMessage ? getKnowledgeProvider().search(lastCustomerMessage.content) : [];
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    setSummaryError(null);
     try {
       await refreshSummary();
+    } catch (err) {
+      setSummaryError(err instanceof Error ? err.message : 'A Lu não conseguiu resumir a conversa.');
     } finally {
       setRefreshing(false);
     }
@@ -59,12 +65,12 @@ const CopilotPanel: React.FC<CopilotPanelProps> = ({ conversation, sdrName, onIn
         </span>
       </div>
 
-      {/* Resumo Inteligente */}
+      {/* Resumo da Lu */}
       <div className="p-3 rounded-xl bg-violet-50 border border-violet-200 space-y-2">
         <div className="flex items-center justify-between">
           <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider flex items-center gap-1.5">
             <Sparkles className="w-3 h-3" />
-            Resumo Inteligente
+            Resumo da Lu
           </p>
           <button
             type="button"
@@ -73,9 +79,10 @@ const CopilotPanel: React.FC<CopilotPanelProps> = ({ conversation, sdrName, onIn
             className="text-[10px] font-medium text-violet-700 hover:text-violet-900 flex items-center gap-1 disabled:opacity-50"
           >
             <RefreshCw className={cn('w-3 h-3', refreshing && 'animate-spin')} />
-            Atualizar Resumo
+            {refreshing ? 'Resumindo...' : copilot?.summary ? 'Atualizar Resumo' : 'Gerar Resumo'}
           </button>
         </div>
+        {summaryError && <p className="text-[11px] text-destructive">{summaryError}</p>}
         {copilot?.summary ? (
           <div className="space-y-1.5 text-xs text-foreground">
             <p><span className="font-semibold">Motivo:</span> {copilot.summary.motivo}</p>
@@ -87,7 +94,7 @@ const CopilotPanel: React.FC<CopilotPanelProps> = ({ conversation, sdrName, onIn
             <p><span className="font-semibold">Próximo passo:</span> {copilot.summary.proximoPasso}</p>
           </div>
         ) : (
-          <p className="text-[11px] text-muted-foreground">Clique em "Atualizar Resumo" para gerar a primeira análise.</p>
+          <p className="text-[11px] text-muted-foreground">Clique em "Gerar Resumo" para a Lu ler a conversa e resumir para você.</p>
         )}
       </div>
 

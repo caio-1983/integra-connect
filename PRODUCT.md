@@ -6,11 +6,11 @@ product
 
 ## Users
 
-Operations managers and customer service agents at Brazilian companies using AI-assisted WhatsApp customer service (via the Nina AI agent). Users are in active task flow: monitoring live conversations, managing leads in the pipeline, checking system health, and dispatching responses. They need fast situational awareness, not deep navigation.
+Operations managers and customer service agents at Brazilian companies using AI-assisted WhatsApp customer service (via the Lu AI agent). Users are in active task flow: monitoring live conversations, managing leads in the pipeline, checking system health, and dispatching responses. They need fast situational awareness, not deep navigation.
 
 ## Product Purpose
 
-Integra Connect is the operational command center for AI-assisted customer communication. It connects WhatsApp conversations, CRM contacts, appointment scheduling, and the Nina AI agent into a single operational surface. Success looks like: zero missed conversations, fast response times, full pipeline visibility, and AI running reliably — all observable from a single screen.
+Integra Connect is the operational command center for AI-assisted customer communication. It connects WhatsApp conversations, CRM contacts, appointment scheduling, and the Lu AI agent into a single operational surface. Success looks like: zero missed conversations, fast response times, full pipeline visibility, and AI running reliably — all observable from a single screen.
 
 ## Brand Personality
 

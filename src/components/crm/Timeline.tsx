@@ -102,7 +102,7 @@ export const Timeline: React.FC<TimelineProps> = ({ entries, compact = false }) 
                 {entry.createdByType === 'nina' && (
                   <>
                     <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/40" />
-                    <span className="text-[10px] text-primary font-medium">Nina IA</span>
+                    <span className="text-[10px] text-primary font-medium">Lu IA</span>
                   </>
                 )}
                 {sourceCfg && (

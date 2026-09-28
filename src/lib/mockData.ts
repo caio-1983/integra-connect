@@ -939,7 +939,7 @@ export const MOCK_TIMELINE_ENTRIES: TimelineEntry[] = [
   {
     id: 'tl3',
     type: 'ai_action',
-    content: 'Nina qualificou o lead: score 65/100',
+    content: 'Lu qualificou o lead: score 65/100',
     metadata: { score: 65, next_action: 'demo', products: ['Plano Profissional'] },
     personId: 'ct1',
     conversationId: 'conv1',

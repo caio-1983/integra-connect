@@ -155,7 +155,7 @@ serve(async (req) => {
       .update({ last_message_at: new Date().toISOString() })
       .eq('id', conversationId);
 
-    // Queue for Nina processing if conversation is in 'nina' status
+    // Queue for Lu processing if conversation is in 'nina' status
     const { data: conversation } = await supabase
       .from('conversations')
       .select('status')
@@ -174,10 +174,10 @@ serve(async (req) => {
         });
 
       if (queueError) {
-        console.error('[simulate-webhook] Error queuing for Nina:', queueError);
+        console.error('[simulate-webhook] Error queuing for Lu:', queueError);
       } else {
         queuedForNina = true;
-        console.log(`[simulate-webhook] Queued message for Nina processing`);
+        console.log(`[simulate-webhook] Queued message for Lu processing`);
         
         // Trigger nina-orchestrator directly (cron jobs não funcionam sem pg_net)
         try {

@@ -35,14 +35,3 @@ export const SUGGESTED_REPLY_TEMPLATES: Record<IntentType, string[]> = {
     'Fico à disposição para o que precisar.',
   ],
 };
-
-export const PROXIMO_PASSO_HINTS: Record<IntentType, string> = {
-  'Orçamento': 'Enviar tabela de valores e confirmar quantidade de atendentes necessários.',
-  'Comercial': 'Avançar com proposta comercial e alinhar próximos passos do fechamento.',
-  'Financeiro': 'Confirmar situação financeira e encaminhar para o time responsável se necessário.',
-  'Suporte': 'Investigar o problema relatado e confirmar resolução com o cliente.',
-  'Agendamento': 'Confirmar horário disponível e enviar convite.',
-  'Reclamação': 'Acionar atendimento humano prioritário e registrar a reclamação.',
-  'Cancelamento': 'Entender o motivo do cancelamento e avaliar alternativas de retenção.',
-  'Pós-venda': 'Agradecer o retorno e verificar se há alguma necessidade adicional.',
-};

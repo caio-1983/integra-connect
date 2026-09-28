@@ -161,7 +161,7 @@ serve(async (req) => {
           console.log(`[MessageGrouper] Updated audio message with transcription`);
         }
 
-        // If conversation is handled by Nina, queue for AI processing
+        // If conversation is handled by Lu, queue for AI processing
         if (conversation.status === 'nina') {
           // Check if already in queue to avoid duplicates
           const { data: existingQueue } = await supabase
@@ -188,9 +188,9 @@ serve(async (req) => {
               });
 
             if (ninaQueueError) {
-              console.error('[MessageGrouper] Error queuing for Nina:', ninaQueueError);
+              console.error('[MessageGrouper] Error queuing for Lu:', ninaQueueError);
             } else {
-              console.log('[MessageGrouper] Message queued for Nina processing');
+              console.log('[MessageGrouper] Message queued for Lu processing');
               
               // Trigger nina-orchestrator
               fetch(`${supabaseUrl}/functions/v1/nina-orchestrator`, {
@@ -203,7 +203,7 @@ serve(async (req) => {
               }).catch(err => console.error('[MessageGrouper] Error triggering nina-orchestrator:', err));
             }
           } else {
-            console.log('[MessageGrouper] Message already in Nina queue, skipping');
+            console.log('[MessageGrouper] Message already in Lu queue, skipping');
           }
         }
 

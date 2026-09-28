@@ -17,7 +17,7 @@ serve(async (req) => {
   if (authFail) return authFail;
 
   try {
-    console.log('[Trigger] Starting Nina orchestrator trigger...');
+    console.log('[Trigger] Starting Lu orchestrator trigger...');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     
@@ -32,7 +32,7 @@ serve(async (req) => {
     });
 
     const result = await response.json();
-    console.log('[Trigger] Nina orchestrator result:', result);
+    console.log('[Trigger] Lu orchestrator result:', result);
 
     return new Response(JSON.stringify({ 
       triggered: true, 

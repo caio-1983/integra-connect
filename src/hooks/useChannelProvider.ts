@@ -52,7 +52,7 @@ export function useChannelProvider(channel: ChannelType) {
 
 const DEFAULT_WEBCHAT_WIDGET_CONFIG: WebchatWidgetConfig = {
   primaryColor: '#0ea5e9',
-  agentName: 'Nina',
+  agentName: 'Lu',
   companyName: 'Integra Connect',
   greeting: 'Olá! Como posso ajudar você hoje?',
   offlineMessage: 'Estamos fora do horário de atendimento. Deixe sua mensagem que responderemos em breve.',

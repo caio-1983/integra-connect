@@ -62,7 +62,7 @@ export const MOCK_AI_MODELS: AIModel[] = [
 export const MOCK_AGENT_CONFIGS: AgentConfig[] = [
   {
     id: 'atendimento',
-    name: 'Nina — Atendimento',
+    name: 'Lu — Atendimento',
     description: 'Atende o cliente de forma autônoma e assiste o operador como Copilot após o handoff.',
     status: 'active',
     priority: 2,

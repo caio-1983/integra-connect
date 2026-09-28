@@ -238,7 +238,7 @@ export function useConversations() {
                 lastMessageTime: 'Agora'
               };
             } else {
-              // Normal flow for truly new messages (from contacts, Nina, etc)
+              // Normal flow for truly new messages (from contacts, Lu, etc)
               console.log('[Realtime] Adding new message:', uiMessage.id);
 
               // Track this message as processed
