@@ -69,7 +69,8 @@ const Operations: React.FC = () => {
         supabase
           .from('appointments')
           .select('id', { count: 'exact', head: true })
-          .lt('date', today),
+          .lt('date', today)
+          .or('status.is.null,status.neq.cancelled'),
       ]);
 
       const items: ActionItem[] = [];

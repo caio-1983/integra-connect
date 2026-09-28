@@ -579,6 +579,8 @@ export const api = {
         *,
         contact:contacts(id, name, phone_number)
       `)
+      // "Excluir" is a soft delete (see deleteAppointment) — cancelled ones stay in the table but out of every list.
+      .or('status.is.null,status.neq.cancelled')
       .order('date', { ascending: true })
       .order('time', { ascending: true });
 
@@ -691,10 +693,12 @@ export const api = {
   /**
    * Delete appointment
    */
+  // DELETE on appointments is revoked for app users (no data may be lost —
+  // 20260707140000_lock_down_data_deletion), so "excluir" marks it cancelled.
   deleteAppointment: async (id: string): Promise<void> => {
     const { error } = await supabase
       .from('appointments')
-      .delete()
+      .update({ status: 'cancelled' })
       .eq('id', id);
 
     if (error) {
