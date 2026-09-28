@@ -68,7 +68,7 @@ const OperationalSummary: React.FC = () => {
             .select('id, title, date, time, type, duration, description, attendees, user_id, metadata, contact:contacts(name, phone_number)')
             .gte('date', today)
             .lte('date', tomorrow)
-            .or('status.is.null,status.neq.cancelled')
+            .or('status.is.null,status.not.in.(cancelled,completed)')
             .order('date', { ascending: true })
             .order('time', { ascending: true })
             .limit(4),

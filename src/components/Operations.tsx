@@ -70,7 +70,7 @@ const Operations: React.FC = () => {
           .from('appointments')
           .select('id', { count: 'exact', head: true })
           .lt('date', today)
-          .or('status.is.null,status.neq.cancelled'),
+          .or('status.is.null,status.not.in.(cancelled,completed)'),
       ]);
 
       const items: ActionItem[] = [];

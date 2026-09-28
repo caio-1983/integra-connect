@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CalendarCheck, Clock, Plus, Loader2, X, Trash2 } from 'lucide-react';
+import { CalendarCheck, Clock, Plus, Loader2, X, Trash2, CheckCircle2, Circle } from 'lucide-react';
 import { Appointment } from '@/types';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
@@ -43,6 +43,7 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [date, setDate] = useState(tomorrowStr());
   const [time, setTime] = useState('09:00');
   const [description, setDescription] = useState('');
@@ -50,7 +51,9 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
   const load = useCallback(async () => {
     try {
       const all = await api.fetchAppointments();
-      setAppointments(all.filter(a => a.contact_id === contactId));
+      // Pending first (date order is kept within each group), done ones after.
+      const mine = all.filter(a => a.contact_id === contactId);
+      setAppointments([...mine.filter(a => a.status !== 'completed'), ...mine.filter(a => a.status === 'completed')]);
     } catch (e) {
       console.error('[AgendamentoBlock] erro ao carregar', e);
     } finally {
@@ -83,6 +86,20 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
       toast.error(e instanceof Error ? e.message : 'Erro ao agendar');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleToggleCompleted = async (ap: Appointment) => {
+    const completed = ap.status !== 'completed';
+    setTogglingId(ap.id);
+    try {
+      await api.setAppointmentCompleted(ap.id, completed);
+      toast.success(completed ? 'Marcado como realizado' : 'Agendamento reaberto');
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erro ao atualizar agendamento');
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -161,11 +178,25 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
         <p className="text-[11px] text-muted-foreground text-center py-1">Nenhum agendamento</p>
       ) : (
         <div className="space-y-1.5">
-          {appointments.slice(0, 4).map(ap => (
-            <div key={ap.id} className="flex items-start gap-2 rounded-lg border border-border bg-card p-2.5">
-              <CalendarCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" />
+          {appointments.slice(0, 4).map(ap => {
+            const done = ap.status === 'completed';
+            return (
+            <div key={ap.id} className={`flex items-start gap-2 rounded-lg border border-border bg-card p-2.5 ${done ? 'opacity-60' : ''}`}>
+              <button
+                onClick={() => handleToggleCompleted(ap)}
+                disabled={togglingId === ap.id}
+                title={done ? 'Reabrir (não realizado)' : 'Marcar como realizado'}
+                aria-label={done ? 'Reabrir agendamento' : 'Marcar agendamento como realizado'}
+                className="flex-shrink-0 mt-0.5 text-muted-foreground hover:text-emerald-600 disabled:opacity-50 transition-colors"
+              >
+                {togglingId === ap.id
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  : done
+                    ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    : <Circle className="w-3.5 h-3.5" />}
+              </button>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium text-foreground leading-snug truncate">{ap.title}</p>
+                <p className={`text-xs font-medium text-foreground leading-snug truncate ${done ? 'line-through' : ''}`}>{ap.title}</p>
                 {ap.description && (
                   <p className="text-[11px] text-muted-foreground leading-snug mt-0.5 line-clamp-2">{ap.description}</p>
                 )}
@@ -175,6 +206,7 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
                   <span className="px-1 py-0.5 rounded bg-muted border border-border">
                     {typeLabel[ap.type] ?? ap.type}
                   </span>
+                  {done && <span className="text-emerald-600 font-medium">Realizado</span>}
                 </div>
               </div>
               <button
@@ -189,7 +221,8 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
                   : <Trash2 className="w-3.5 h-3.5" />}
               </button>
             </div>
-          ))}
+            );
+          })}
           {appointments.length > 4 && (
             <p className="text-[10px] text-center text-muted-foreground">
               +{appointments.length - 4} agendamento{appointments.length - 4 > 1 ? 's' : ''}

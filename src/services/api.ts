@@ -609,7 +609,8 @@ export const api = {
         phone_number: a.contact.phone_number
       } : undefined,
       metadata: a.metadata as Appointment['metadata'],
-      user_id: a.user_id ?? undefined
+      user_id: a.user_id ?? undefined,
+      status: a.status ?? undefined,
     }));
   },
 
@@ -693,6 +694,19 @@ export const api = {
   /**
    * Delete appointment
    */
+  /** Marks an appointment as done ("realizado") or back to pending — it stays listed either way. */
+  setAppointmentCompleted: async (id: string, completed: boolean): Promise<void> => {
+    const { error } = await supabase
+      .from('appointments')
+      .update({ status: completed ? 'completed' : 'scheduled' })
+      .eq('id', id);
+
+    if (error) {
+      console.error('[API] Error updating appointment status:', error);
+      throw error;
+    }
+  },
+
   // DELETE on appointments is revoked for app users (no data may be lost —
   // 20260707140000_lock_down_data_deletion), so "excluir" marks it cancelled.
   deleteAppointment: async (id: string): Promise<void> => {

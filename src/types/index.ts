@@ -109,6 +109,8 @@ export interface Appointment {
   };
   metadata?: AppointmentMetadata;
   user_id?: string;
+  /** 'scheduled' (default) | 'completed' (realizado) | 'cancelled' (excluído — soft delete, never listed). */
+  status?: string;
 }
 
 export interface Deal {

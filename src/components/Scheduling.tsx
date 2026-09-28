@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, AlignLeft, X, Loader2, LayoutGrid, List, Columns, User, UserCircle, Bot, Pencil } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, AlignLeft, X, Loader2, LayoutGrid, List, Columns, User, UserCircle, Bot, Pencil, CheckCircle2 } from 'lucide-react';
 import { Button } from './Button';
 import { Appointment, Contact } from '../types';
 import { api } from '../services/api';
@@ -231,6 +231,18 @@ const Scheduling: React.FC = () => {
     }
   };
 
+  const handleToggleCompleted = async (appointment: Appointment) => {
+    const completed = appointment.status !== 'completed';
+    try {
+      await api.setAppointmentCompleted(appointment.id, completed);
+      toast.success(completed ? 'Agendamento marcado como realizado' : 'Agendamento reaberto');
+      setSelectedAppointment(null);
+    } catch (error) {
+      console.error('Error updating appointment status:', error);
+      toast.error('Erro ao atualizar agendamento');
+    }
+  };
+
   const handleEditClick = (appointment: Appointment) => {
     setEditFormData({
       title: appointment.title,
@@ -341,7 +353,7 @@ const Scheduling: React.FC = () => {
                             {dayAppointments.map(app => (
                                 <div
                                     key={app.id}
-                                    className={`text-[10px] px-2 py-1 rounded border truncate font-medium cursor-pointer relative ${getUserColor(app.user_id).chip}`}
+                                    className={`text-[10px] px-2 py-1 rounded border truncate font-medium cursor-pointer relative ${getUserColor(app.user_id).chip} ${app.status === 'completed' ? 'opacity-50 line-through' : ''}`}
                                     onClick={(e) => handleAppointmentClick(app, e)}
                                 >
                                     {app.metadata?.source === 'nina_ai' && (
@@ -425,7 +437,7 @@ const Scheduling: React.FC = () => {
                                         {apps.map(app => (
                                             <div
                                                 key={app.id}
-                                                className={`mb-1 p-2 rounded text-xs border cursor-pointer hover:brightness-110 relative z-10 shadow-sm ${getUserColor(app.user_id).chip}`}
+                                                className={`mb-1 p-2 rounded text-xs border cursor-pointer hover:brightness-110 relative z-10 shadow-sm ${getUserColor(app.user_id).chip} ${app.status === 'completed' ? 'opacity-50 line-through' : ''}`}
                                                 onClick={(e) => handleAppointmentClick(app, e)}
                                                 style={{ minHeight: `${Math.max(40, (app.duration / 60) * 80)}px` }}
                                             >
@@ -483,7 +495,7 @@ const Scheduling: React.FC = () => {
                                 {apps.map(app => (
                                     <div
                                         key={app.id}
-                                        className={`mb-2 p-3 rounded-lg border flex justify-between items-center shadow-md relative z-10 cursor-pointer hover:brightness-110 ${getUserColor(app.user_id).chip}`}
+                                        className={`mb-2 p-3 rounded-lg border flex justify-between items-center shadow-md relative z-10 cursor-pointer hover:brightness-110 ${getUserColor(app.user_id).chip} ${app.status === 'completed' ? 'opacity-50 line-through' : ''}`}
                                         onClick={(e) => handleAppointmentClick(app, e)}
                                         style={{ minHeight: `${Math.max(60, (app.duration / 60) * 100)}px` }}
                                     >
@@ -756,6 +768,12 @@ const Scheduling: React.FC = () => {
                                 <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${getUserColor(selectedAppointment.user_id).chip}`}>
                                     {typeLabel(selectedAppointment.type)}
                                 </span>
+                                {selectedAppointment.status === 'completed' && (
+                                    <span className="px-2 py-1 rounded text-[10px] font-bold uppercase border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1">
+                                        <CheckCircle2 className="w-3 h-3" />
+                                        Realizado
+                                    </span>
+                                )}
                                 {selectedAppointment.metadata?.source === 'nina_ai' && (
                                     <span className="px-2 py-1 rounded text-[10px] font-bold uppercase border bg-cyan-50 text-cyan-700 border-cyan-200 flex items-center gap-1">
                                         <Bot className="w-3 h-3" />
@@ -818,6 +836,15 @@ const Scheduling: React.FC = () => {
                      )}
 
                      <div className="space-y-3">
+                          <Button
+                            type="button"
+                            variant={selectedAppointment.status === 'completed' ? 'outline' : 'primary'}
+                            onClick={() => handleToggleCompleted(selectedAppointment)}
+                            className="w-full"
+                          >
+                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                              {selectedAppointment.status === 'completed' ? 'Reabrir (não realizado)' : 'Marcar como realizado'}
+                          </Button>
                           <div className="flex gap-2">
                               <Button
                                 type="button"
