@@ -310,11 +310,17 @@ const Scheduling: React.FC = () => {
     const month = currentDate.getMonth();
     const days = daysInMonth(year, month);
     const firstDay = firstDayOfMonth(year, month);
+    // Só as semanas que o mês ocupa (4–6); as linhas dividem a altura disponível
+    // e só rolam quando a tela é baixa demais para o mínimo de cada linha.
+    const weeks = Math.ceil((firstDay + days) / 7);
 
     return (
-        <div className="grid grid-cols-7 flex-1 auto-rows-fr">
+        <div
+            className="grid grid-cols-7 flex-1 min-h-0 overflow-y-auto custom-scrollbar"
+            style={{ gridTemplateRows: `repeat(${weeks}, minmax(96px, 1fr))` }}
+        >
             {Array.from({ length: firstDay }).map((_, index) => (
-                <div key={`empty-${index}`} className="border-b border-r border-border/50 bg-background min-h-[100px]" />
+                <div key={`empty-${index}`} className="border-b border-r border-border/50 bg-background" />
             ))}
             {Array.from({ length: days }).map((_, index) => {
                 const day = index + 1;
@@ -326,12 +332,12 @@ const Scheduling: React.FC = () => {
                     <div
                         key={day}
                         onClick={() => handleDateClick(day)}
-                        className={`border-b border-r border-border/50 p-2 min-h-[120px] cursor-pointer transition-colors hover:bg-muted/50 group relative ${isToday ? 'bg-cyan-50' : ''}`}
+                        className={`border-b border-r border-border/50 p-2 min-h-0 flex flex-col overflow-hidden cursor-pointer transition-colors hover:bg-muted/50 group relative ${isToday ? 'bg-cyan-50' : ''}`}
                     >
-                        <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full mb-2 ${isToday ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/40' : 'text-muted-foreground group-hover:text-foreground'}`}>
+                        <span className={`text-sm font-medium w-7 h-7 shrink-0 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/40' : 'text-muted-foreground group-hover:text-foreground'}`}>
                             {day}
                         </span>
-                        <div className="space-y-1">
+                        <div className="space-y-1 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
                             {dayAppointments.map(app => (
                                 <div
                                     key={app.id}
@@ -350,7 +356,7 @@ const Scheduling: React.FC = () => {
                 );
             })}
              {/* Fill remaining cells to keep grid structure */}
-             {Array.from({ length: 42 - (days + firstDay) }).map((_, index) => (
+             {Array.from({ length: weeks * 7 - (days + firstDay) }).map((_, index) => (
                 <div key={`remaining-${index}`} className="border-b border-r border-border/50 bg-background" />
             ))}
         </div>
@@ -576,7 +582,7 @@ const Scheduling: React.FC = () => {
       )}
 
       {/* Main Calendar Area */}
-      <div className="flex-1 bg-card border border-border rounded-xl overflow-hidden shadow-2xl flex flex-col relative">
+      <div className="flex-1 min-h-0 bg-card border border-border rounded-xl overflow-hidden shadow-2xl flex flex-col relative">
         {loading ? (
              <div className="flex-1 flex items-center justify-center">
                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
