@@ -1,12 +1,11 @@
 import React from 'react';
 import {
   Bot, Sparkles, RefreshCw, MessageSquareText, CheckSquare,
-  TrendingUp, BookOpen, ScanSearch,
+  TrendingUp, ScanSearch,
 } from 'lucide-react';
 import { UIConversation } from '@/types';
 import { cn } from '@/lib/utils';
 import { useAgentSession } from '@/ai/hooks/useAgentSession';
-import { getKnowledgeProvider } from '@/ai/services/knowledgeService';
 import type { ConversationMode, SentimentType } from '@/ai/types';
 
 interface CopilotPanelProps {
@@ -35,9 +34,6 @@ const CopilotPanel: React.FC<CopilotPanelProps> = ({ conversation, sdrName, onIn
   const [summaryError, setSummaryError] = React.useState<string | null>(null);
 
   React.useEffect(() => setSummaryError(null), [conversation.id]);
-
-  const lastCustomerMessage = [...conversation.messages].reverse().find((m) => m.fromType === 'user');
-  const knowledgeHits = lastCustomerMessage ? getKnowledgeProvider().search(lastCustomerMessage.content) : [];
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -206,28 +202,6 @@ const CopilotPanel: React.FC<CopilotPanelProps> = ({ conversation, sdrName, onIn
           </div>
         ) : (
           <p className="text-[11px] text-muted-foreground">Nenhum negócio sugerido no momento.</p>
-        )}
-      </div>
-
-      {/* Base de Conhecimento */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <BookOpen className="w-3 h-3" />
-          Base de Conhecimento
-        </p>
-        {knowledgeHits.length > 0 ? (
-          <div className="flex flex-col gap-1.5">
-            {knowledgeHits.map(({ article }) => (
-              <div key={article.id} className="p-2.5 rounded-lg border border-dashed border-border text-[11px]">
-                <p className="font-semibold text-foreground">{article.title}</p>
-                <p className="text-muted-foreground line-clamp-2">{article.content}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="p-3 rounded-lg border border-dashed border-border text-center">
-            <p className="text-[11px] text-muted-foreground">Nenhum artigo relevante encontrado ainda.</p>
-          </div>
         )}
       </div>
     </div>
