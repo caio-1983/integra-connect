@@ -1,6 +1,7 @@
 import { callModel } from '../runtime/ModelGateway.js';
 import { conversationRepository } from '../persistence/ConversationRepository.js';
 import type { IncomingMessage } from '../types/index.js';
+import { logger } from '../logger/Logger.js';
 
 /** Same shape as the frontend's `ConversationSummary` (src/ai/types/copilot.ts). */
 export interface ConversationSummary {
@@ -19,6 +20,10 @@ const SPEAKER: Record<IncomingMessage['fromType'], string> = {
 };
 
 const MAX_CHARS_PER_MESSAGE = 1000;
+
+// Shown to the attendant — provider errors (e.g. OpenAI 401 echoing part of the key) stay in the server log only.
+const UNAVAILABLE_MESSAGE = 'A Lu está sem acesso à IA no momento — avise o administrador.';
+const INVALID_REPLY_MESSAGE = 'A Lu não conseguiu montar o resumo. Tente de novo.';
 
 const SYSTEM_PROMPT = [
   'Você é a Lu, atendente virtual da Lumina. Sua tarefa agora NÃO é responder o cliente:',
@@ -47,7 +52,7 @@ function buildTranscript(messages: IncomingMessage[]): string {
 function extractJson(raw: string): unknown {
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
-  if (start === -1 || end <= start) throw new Error('A Lu não devolveu um resumo válido.');
+  if (start === -1 || end <= start) throw new Error('no JSON object in model reply');
   return JSON.parse(raw.slice(start, end + 1));
 }
 
@@ -59,18 +64,31 @@ export async function summarizeConversation(conversationId: string): Promise<Con
   const { contactName, messages } = await conversationRepository.getSummaryTranscript(conversationId);
   if (messages.length === 0) throw new Error('Conversa sem mensagens de texto para resumir.');
 
-  const response = await callModel('atendimento', {
-    temperature: 0.2,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: `Cliente: ${contactName ?? 'não identificado'}\n\nConversa (mais antiga → mais recente):\n${buildTranscript(messages)}`,
-      },
-    ],
-  });
+  let response: Awaited<ReturnType<typeof callModel>>;
+  try {
+    response = await callModel('atendimento', {
+      temperature: 0.2,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: `Cliente: ${contactName ?? 'não identificado'}\n\nConversa (mais antiga → mais recente):\n${buildTranscript(messages)}`,
+        },
+      ],
+    });
+  } catch (err) {
+    logger.error({ err, conversationId }, '[summary] model call failed');
+    throw new Error(UNAVAILABLE_MESSAGE);
+  }
 
-  const parsed = extractJson(response.content) as Record<string, unknown>;
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = extractJson(response.content) as Record<string, unknown>;
+  } catch (err) {
+    logger.warn({ err, conversationId, reply: response.content.slice(0, 500) }, '[summary] unparseable model reply');
+    throw new Error(INVALID_REPLY_MESSAGE);
+  }
+
   return {
     motivo: asText(parsed.motivo),
     contexto: asText(parsed.contexto),
