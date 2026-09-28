@@ -10,7 +10,6 @@ import { useSidebar } from '@/components/ui/sidebar';
  * Hierarquia visual (expandido):
  *   1. Logo do cliente        — centralizada, ~40% maior
  *   2. Integra Connect        — nome do produto
- *   3. Plataforma Omnichannel — subtítulo
  *   ── separador ──
  */
 export const SidebarHeader: React.FC = () => {
@@ -44,9 +43,6 @@ export const SidebarHeader: React.FC = () => {
           <div className="flex flex-col items-center gap-0.5 px-2 text-center">
             <span className="text-[13px] font-semibold leading-tight text-foreground">
               Integra Connect
-            </span>
-            <span className="text-[11px] leading-tight text-muted-foreground">
-              Plataforma Omnichannel
             </span>
           </div>
 
