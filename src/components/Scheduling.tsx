@@ -317,6 +317,9 @@ const Scheduling: React.FC = () => {
 
   // --- RENDERERS ---
 
+  // Célula do mês mostra no máximo 2 agendamentos; o resto vira "+N mais" → visão Dia.
+  const MONTH_CELL_MAX_CHIPS = 2;
+
   const renderMonthView = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -329,7 +332,7 @@ const Scheduling: React.FC = () => {
     return (
         <div
             className="grid grid-cols-7 flex-1 min-h-0 overflow-y-auto custom-scrollbar"
-            style={{ gridTemplateRows: `repeat(${weeks}, minmax(96px, 1fr))` }}
+            style={{ gridTemplateRows: `repeat(${weeks}, minmax(116px, 1fr))` }}
         >
             {Array.from({ length: firstDay }).map((_, index) => (
                 <div key={`empty-${index}`} className="border-b border-r border-border/50 bg-background" />
@@ -349,8 +352,11 @@ const Scheduling: React.FC = () => {
                         <span className={`text-sm font-medium w-7 h-7 shrink-0 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/40' : 'text-muted-foreground group-hover:text-foreground'}`}>
                             {day}
                         </span>
-                        <div className="space-y-1 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                            {dayAppointments.map(app => (
+                        <div className="space-y-1 flex-1 min-h-0">
+                            {(dayAppointments.length > MONTH_CELL_MAX_CHIPS
+                              ? dayAppointments.slice(0, MONTH_CELL_MAX_CHIPS)
+                              : dayAppointments
+                            ).map(app => (
                                 <div
                                     key={app.id}
                                     className={`text-[10px] px-2 py-1 rounded border truncate font-medium cursor-pointer relative ${getUserColor(app.user_id).chip} ${app.status === 'completed' ? 'opacity-50 line-through' : ''}`}
@@ -363,6 +369,19 @@ const Scheduling: React.FC = () => {
                                     {app.time} - {app.title}
                                 </div>
                             ))}
+                            {dayAppointments.length > MONTH_CELL_MAX_CHIPS && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCurrentDate(new Date(year, month, day));
+                                        setViewMode('day');
+                                    }}
+                                    className="w-full text-left text-[10px] font-semibold px-2 text-muted-foreground hover:text-foreground hover:underline"
+                                >
+                                    +{dayAppointments.length - MONTH_CELL_MAX_CHIPS} mais
+                                </button>
+                            )}
                         </div>
                     </div>
                 );
