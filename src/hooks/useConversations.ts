@@ -674,6 +674,12 @@ export function useConversations() {
     }
   }, [conversations]);
 
+  // Local-only tag update — contacts has no realtime, so without this a tag
+  // saved from the panel only showed up after a reload.
+  const setConversationTags = useCallback((conversationId: string, tags: string[]) => {
+    setConversations(prev => prev.map(c => (c.id === conversationId ? { ...c, tags } : c)));
+  }, []);
+
   // Append a message without touching Supabase/Edge Functions — used by the
   // Sprint 009 AI simulation loop (customer + AI-generated messages).
   const appendLocalMessage = useCallback((conversationId: string, message: UIMessage) => {
@@ -708,6 +714,7 @@ export function useConversations() {
     setArchived,
     assignConversation,
     appendLocalMessage,
+    setConversationTags,
     refetch: fetchConversations,
     hasMore: cursor !== null,
     loadingMore,

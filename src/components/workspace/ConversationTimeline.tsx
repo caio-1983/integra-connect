@@ -75,10 +75,27 @@ interface ConversationTimelineProps {
   luNote?: { messageId: string; text: string; onOpen?: () => void } | null;
 }
 
+/**
+ * The caption typed with a photo, or '' when there is none. `content` of an
+ * image holds the caption when present, but otherwise a fallback: the
+ * "📷 Imagem" placeholder (inbound), the file name (sent from the platform) or,
+ * on legacy rows, the image URL itself — none of which is a caption.
+ */
+export function imageCaption(msg: UIMessage): string {
+  const text = (msg.content ?? '').trim();
+  if (!text || text === '📷 Imagem' || text === msg.mediaUrl) return '';
+  if (/^https?:\/\/\S+$/i.test(text)) return '';
+  if (/^\S+\.(jpe?g|png|webp|gif|heic|heif)$/i.test(text)) return '';
+  return text;
+}
+
 /** One-line preview of a message, as shown inside a quote or the reply bar. */
 export function messagePreview(msg: UIMessage): string {
   switch (msg.type) {
-    case MessageType.IMAGE: return msg.content ? `📷 ${msg.content}` : '📷 Imagem';
+    case MessageType.IMAGE: {
+      const caption = imageCaption(msg);
+      return caption ? `📷 ${caption}` : '📷 Imagem';
+    }
     case MessageType.AUDIO: return '🎵 Áudio';
     default: return msg.content || 'Mensagem';
   }
@@ -303,7 +320,8 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
         const ChannelIcon = channelCfg.icon;
         const quoted = msg.replyToId ? messagesById.get(msg.replyToId) : undefined;
         const canReply = !!onReply && !msg.id.startsWith('temp-');
-        const bareImage = msg.type === MessageType.IMAGE && !msg.replyToId;
+        const caption = msg.type === MessageType.IMAGE ? imageCaption(msg) : '';
+        const bareImage = msg.type === MessageType.IMAGE && !msg.replyToId && !caption;
         const isText = msg.type !== MessageType.IMAGE && msg.type !== MessageType.AUDIO && !msg.mediaUrl;
         const replyButton = canReply && (
           <button
@@ -389,7 +407,17 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                     <span className="float-right -mb-1 mt-2 ml-2">{meta}</span>
                   </p>
                 ) : (
-                  msg.type === MessageType.AUDIO ? renderMessageContent(msg, meta) : (
+                  msg.type === MessageType.AUDIO ? renderMessageContent(msg, meta) : caption ? (
+                    <>
+                      {renderMessageContent(msg)}
+                      {/* Photo caption, laid out like a text bubble (time floats after the last line). */}
+                      <p className="whitespace-pre-wrap break-words px-1 pt-1.5 pb-1">
+                        {linkify(caption)}
+                        <span className="inline-block w-16" aria-hidden="true" />
+                        <span className="float-right -mb-1 mt-2 ml-2">{meta}</span>
+                      </p>
+                    </>
+                  ) : (
                     <>
                       {renderMessageContent(msg)}
                       <div className={cn('flex justify-end', bareImage ? 'absolute right-2.5 bottom-2.5' : 'mt-1 px-1')}>

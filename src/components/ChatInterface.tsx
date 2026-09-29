@@ -23,7 +23,7 @@ import {
 import type { QueueFilter } from './workspace';
 
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, markAsUnread, setArchived, assignConversation, appendLocalMessage, refetch, hasMore, loadingMore, loadMore } = useConversations();
+  const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, markAsUnread, setArchived, assignConversation, appendLocalMessage, setConversationTags, refetch, hasMore, loadingMore, loadMore } = useConversations();
   const { sdrName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
   const { grantsByInstance } = useInstanceAccessGrants();
@@ -135,10 +135,12 @@ const ChatInterface: React.FC = () => {
     const updated = current.includes(tagKey)
       ? current.filter(t => t !== tagKey)
       : [...current, tagKey];
+    setConversationTags(activeChat.id, updated); // optimistic
     try {
       await api.updateContactTags(activeChat.contactId, updated);
       toast.success('Tag atualizada');
     } catch {
+      setConversationTags(activeChat.id, current); // revert
       toast.error('Erro ao atualizar tag');
     }
   };

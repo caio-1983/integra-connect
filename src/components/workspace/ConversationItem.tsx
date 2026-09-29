@@ -8,6 +8,7 @@ import { MessageType, UIConversation, ConversationStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { AttendantTag } from './AttendantTag';
+import { messagePreview } from './ConversationTimeline';
 
 interface ConversationItemProps {
   conversation: UIConversation;
@@ -37,9 +38,10 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
   const channelCfg = CHANNEL_CONFIG[conversation.primaryChannel];
   const ChannelIcon = channelCfg.icon;
 
-  const lastMsgType = conversation.messages[conversation.messages.length - 1]?.type;
+  const lastMsg = conversation.messages[conversation.messages.length - 1];
+  const lastMsgType = lastMsg?.type;
   const lastMsgPreview =
-    lastMsgType === MessageType.IMAGE ? '📷 Imagem' :
+    lastMsgType === MessageType.IMAGE ? messagePreview(lastMsg) :
     lastMsgType === MessageType.AUDIO ? '🎵 Áudio' :
     conversation.lastMessage || 'Sem mensagens';
 
@@ -48,7 +50,6 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
   // almost every conversation is WhatsApp — repeating either on every row is noise.
   const showStatus = conversation.status !== 'human';
   const showChannel = conversation.primaryChannel !== 'whatsapp';
-  const lastMsg = conversation.messages[conversation.messages.length - 1];
   const isWaiting = !!lastMsg && lastMsg.fromType === 'user';
 
   return (
