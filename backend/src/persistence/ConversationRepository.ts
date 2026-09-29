@@ -764,11 +764,13 @@ class ConversationRepository {
       .from('messages')
       .select('content, from_type, sent_at')
       .eq('conversation_id', conversationId)
-      .order('sent_at', { ascending: true })
+      .order('sent_at', { ascending: false })
       .limit(limit);
 
     if (error || !data) return [];
+    // Newest `limit` messages, back in chronological order (it used to take the oldest).
     return data
+      .reverse()
       .filter((m) => typeof m.content === 'string' && m.content.length > 0)
       .map((m) => ({ fromType: m.from_type as IncomingMessage['fromType'], content: m.content as string }));
   }

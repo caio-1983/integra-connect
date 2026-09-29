@@ -1,5 +1,6 @@
 import { aiEventBus, type AppEvent } from '../runtime/EventBus.js';
 import { logger } from '../logger/Logger.js';
+import { configService } from '../config/ConfigService.js';
 import { conversationRepository } from '../persistence/ConversationRepository.js';
 import { getConnector } from '../channels/connectorRegistry.js';
 import { applySignature } from '../channels/outboundSignature.js';
@@ -16,6 +17,10 @@ import {
 } from '../channels/channelEvents.js';
 
 const AGENT_ID = 'atendimento';
+
+function aiAutoreplyEnabled(): boolean {
+  return (configService.get('AI_AUTOREPLY') ?? '').toLowerCase() === 'true';
+}
 
 /**
  * The channel-agnostic conversation use-case (Ajuste 3). Subscribes to the
@@ -84,6 +89,14 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
 
   // Fase 5 (minimal): only the autonomous mode auto-replies. A human/paused
   // conversation is persisted (now live in the inbox) but the AI stays silent.
+  // Kill switch: Lu only replies on her own when AI_AUTOREPLY=true, whatever the
+  // conversation's stored mode. Lets OPENAI_API_KEY stay set for the copilot
+  // features (suggestion, summary, ficha) without the AI messaging customers.
+  if (!aiAutoreplyEnabled()) {
+    logger.info({ conversationId }, '[conversation] inbound persisted; AI auto-reply disabled (AI_AUTOREPLY != true)');
+    return;
+  }
+
   const mode = await conversationRepository.getConversationMode(conversationId);
   if (mode !== 'autonomous') {
     logger.info({ conversationId, mode }, '[conversation] inbound persisted; AI silent (mode != autonomous)');
