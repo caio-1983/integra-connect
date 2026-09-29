@@ -8,3 +8,4 @@ export * from './copilot';
 export * from './handoff';
 export * from './session';
 export * from './events';
+export * from './insight';

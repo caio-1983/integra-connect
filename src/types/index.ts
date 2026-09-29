@@ -401,6 +401,8 @@ export interface UIMessage {
   id: string;
   content: string;
   timestamp: string;
+  /** Raw ISO send time (`messages.sent_at`) — for durations like "waiting for 2h". */
+  sentAt?: string;
   direction: MessageDirection;
   type: MessageType;
   status: 'sent' | 'delivered' | 'read';
@@ -466,6 +468,7 @@ export function transformDBToUIMessage(msg: DBMessage): UIMessage {
     id: msg.id,
     content: msg.content || '',
     timestamp: formatMessageTime(msg.sent_at),
+    sentAt: msg.sent_at,
     direction: msg.from_type === 'user' ? MessageDirection.INCOMING : MessageDirection.OUTGOING,
     type: mapDBMessageType(msg.type),
     status: mapDBMessageStatus(msg.status),
@@ -597,6 +600,29 @@ export interface ContactTask {
   dueDate?: string;
   assigneeId?: string;
   assigneeName?: string;
+}
+
+/** A task of the logged-in attendant — assigned to them, or created by them for someone else. */
+export interface MyTask extends ContactTask {
+  /** False for a task the attendant delegated (or left without an assignee). */
+  assignedToMe: boolean;
+  contactId: string | null;
+  contactName: string;
+  /** Who created it — "você" when it's the attendant themself. */
+  createdByName: string | null;
+  updatedAt: string;
+}
+
+/** A task with a due date, as the Agenda shows it (all-day, colored by assignee). */
+export interface ScheduledTask {
+  id: string;
+  title: string;
+  status: 'pending' | 'done';
+  dueDate: string;
+  /** auth user id of the assignee — the Agenda colors people by it. */
+  assigneeUserId?: string;
+  assigneeName?: string;
+  contactName: string;
 }
 
 export type TimelineEntryType =

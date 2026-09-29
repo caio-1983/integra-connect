@@ -7,7 +7,7 @@ const CONFIG: AgentConfig = {
   description: 'Resolve dúvidas técnicas e problemas de uso da plataforma.',
   status: 'draft',
   priority: 3,
-  modelId: 'gpt-4.1',
+  modelId: 'gpt-4.1-mini',
   toolIds: ['knowledge_search', 'workflow_trigger'],
   knowledgeSourceIds: ['faq'],
   temperature: 0.7,

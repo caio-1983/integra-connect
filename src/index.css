@@ -220,3 +220,59 @@
 *:focus-visible {
   @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
 }
+
+/* Chat wall — WhatsApp's own tones (beige #efeae2 / #0b141a) with small,
+   dense, low-contrast doodles so the repeat isn't noticed. Fixed colors on
+   purpose: the chat should read as WhatsApp in every palette. The SVG is only
+   a mask for the doodle color. Sits on a non-scrolling wrapper so the pattern
+   covers the whole area however far the timeline scrolls. The --wa-* vars
+   color the bubbles inside it. */
+.chat-wall {
+  position: relative;
+  background-color: #efeae2;
+  --wa-in: #ffffff;
+  --wa-out: #d9fdd3;
+  --wa-text: #111b21;
+  --wa-meta: #667781;
+}
+.chat-wall::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-color: #e3dcd1;
+  -webkit-mask: url('./assets/chat-wall.svg') repeat;
+  mask: url('./assets/chat-wall.svg') repeat;
+  -webkit-mask-size: 420px 420px;
+  mask-size: 420px 420px;
+}
+.dark .chat-wall {
+  background-color: #0b141a;
+  --wa-in: #202c33;
+  --wa-out: #005c4b;
+  --wa-text: #e9edef;
+  --wa-meta: #8696a0;
+}
+.dark .chat-wall::before {
+  background-color: #141f26;
+}
+
+/* The little "tail" on the first bubble of each side's run, like WhatsApp. */
+.wa-tail-in::before,
+.wa-tail-out::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  width: 8px;
+  height: 13px;
+}
+.wa-tail-in::before {
+  left: -8px;
+  background: var(--wa-in);
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
+}
+.wa-tail-out::before {
+  right: -8px;
+  background: var(--wa-out);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}

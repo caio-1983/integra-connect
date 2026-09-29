@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Plus, Loader2, X, Check, UserCircle, CalendarClock } from 'lucide-react';
+import { Plus, Loader2, X, Check, UserCircle, CalendarClock, Trash2 } from 'lucide-react';
 import { ContactTask, TeamMember } from '@/types';
 import { api } from '@/services/api';
 import { cn } from '@/lib/utils';
@@ -24,6 +24,8 @@ export const TarefasBlock: React.FC<TarefasBlockProps> = ({ contactId, teamMembe
   const [title, setTitle] = useState('');
   const [assigneeId, setAssigneeId] = useState('');
   const [dueDate, setDueDate] = useState('');
+  // Deleting asks once more inline ("Excluir?") — a stray click shouldn't lose a task.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +63,18 @@ export const TarefasBlock: React.FC<TarefasBlockProps> = ({ contactId, teamMembe
     } catch {
       setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: task.status } : t)); // revert
       toast.error('Erro ao atualizar tarefa');
+    }
+  };
+
+  const remove = async (task: ContactTask) => {
+    setConfirmDeleteId(null);
+    setTasks(prev => prev.filter(t => t.id !== task.id)); // optimistic
+    try {
+      await api.deleteTask(task.id);
+      toast.success('Tarefa excluída');
+    } catch {
+      toast.error('Erro ao excluir tarefa');
+      await load();
     }
   };
 
@@ -160,6 +174,32 @@ export const TarefasBlock: React.FC<TarefasBlockProps> = ({ contactId, teamMembe
                   )}
                 </div>
               </div>
+              {confirmDeleteId === task.id ? (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => remove(task)}
+                    className="px-2 py-1 rounded-md bg-destructive text-destructive-foreground text-[11px] font-semibold hover:bg-destructive/90"
+                  >
+                    Excluir
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    aria-label="Cancelar exclusão"
+                    className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setConfirmDeleteId(task.id)}
+                  aria-label={`Excluir tarefa: ${task.title}`}
+                  title="Excluir tarefa"
+                  className="p-1 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors flex-shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>

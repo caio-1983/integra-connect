@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Info, ArrowRightLeft, CheckCircle, Tag, CalendarClock, TrendingUp, MailX } from 'lucide-react';
+import React from 'react';
+import { Info, ArrowRightLeft, MailX, MoreVertical } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface TeamMemberOption {
   /** team_members.id — what onTransfer sends, and what deals.owner_id stores. */
@@ -14,91 +16,67 @@ interface TeamMemberOption {
 interface WorkspaceActionsProps {
   showCustomerPanel: boolean;
   onToggleCustomerPanel: () => void;
+  /** Members who can see this conversation's number — the only valid transfer targets. */
   teamMembers: TeamMemberOption[];
   assignedUserId?: string | null;
   onTransfer: (userId: string) => void;
   onMarkAsUnread: () => void;
 }
 
-/** Atendente pode transferir a conversa pra qualquer outro membro da equipe. */
-const TransferPopover: React.FC<{
-  teamMembers: TeamMemberOption[];
-  assignedUserId?: string | null;
-  onTransfer: (userId: string) => void;
-}> = ({ teamMembers, assignedUserId, onTransfer }) => {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          title="Transferir conversa"
-          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <ArrowRightLeft className="w-3.5 h-3.5" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-64 p-2">
-        <p className="text-xs font-bold text-foreground uppercase tracking-wider px-2 pt-1 pb-2">Transferir para</p>
-        <div className="flex flex-col gap-0.5 max-h-64 overflow-y-auto">
-          {teamMembers.length === 0 && (
-            <p className="text-xs text-muted-foreground px-2.5 py-2">Nenhum membro disponível.</p>
-          )}
-          {teamMembers.map((member) => (
-            <button
-              key={member.id}
-              type="button"
-              onClick={() => { onTransfer(member.id); setOpen(false); }}
-              className={cn(
-                'text-left text-sm px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors',
-                // assignedUserId is an auth id, member.id is a team_members id —
-                // comparing them directly never matched. Match on user_id.
-                member.user_id && member.user_id === assignedUserId ? 'text-primary font-medium' : 'text-foreground',
-              )}
-            >
-              {member.name}
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-};
+// WhatsApp-style header actions: Detalhes as a round icon, the rest in ⋮.
+// Transfer lives in the menu (each attendant usually has their own number, so
+// it's rare) and only shows when someone else can actually receive it. The
+// disabled "Em breve" placeholders (Finalizar, Etiquetas, Agendar retorno,
+// Criar oportunidade) were removed.
+const ICON_BUTTON = 'w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors';
+const ITEM = 'gap-3 py-2.5 px-3 text-sm rounded-lg';
 
 const WorkspaceActions: React.FC<WorkspaceActionsProps> = ({
   showCustomerPanel, onToggleCustomerPanel, teamMembers, assignedUserId, onTransfer, onMarkAsUnread,
 }) => {
+  // assignedUserId is an auth id, member.id a team_members id — match on user_id.
+  const transferTargets = teamMembers.filter((m) => !(m.user_id && m.user_id === assignedUserId));
+
   return (
-    <div className="flex items-center gap-1.5 flex-shrink-0">
-      <TransferPopover teamMembers={teamMembers} assignedUserId={assignedUserId} onTransfer={onTransfer} />
+    <div className="flex items-center gap-1 flex-shrink-0">
       <button
         type="button"
-        onClick={onMarkAsUnread}
-        title="Marcar como não lida"
-        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-      >
-        <MailX className="w-3.5 h-3.5" />
-      </button>
-      <button disabled title="Em breve: Finalizar"          className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><CheckCircle    className="w-3.5 h-3.5" /></button>
-      <button disabled title="Em breve: Etiquetas"          className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><Tag            className="w-3.5 h-3.5" /></button>
-      <button disabled title="Em breve: Agendar retorno"    className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><CalendarClock  className="w-3.5 h-3.5" /></button>
-      <button disabled title="Em breve: Criar oportunidade" className="p-1.5 rounded-lg text-muted-foreground/30 cursor-not-allowed"><TrendingUp     className="w-3.5 h-3.5" /></button>
-
-      <div className="w-px h-5 bg-border" />
-
-      <button
         onClick={onToggleCustomerPanel}
-        title="Workspace do cliente"
-        className={cn(
-          'p-1.5 rounded-lg transition-colors',
-          showCustomerPanel
-            ? 'bg-muted text-primary'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted',
-        )}
+        title={showCustomerPanel ? 'Fechar detalhes' : 'Detalhes do contato'}
+        aria-label={showCustomerPanel ? 'Fechar detalhes' : 'Detalhes do contato'}
+        aria-pressed={showCustomerPanel}
+        className={cn(ICON_BUTTON, showCustomerPanel && 'bg-muted text-foreground')}
       >
-        <Info className="w-3.5 h-3.5" />
+        <Info className="w-5 h-5" />
       </button>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" title="Mais opções" aria-label="Mais opções" className={cn(ICON_BUTTON, 'data-[state=open]:bg-muted')}>
+            <MoreVertical className="w-5 h-5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-60 rounded-xl p-1.5">
+          <DropdownMenuItem className={ITEM} onSelect={() => onMarkAsUnread()}>
+            <MailX className="h-[18px] w-[18px] text-muted-foreground" /> Marcar como não lida
+          </DropdownMenuItem>
+          {transferTargets.length > 0 && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground flex items-center gap-2">
+                <ArrowRightLeft className="h-3.5 w-3.5" /> Transferir para
+              </DropdownMenuLabel>
+              <div className="max-h-56 overflow-y-auto">
+                {transferTargets.map((member) => (
+                  <DropdownMenuItem key={member.id} className={cn(ITEM, 'pl-9')} onSelect={() => onTransfer(member.id)}>
+                    {member.name}
+                  </DropdownMenuItem>
+                ))}
+              </div>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 };

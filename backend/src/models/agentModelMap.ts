@@ -7,8 +7,8 @@ import type { AgentId, AIModel } from '../types/index.js';
  */
 export const AGENT_MODEL_MAP: Record<AgentId, AIModel> = {
   atendimento: {
-    id: 'gpt-4.1',
-    name: 'GPT-4.1',
+    id: 'gpt-4.1-mini',
+    name: 'GPT-4.1 mini',
     provider: 'openai',
     supportsTools: true,
     supportsVision: true,
@@ -16,10 +16,10 @@ export const AGENT_MODEL_MAP: Record<AgentId, AIModel> = {
     supportsStreaming: true,
     contextWindow: 128000,
   },
-  recepcao: { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'openai', supportsTools: true, supportsVision: true, supportsEmbeddings: true, supportsStreaming: true, contextWindow: 128000 },
-  comercial: { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'openai', supportsTools: true, supportsVision: true, supportsEmbeddings: true, supportsStreaming: true, contextWindow: 128000 },
-  financeiro: { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'openai', supportsTools: true, supportsVision: true, supportsEmbeddings: true, supportsStreaming: true, contextWindow: 128000 },
-  suporte: { id: 'gpt-4.1', name: 'GPT-4.1', provider: 'openai', supportsTools: true, supportsVision: true, supportsEmbeddings: true, supportsStreaming: true, contextWindow: 128000 },
+  recepcao: { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', provider: 'openai', supportsTools: true, supportsVision: true, supportsEmbeddings: true, supportsStreaming: true, contextWindow: 128000 },
+  comercial: { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', provider: 'openai', supportsTools: true, supportsVision: true, supportsEmbeddings: true, supportsStreaming: true, contextWindow: 128000 },
+  financeiro: { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', provider: 'openai', supportsTools: true, supportsVision: true, supportsEmbeddings: true, supportsStreaming: true, contextWindow: 128000 },
+  suporte: { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', provider: 'openai', supportsTools: true, supportsVision: true, supportsEmbeddings: true, supportsStreaming: true, contextWindow: 128000 },
 };
 
 export function resolveModelForAgent(agentId: AgentId): AIModel {

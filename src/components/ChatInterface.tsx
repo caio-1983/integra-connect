@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Loader2, MessageSquare } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { TagDefinition, UIMessage } from '../types';
 import { messageAuthor, messagePreview } from './workspace/ConversationTimeline';
 import { useConversations } from '../hooks/useConversations';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { useInstanceAccessGrants } from '@/hooks/useInstanceAccessGrants';
 import { useAgentRuntime } from '@/ai/hooks/useAgentRuntime';
+import { useConversationInsight } from '@/ai/hooks/useConversationInsight';
+import { useMyTasks } from '@/hooks/useMyTasks';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
 import {
@@ -15,18 +17,23 @@ import {
   MessageComposer,
   CustomerWorkspace,
   NewConversationDialog,
+  LuSuggestionCard,
+  ChatHome,
 } from './workspace';
+import type { QueueFilter } from './workspace';
 
 const ChatInterface: React.FC = () => {
   const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, markAsUnread, setArchived, assignConversation, appendLocalMessage, refetch } = useConversations();
-  const { sdrName, companyName } = useCompanySettings();
+  const { sdrName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
   const { grantsByInstance } = useInstanceAccessGrants();
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [newConversationOpen, setNewConversationOpen] = useState(false);
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
+  const { tasks: myTasks, setDone: setTaskDone, badgeByContact } = useMyTasks();
   const [inputText, setInputText] = useState('');
-  const [showCustomerWorkspace, setShowCustomerWorkspace] = useState(true);
+  const [showCustomerWorkspace, setShowCustomerWorkspace] = useState(false);
   const [availableTags, setAvailableTags] = useState<TagDefinition[]>([]);
   const [isTagSelectorOpen, setIsTagSelectorOpen] = useState(false);
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
@@ -35,6 +42,7 @@ const ChatInterface: React.FC = () => {
   const [replyingTo, setReplyingTo] = useState<UIMessage | null>(null);
 
   const activeChat = conversations.find(c => c.id === selectedChatId);
+  const { insight, loading: insightLoading, error: insightError, regenerate } = useConversationInsight(activeChat);
 
   // Only offer transfer/assign targets who can actually see this conversation:
   // access now applies to every role (admin/manager included), so a target is
@@ -101,6 +109,7 @@ const ChatInterface: React.FC = () => {
   useEffect(() => {
     if (activeChat) setNotesValue(activeChat.notes || '');
     setReplyingTo(null); // a pending reply belongs to the conversation it was started in
+    setShowCustomerWorkspace(false); // each conversation opens with Detalhes closed
   }, [activeChat?.id]);
 
   useEffect(() => {
@@ -199,6 +208,9 @@ const ChatInterface: React.FC = () => {
         onMarkAsUnread={handleMarkAsUnread}
         onMarkAsRead={markAsRead}
         onSetArchived={setArchived}
+        activeFilter={queueFilter}
+        onFilterChange={setQueueFilter}
+        taskBadgeByContact={badgeByContact}
       />
 
       <NewConversationDialog
@@ -236,7 +248,8 @@ const ChatInterface: React.FC = () => {
             }}
           />
 
-          <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar relative z-0">
+          <div className="chat-wall flex-1 min-h-0 z-0">
+          <div className="absolute inset-0 overflow-y-auto px-6 lg:px-12 xl:px-16 py-4 custom-scrollbar">
             <ConversationTimeline
               messages={activeChat.messages}
               messagesEndRef={messagesEndRef}
@@ -244,8 +257,23 @@ const ChatInterface: React.FC = () => {
               isGroup={activeChat.isGroup}
               contactName={activeChat.contactName}
               onReply={setReplyingTo}
+              luNote={insight && insight.annotation ? {
+                messageId: insight.basedOnMessageId,
+                text: insight.annotation,
+                onOpen: () => setShowCustomerWorkspace(true),
+              } : null}
             />
           </div>
+          </div>
+
+          <LuSuggestionCard
+            insight={insight}
+            loading={insightLoading}
+            error={insightError}
+            onSend={(text) => sendMessage(activeChat.id, text)}
+            onEdit={(text) => setInputText(text)}
+            onRegenerate={regenerate}
+          />
 
           <MessageComposer
             value={inputText}
@@ -262,32 +290,16 @@ const ChatInterface: React.FC = () => {
           />
         </div>
       ) : (
-        /* Empty state */
-        <div className="flex-1 flex flex-col items-center justify-center bg-background relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-100/20 to-transparent pointer-events-none" />
-          <div className="relative z-10 flex flex-col items-center p-8 text-center max-w-sm">
-            <div className="w-18 h-18 relative mb-6">
-              <div className="absolute inset-0 bg-primary/10 rounded-full blur-xl" />
-              <div className="relative w-[72px] h-[72px] bg-card rounded-full flex items-center justify-center border border-border shadow-sm">
-                <MessageSquare className="w-8 h-8 text-primary" />
-              </div>
-            </div>
-            <h2 className="text-lg font-bold text-foreground mb-2">{companyName} Workspace</h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              {conversations.length === 0
-                ? 'Aguardando novas conversas.'
-                : 'Selecione uma conversa para iniciar o atendimento.'}
-            </p>
-            <div className="mt-6 flex gap-3 text-xs text-muted-foreground bg-card px-4 py-2 rounded-lg border border-border">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                {sdrName} Online
-              </span>
-              <span className="w-px h-4 bg-border" />
-              <span>{conversations.length} conversa{conversations.length !== 1 ? 's' : ''}</span>
-            </div>
-          </div>
-        </div>
+        /* Início: o que fazer em seguida (próximo da fila, atalhos, Lu, números) */
+        <ChatHome
+          conversations={conversations}
+          sdrName={sdrName}
+          onOpenConversation={setSelectedChatId}
+          onApplyFilter={setQueueFilter}
+          onNewConversation={() => setNewConversationOpen(true)}
+          tasks={myTasks}
+          onToggleTask={setTaskDone}
+        />
       )}
 
       {/* Coluna 3 — Workspace do Cliente */}
@@ -296,6 +308,7 @@ const ChatInterface: React.FC = () => {
           conversation={activeChat}
           sdrName={sdrName}
           teamMembers={eligibleTeamMembers}
+          allTeamMembers={teamMembers}
           availableTags={availableTags}
           isTagSelectorOpen={isTagSelectorOpen}
           setIsTagSelectorOpen={setIsTagSelectorOpen}
@@ -305,7 +318,8 @@ const ChatInterface: React.FC = () => {
           onToggleTag={handleToggleTag}
           onCreateTag={handleCreateTag}
           onNotesBlur={handleNotesBlur}
-          onInsertToComposer={(text) => setInputText(text)}
+          insight={insight}
+          insightLoading={insightLoading}
           onAssignUser={async (userId) => {
             try {
               await assignConversation(activeChat.id, userId);

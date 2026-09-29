@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, FileText, Loader2 } from 'lucide-react';
+import { Clock, Loader2 } from 'lucide-react';
 import { UIConversation } from '@/types';
 
 interface HistoryCardProps {
@@ -23,13 +23,15 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
     <div className="flex flex-col gap-4 px-4">
       {/* Notes */}
       <div className="space-y-2">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <FileText className="w-3 h-3" />
-          Observações
-          {isSavingNotes && <Loader2 className="w-3 h-3 animate-spin text-primary ml-auto" />}
-        </p>
+        {/* The collapsed row above already titles this block "Observações". */}
+        {isSavingNotes && (
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+            <Loader2 className="w-3 h-3 animate-spin text-primary" /> Salvando…
+          </p>
+        )}
         <textarea
           className="w-full bg-background border border-border rounded-lg p-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:ring-1 focus:ring-ring/50 focus:border-ring/50 outline-none resize-none transition-all"
+          aria-label="Observações"
           rows={4}
           placeholder="Adicione observações sobre este contato..."
           value={notesValue}

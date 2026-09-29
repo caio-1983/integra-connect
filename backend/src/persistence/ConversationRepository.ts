@@ -330,6 +330,8 @@ class ConversationRepository {
     const put = (key: string, value?: string) => { if (value) sourceRaw[key] = value; };
     put('ad_id', attribution.adId);
     put('ad_title', attribution.adTitle);
+    put('ad_url', attribution.adUrl);
+    put('ad_source_app', attribution.adSourceApp);
     put('ctwa_clid', attribution.ctwaClid);
     put('meta_campaign_name', attribution.metaCampaignName);
     put('ref', attribution.ref);
@@ -350,6 +352,60 @@ class ConversationRepository {
       }, { onConflict: 'contact_id', ignoreDuplicates: true });
 
     if (error) logger.warn({ contactId, err: error.message }, '[repo] failed to record lead attribution');
+  }
+
+  /**
+   * Backfill source: WhatsApp 1:1 conversations opened since `sinceIso` whose
+   * contact has no attribution yet, each with its first inbound message's
+   * provider id — the key to look the original payload up in Evolution's store.
+   * Paged because supabase-js caps a select at 1000 rows.
+   */
+  async listUnattributedFirstInbound(sinceIso: string): Promise<Array<{ contactId: string; instance: string; providerMessageId: string }>> {
+    const supabase = getSupabase();
+    const PAGE = 500;
+    const conversations: Array<{ id: string; contact_id: string; metadata: Record<string, any> | null }> = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('id, contact_id, metadata')
+        .gte('created_at', sinceIso)
+        .order('created_at')
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(`[repo] listUnattributedFirstInbound: ${error.message}`);
+      conversations.push(...(data ?? []));
+      if (!data || data.length < PAGE) break;
+    }
+
+    const candidates = conversations.filter((c) => c.metadata?.provider === 'evolution' && c.metadata?.instance);
+    const attributed = new Set<string>();
+    const contactIds = [...new Set(candidates.map((c) => c.contact_id))];
+    for (let i = 0; i < contactIds.length; i += 200) {
+      const { data, error } = await supabase
+        .from('contact_attribution')
+        .select('contact_id')
+        .in('contact_id', contactIds.slice(i, i + 200));
+      if (error) throw new Error(`[repo] listUnattributedFirstInbound: ${error.message}`);
+      for (const row of data ?? []) attributed.add(row.contact_id);
+    }
+
+    const result: Array<{ contactId: string; instance: string; providerMessageId: string }> = [];
+    const seen = new Set<string>();
+    for (const conv of candidates) {
+      if (attributed.has(conv.contact_id) || seen.has(conv.contact_id)) continue;
+      const { data } = await supabase
+        .from('messages')
+        .select('whatsapp_message_id')
+        .eq('conversation_id', conv.id)
+        .eq('from_type', 'user')
+        .not('whatsapp_message_id', 'is', null)
+        .order('created_at')
+        .limit(1)
+        .maybeSingle();
+      if (!data?.whatsapp_message_id) continue;
+      seen.add(conv.contact_id);
+      result.push({ contactId: conv.contact_id, instance: String(conv.metadata!.instance), providerMessageId: data.whatsapp_message_id });
+    }
+    return result;
   }
 
   /**
@@ -689,6 +745,60 @@ class ConversationRepository {
         .map((m) => ({ fromType: m.from_type as IncomingMessage['fromType'], content: m.content as string }));
 
     return { contactName: contact?.name || contact?.call_name || null, messages };
+  }
+
+  /**
+   * Latest `limit` messages (text only in `messages`, chronological) plus the id
+   * and sender of the very last message of any type — the cache key and the
+   * "is the customer waiting?" signal for Lu's insight.
+   */
+  async getInsightInput(conversationId: string, limit = 30): Promise<{
+    contactName: string | null;
+    messages: IncomingMessage[];
+    lastMessageId: string | null;
+    lastFromType: IncomingMessage['fromType'] | null;
+  }> {
+    const supabase = getSupabase();
+    const [{ data: conv }, { data, error }] = await Promise.all([
+      supabase.from('conversations').select('contacts(name, call_name)').eq('id', conversationId).maybeSingle(),
+      supabase
+        .from('messages')
+        .select('id, content, from_type, sent_at')
+        .eq('conversation_id', conversationId)
+        .order('sent_at', { ascending: false })
+        .limit(limit),
+    ]);
+
+    const contact = (conv as { contacts?: { name?: string | null; call_name?: string | null } | null } | null)?.contacts;
+    const rows = error || !data ? [] : data;
+    const last = rows[0];
+    return {
+      contactName: contact?.name || contact?.call_name || null,
+      messages: rows
+        .filter((m) => typeof m.content === 'string' && m.content.length > 0)
+        .reverse()
+        .map((m) => ({ fromType: m.from_type as IncomingMessage['fromType'], content: m.content as string })),
+      lastMessageId: (last?.id as string | undefined) ?? null,
+      lastFromType: (last?.from_type as IncomingMessage['fromType'] | undefined) ?? null,
+    };
+  }
+
+  async getCachedInsight(conversationId: string): Promise<{ lastMessageId: string; payload: unknown } | null> {
+    const supabase = getSupabase();
+    const { data } = await supabase
+      .from('conversation_insights')
+      .select('last_message_id, payload')
+      .eq('conversation_id', conversationId)
+      .maybeSingle();
+    return data ? { lastMessageId: data.last_message_id as string, payload: data.payload } : null;
+  }
+
+  async saveInsight(conversationId: string, lastMessageId: string, payload: unknown): Promise<void> {
+    const supabase = getSupabase();
+    const { error } = await supabase
+      .from('conversation_insights')
+      .upsert({ conversation_id: conversationId, last_message_id: lastMessageId, payload, created_at: new Date().toISOString() });
+    if (error) logger.warn({ conversationId, err: error.message }, '[repo] failed to cache insight');
   }
 
   async getConversationMode(conversationId: string): Promise<ConversationMode> {

@@ -50,6 +50,10 @@ export interface InboundAttribution {
   /** Meta ad id: `externalAdReply.sourceId` on WhatsApp, `referral.ad_id` on Meta. */
   adId?: string;
   adTitle?: string;
+  /** Link to the ad's post — lets a person identify the ad without Ads Manager access. */
+  adUrl?: string;
+  /** Where the ad ran: 'facebook' | 'instagram'. */
+  adSourceApp?: string;
   /** Click-to-WhatsApp click id — the join key back to Meta Ads reporting. */
   ctwaClid?: string;
   metaCampaignName?: string;

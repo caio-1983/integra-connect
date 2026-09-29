@@ -265,6 +265,18 @@ export class EvolutionClient {
     }
   }
 
+  /** POST /chat/findMessages/{instance} filtered by provider message id — v2's
+   * own message store, which keeps `contextInfo` (confirmed live 2026-09-28).
+   * Returns the stored record (`key`, `message`, `contextInfo`, ...) or null. */
+  async findMessageById(instanceName: string, messageId: string): Promise<Record<string, any> | null> {
+    const res = await this.request<{ messages?: { records?: Record<string, any>[] } }>(
+      'POST',
+      `/chat/findMessages/${encodeURIComponent(instanceName)}`,
+      { where: { key: { id: messageId } } },
+    );
+    return res?.messages?.records?.[0] ?? null;
+  }
+
   /** POST /chat/findContacts/{instance} — v2 only (not in the official OpenAPI
    * spec; confirmed via Evolution's own docs/GitHub issues). Returns every
    * contact Baileys has synced from the connected phone's address book. */

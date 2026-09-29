@@ -6,6 +6,8 @@ import {
   Appointment,
   Deal,
   ContactTask,
+  MyTask,
+  ScheduledTask,
   DBConversation,
   DBMessage,
   UIConversation,
@@ -13,6 +15,7 @@ import {
   InstanceAccessGrant,
   LossReason
 } from '../types';
+import { contactDisplayName } from '@/lib/utils';
 
 // Helper function to get current user ID
 const getCurrentUserId = async (): Promise<string> => {
@@ -767,6 +770,82 @@ export const api = {
     });
     if (error) {
       console.error('[API] Error creating task:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Tasks assigned to the logged-in attendant: every pending one, plus those
+   * completed today (they stay visible, struck through, until the next day) —
+   * plus the ones they created for someone else (or for no one), so whoever
+   * delegates can follow up. `assignee_id` is a team_members.id, so the auth
+   * user is resolved to their member row first.
+   */
+  fetchMyTasks: async (): Promise<MyTask[]> => {
+    const userId = await getCurrentUserId().catch(() => null);
+    if (!userId) return [];
+    const { data: members } = await supabase.from('team_members').select('id, name, user_id');
+    const me = (members || []).find((m) => m.user_id === userId);
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const mine = me ? `assignee_id.eq.${me.id},user_id.eq.${userId}` : `user_id.eq.${userId}`;
+    const { data, error } = await (supabase as any)
+      .from('tasks')
+      .select('id, title, status, due_date, assignee_id, user_id, updated_at, contact_id, contact:contacts(name, call_name, phone_number)')
+      .or(mine)
+      .or(`status.eq.pending,updated_at.gte.${startOfToday.toISOString()}`)
+      .order('due_date', { ascending: true, nullsFirst: false });
+
+    if (error) {
+      console.error('[API] Error fetching my tasks:', error);
+      return [];
+    }
+
+    const nameByUser = new Map((members || []).filter((m) => m.user_id).map((m) => [m.user_id as string, m.name as string]));
+    const nameByMember = new Map((members || []).map((m) => [m.id as string, m.name as string]));
+    return ((data || []) as any[]).map((t) => ({
+      id: t.id as string,
+      title: t.title as string,
+      status: (t.status as 'pending' | 'done') ?? 'pending',
+      dueDate: (t.due_date as string) ?? undefined,
+      assigneeId: (t.assignee_id as string) ?? undefined,
+      assigneeName: t.assignee_id ? nameByMember.get(t.assignee_id) : undefined,
+      assignedToMe: !!me && t.assignee_id === me.id,
+      contactId: (t.contact_id as string) ?? null,
+      contactName: contactDisplayName(t.contact?.name || t.contact?.call_name, t.contact?.phone_number, 'Contato'),
+      createdByName: t.user_id === userId ? 'você' : nameByUser.get(t.user_id) ?? null,
+      updatedAt: t.updated_at as string,
+    }));
+  },
+
+  /** Every task with a due date — shown on the Agenda next to the appointments. */
+  fetchScheduledTasks: async (): Promise<ScheduledTask[]> => {
+    const { data, error } = await (supabase as any)
+      .from('tasks')
+      .select('id, title, status, due_date, assignee:team_members(name, user_id), contact:contacts(name, call_name, phone_number)')
+      .not('due_date', 'is', null);
+
+    if (error) {
+      console.error('[API] Error fetching scheduled tasks:', error);
+      return [];
+    }
+
+    return ((data || []) as any[]).map((t) => ({
+      id: t.id as string,
+      title: t.title as string,
+      status: (t.status as 'pending' | 'done') ?? 'pending',
+      dueDate: t.due_date as string,
+      assigneeUserId: (t.assignee?.user_id as string) ?? undefined,
+      assigneeName: (t.assignee?.name as string) ?? undefined,
+      contactName: contactDisplayName(t.contact?.name || t.contact?.call_name, t.contact?.phone_number, 'Contato'),
+    }));
+  },
+
+  deleteTask: async (id: string): Promise<void> => {
+    const { error } = await (supabase as any).from('tasks').delete().eq('id', id);
+    if (error) {
+      console.error('[API] Error deleting task:', error);
       throw error;
     }
   },

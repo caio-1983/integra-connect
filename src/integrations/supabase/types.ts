@@ -494,6 +494,7 @@ export type Database = {
         Row: {
           campaign_id: string | null
           company: string | null
+          details: Json
           contact_id: string | null
           created_at: string | null
           due_date: string | null
@@ -516,6 +517,7 @@ export type Database = {
         Insert: {
           campaign_id?: string | null
           company?: string | null
+          details?: Json
           contact_id?: string | null
           created_at?: string | null
           due_date?: string | null
@@ -538,6 +540,7 @@ export type Database = {
         Update: {
           campaign_id?: string | null
           company?: string | null
+          details?: Json
           contact_id?: string | null
           created_at?: string | null
           due_date?: string | null

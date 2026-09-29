@@ -8,7 +8,7 @@ const CONFIG: AgentConfig = {
   description: 'Atende o cliente de forma autônoma e assiste o operador como Copilot após o handoff.',
   status: 'active',
   priority: 2,
-  modelId: 'gpt-4.1',
+  modelId: 'gpt-4.1-mini',
   toolIds: ['crm_lookup', 'scheduling_suggest_slots', 'knowledge_search'],
   knowledgeSourceIds: ['faq'],
   temperature: 0.7,

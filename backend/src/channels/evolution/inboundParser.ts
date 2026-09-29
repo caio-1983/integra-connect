@@ -29,17 +29,18 @@ const DEFAULT_MIME: Record<InboundMediaKind, string> = {
  * `contextInfo` node — which is why paid-ad leads were indistinguishable from
  * organic ones.
  *
- * Deliberately defensive: `contextInfo` can hang off any message node depending
- * on the message type, and Evolution/Baileys have moved these fields between
- * versions. Every field is optional and a miss degrades to "no attribution"
- * rather than throwing. The raw node is logged (see `logAdReplyDiagnostic`) so
- * the exact shape can be confirmed against the live server instead of assumed.
+ * Where `contextInfo` sits depends on the message type. Confirmed against the
+ * live v2.3.7 server (2026-09-28): a plain-text first message — the usual CTWA
+ * "Olá! Tenho interesse..." — is `message.conversation`, a bare string with no
+ * node to hang context on, so Evolution puts it at `data.contextInfo`. Richer
+ * types (extendedTextMessage, imageMessage, ...) carry it on the message node.
+ * Reading only the node lost most ad leads, so both places are checked.
+ * Every field is optional and a miss degrades to "no attribution".
  */
-function extractAdReply(message: Record<string, any>): InboundAttribution | undefined {
-  // contextInfo lives on whichever node carries the message body.
-  const contextInfo = Object.values(message ?? {})
-    .map((node) => (node && typeof node === 'object' ? (node as Record<string, any>).contextInfo : undefined))
-    .find((ctx) => ctx && typeof ctx === 'object') as Record<string, any> | undefined;
+export function extractAdReply(data: Record<string, any>, message: Record<string, any>): InboundAttribution | undefined {
+  const contextInfo = [data?.contextInfo, ...Object.values(message ?? {}).map((node) =>
+    node && typeof node === 'object' ? (node as Record<string, any>).contextInfo : undefined,
+  )].find((ctx) => ctx && typeof ctx === 'object' && ctx.externalAdReply) as Record<string, any> | undefined;
 
   const adReply = contextInfo?.externalAdReply as Record<string, any> | undefined;
   if (!adReply) return undefined;
@@ -62,27 +63,13 @@ function extractAdReply(message: Record<string, any>): InboundAttribution | unde
   return {
     adId,
     adTitle: adReply.title ?? undefined,
+    adUrl: adReply.mediaUrl ?? sourceUrl,
+    adSourceApp: adReply.sourceApp ?? contextInfo?.entryPointConversionApp ?? undefined,
     ctwaClid,
     // `sourceType` is 'ad' for paid placements and 'post' for organic ones, so a
     // shared post is correctly NOT counted as paid media.
     kind: adReply.sourceType === 'post' ? 'direct_social' : 'paid_ad',
   };
-}
-
-/**
- * One-shot diagnostic for the CTWA payload. Evolution's exact `contextInfo`
- * shape has not been byte-verified against the live v2.3.7 server, so the raw
- * node is logged whenever one arrives — confirm against a real ad click and
- * adjust `extractAdReply` from the logged shape rather than guessing.
- */
-function logAdReplyDiagnostic(instance: unknown, message: Record<string, any>): void {
-  const withContext = Object.entries(message ?? {}).find(
-    ([, node]) => node && typeof node === 'object' && (node as Record<string, any>).contextInfo,
-  );
-  if (!withContext) return;
-  const contextInfo = (withContext[1] as Record<string, any>).contextInfo;
-  if (!contextInfo?.externalAdReply) return;
-  logger.info({ instance, node: withContext[0], contextInfo }, '[evolution] inbound carries externalAdReply (CTWA) — raw payload');
 }
 
 /**
@@ -161,8 +148,7 @@ function parseMessageEnvelope(rawBody: unknown): ParsedEnvelope | null {
   // Origin signals, resolved before the text is normalized. A Meta ad reply wins
   // over a site `[ref:]` token: an ad click is a stronger, first-party claim than
   // a token that could be copied from any link.
-  logAdReplyDiagnostic(instance, msg);
-  const adAttribution = extractAdReply(msg);
+  const adAttribution = extractAdReply(data, msg);
   const { ref, cleanText } = rawText ? extractRefToken(rawText) : { ref: undefined, cleanText: rawText };
   const attribution: InboundAttribution | undefined =
     adAttribution ?? (ref ? { ref, kind: 'website' } : undefined);

@@ -1,35 +1,16 @@
 import React from 'react';
-import {
-  Bot, Sparkles, RefreshCw, MessageSquareText, CheckSquare,
-  TrendingUp, ScanSearch,
-} from 'lucide-react';
+import { RefreshCw, Sparkles } from 'lucide-react';
 import { UIConversation } from '@/types';
 import { cn } from '@/lib/utils';
 import { useAgentSession } from '@/ai/hooks/useAgentSession';
-import type { ConversationMode, SentimentType } from '@/ai/types';
 
 interface CopilotPanelProps {
   conversation: UIConversation;
   sdrName: string;
-  onInsertToComposer: (text: string) => void;
 }
 
-const MODE_CONFIG: Record<ConversationMode, { label: string; color: string }> = {
-  autonomous: { label: 'Atendimento Autônomo', color: 'bg-violet-50 text-violet-700 border-violet-200' },
-  copilot: { label: 'Copiloto', color: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
-  human_only: { label: 'IA inativa nesta conversa', color: 'bg-muted text-muted-foreground border-border' },
-  paused: { label: 'IA pausada', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-};
-
-const SENTIMENT_COLOR: Record<SentimentType, string> = {
-  'Positivo': 'bg-emerald-500',
-  'Neutro': 'bg-slate-400',
-  'Negativo': 'bg-amber-500',
-  'Crítico': 'bg-red-500',
-};
-
-const CopilotPanel: React.FC<CopilotPanelProps> = ({ conversation, sdrName, onInsertToComposer }) => {
-  const { copilot, mode, agentDisplayName, refreshSummary } = useAgentSession(conversation);
+const CopilotPanel: React.FC<CopilotPanelProps> = ({ conversation, sdrName }) => {
+  const { copilot, refreshSummary } = useAgentSession(conversation);
   const [refreshing, setRefreshing] = React.useState(false);
   const [summaryError, setSummaryError] = React.useState<string | null>(null);
 
@@ -47,163 +28,42 @@ const CopilotPanel: React.FC<CopilotPanelProps> = ({ conversation, sdrName, onIn
     }
   };
 
-  const modeCfg = MODE_CONFIG[mode];
-
   return (
-    <div className="flex flex-col gap-4 px-4">
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <Bot className="w-3 h-3" />
-          {agentDisplayName || sdrName}
-        </p>
-        <span className={cn('px-2 py-0.5 rounded-full text-[10px] font-medium border', modeCfg.color)}>
-          {modeCfg.label}
-        </span>
+    <div className="flex flex-col gap-3 px-4">
+      <div className="flex items-center gap-2.5">
+        <Sparkles className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+        <h3 className="text-[13px] font-semibold text-foreground flex-1">Resumo da {sdrName}</h3>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="h-8 px-3 rounded-full text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted flex items-center gap-1.5 disabled:opacity-50"
+        >
+          <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
+          {refreshing ? 'Resumindo…' : copilot?.summary ? 'Atualizar' : 'Gerar resumo'}
+        </button>
       </div>
 
-      {/* Resumo da Lu */}
-      <div className="p-3 rounded-xl bg-violet-50 border border-violet-200 space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wider flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3" />
-            Resumo da Lu
-          </p>
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="text-[10px] font-medium text-violet-700 hover:text-violet-900 flex items-center gap-1 disabled:opacity-50"
-          >
-            <RefreshCw className={cn('w-3 h-3', refreshing && 'animate-spin')} />
-            {refreshing ? 'Resumindo...' : copilot?.summary ? 'Atualizar Resumo' : 'Gerar Resumo'}
-          </button>
-        </div>
-        {summaryError && <p className="text-[11px] text-destructive">{summaryError}</p>}
-        {copilot?.summary ? (
-          <div className="space-y-1.5 text-xs text-foreground">
-            <p><span className="font-semibold">Motivo:</span> {copilot.summary.motivo}</p>
-            <p><span className="font-semibold">Contexto:</span> {copilot.summary.contexto}</p>
-            {copilot.summary.pendencias.length > 0 && (
-              <p><span className="font-semibold">Pendências:</span> {copilot.summary.pendencias.join('; ')}</p>
-            )}
-            <p><span className="font-semibold">Última ação:</span> {copilot.summary.ultimaAcao}</p>
-            <p><span className="font-semibold">Próximo passo:</span> {copilot.summary.proximoPasso}</p>
-          </div>
-        ) : (
-          <p className="text-[11px] text-muted-foreground">Clique em "Gerar Resumo" para a Lu ler a conversa e resumir para você.</p>
-        )}
-      </div>
+      {summaryError && <p className="text-xs text-destructive">{summaryError}</p>}
 
-      {/* Intenção + Sentimento */}
-      <div className="grid grid-cols-2 gap-2.5">
-        <div className="p-2.5 rounded-lg bg-muted border border-border">
-          <p className="text-[10px] text-muted-foreground mb-1">Intenção</p>
-          {copilot?.intent ? (
-            <>
-              <p className="text-xs font-bold text-foreground">{copilot.intent.intent}</p>
-              <p className="text-[10px] text-muted-foreground">{Math.round(copilot.intent.confidence * 100)}% confiança</p>
-            </>
-          ) : (
-            <p className="text-[11px] text-muted-foreground">—</p>
-          )}
-        </div>
-        <div className="p-2.5 rounded-lg bg-muted border border-border">
-          <p className="text-[10px] text-muted-foreground mb-1">Sentimento</p>
-          {copilot?.sentiment ? (
-            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-              <span className={cn('w-1.5 h-1.5 rounded-full', SENTIMENT_COLOR[copilot.sentiment.sentiment])} />
-              {copilot.sentiment.sentiment}
-            </span>
-          ) : (
-            <p className="text-[11px] text-muted-foreground">—</p>
-          )}
-        </div>
-      </div>
-
-      {/* Respostas Sugeridas */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <MessageSquareText className="w-3 h-3" />
-          Respostas Sugeridas
-        </p>
-        {copilot?.suggestedReplies.length ? (
-          <div className="flex flex-col gap-1.5">
-            {copilot.suggestedReplies.slice(0, 3).map((reply) => (
-              <button
-                key={reply.id}
-                type="button"
-                onClick={() => onInsertToComposer(reply.text)}
-                className="text-left text-[11px] px-2.5 py-1.5 rounded-lg border border-border bg-card hover:bg-muted text-foreground transition-colors"
-              >
-                {reply.text}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="text-[11px] text-muted-foreground">Nenhuma sugestão disponível ainda.</p>
-        )}
-      </div>
-
-      {/* Informações Detectadas */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <ScanSearch className="w-3 h-3" />
-          Informações Detectadas
-        </p>
-        {copilot?.extractedInfo && Object.keys(copilot.extractedInfo).length > 0 ? (
-          <div className="p-2.5 rounded-lg border border-border bg-card space-y-1 text-[11px]">
-            {copilot.extractedInfo.nome && <p><span className="text-muted-foreground">Nome:</span> {copilot.extractedInfo.nome}</p>}
-            {copilot.extractedInfo.empresa && <p><span className="text-muted-foreground">Empresa:</span> {copilot.extractedInfo.empresa}</p>}
-            {copilot.extractedInfo.email && <p><span className="text-muted-foreground">E-mail:</span> {copilot.extractedInfo.email}</p>}
-            {copilot.extractedInfo.telefone && <p><span className="text-muted-foreground">Telefone:</span> {copilot.extractedInfo.telefone}</p>}
-            {copilot.extractedInfo.cidade && <p><span className="text-muted-foreground">Cidade:</span> {copilot.extractedInfo.cidade}</p>}
-            {copilot.extractedInfo.valores?.length ? <p><span className="text-muted-foreground">Valores:</span> {copilot.extractedInfo.valores.join(', ')}</p> : null}
-            {copilot.extractedInfo.datas?.length ? <p><span className="text-muted-foreground">Datas:</span> {copilot.extractedInfo.datas.join(', ')}</p> : null}
-            <p className="text-[10px] text-muted-foreground/70 pt-1">Nada é salvo automaticamente no CRM.</p>
-          </div>
-        ) : (
-          <p className="text-[11px] text-muted-foreground">Nenhuma informação detectada ainda.</p>
-        )}
-      </div>
-
-      {/* Tarefas Sugeridas */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <CheckSquare className="w-3 h-3" />
-          Tarefas Sugeridas
-        </p>
-        {copilot?.suggestedTasks.length ? (
-          <ul className="space-y-1">
-            {copilot.suggestedTasks.map((task) => (
-              <li key={task.id} className="text-[11px] text-foreground flex items-start gap-1.5">
-                <span className="text-primary mt-0.5 flex-shrink-0">•</span>
-                {task.title}{task.dueHint ? ` — ${task.dueHint}` : ''}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-[11px] text-muted-foreground">Nenhuma tarefa sugerida ainda.</p>
-        )}
-      </div>
-
-      {/* Negócio Sugerido */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-          <TrendingUp className="w-3 h-3" />
-          Negócio Sugerido
-        </p>
-        {copilot?.suggestedDeal ? (
-          <div className="p-2.5 rounded-lg border border-border bg-card text-[11px] space-y-0.5">
-            <p className="font-semibold text-foreground">{copilot.suggestedDeal.title}</p>
-            {copilot.suggestedDeal.estimatedValue && (
-              <p className="text-muted-foreground">Valor estimado: R$ {copilot.suggestedDeal.estimatedValue.toLocaleString('pt-BR')}</p>
-            )}
-            {copilot.suggestedDeal.stageHint && <p className="text-muted-foreground">Estágio sugerido: {copilot.suggestedDeal.stageHint}</p>}
-          </div>
-        ) : (
-          <p className="text-[11px] text-muted-foreground">Nenhum negócio sugerido no momento.</p>
-        )}
-      </div>
+      {copilot?.summary ? (
+        <dl className="flex flex-col gap-3 text-[13px] leading-relaxed">
+          {[
+            ['Motivo', copilot.summary.motivo],
+            ['Contexto', copilot.summary.contexto],
+            ['Pendências', copilot.summary.pendencias.join('; ')],
+            ['Última ação', copilot.summary.ultimaAcao],
+            ['Próximo passo', copilot.summary.proximoPasso],
+          ].filter(([, value]) => value).map(([label, value]) => (
+            <div key={label}>
+              <dt className="text-xs font-semibold text-muted-foreground">{label}</dt>
+              <dd className="text-foreground">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="text-xs text-muted-foreground">A Lu lê a conversa inteira e resume para quem vai continuar o atendimento.</p>
+      )}
     </div>
   );
 };

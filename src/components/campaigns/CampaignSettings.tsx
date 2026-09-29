@@ -179,7 +179,18 @@ export const CampaignSettings: React.FC = () => {
                     {unmapped.map((signal) => (
                       <tr key={`${signal.matchType}-${signal.value}`} className="border-b border-border/60 last:border-0">
                         <td className="py-2 pr-4 text-muted-foreground">{CAMPAIGN_MATCH_TYPE_LABEL[signal.matchType]}</td>
-                        <td className="py-2 pr-4 font-mono text-xs text-foreground break-all">{signal.value}</td>
+                        <td className="py-2 pr-4">
+                          <span className="font-mono text-xs text-foreground break-all">{signal.value}</span>
+                          {signal.adTitle && (
+                            <span className="block text-xs text-muted-foreground">
+                              {signal.adUrl ? (
+                                <a href={signal.adUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                  {signal.adTitle}
+                                </a>
+                              ) : signal.adTitle}
+                            </span>
+                          )}
+                        </td>
                         <td className="py-2 pr-4 tabular-nums">{signal.leadCount}</td>
                         <td className="py-2 pr-4">
                           <Select

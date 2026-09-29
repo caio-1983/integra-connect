@@ -165,7 +165,12 @@ export const LeadOriginCard: React.FC<LeadOriginCardProps> = ({ contactId, chann
           )}
           {attribution.sourceRaw.ad_title && (
             <p className="text-[11px] text-muted-foreground truncate" title={attribution.sourceRaw.ad_title}>
-              Anúncio: {attribution.sourceRaw.ad_title}
+              Anúncio{attribution.sourceRaw.ad_source_app === 'instagram' ? ' (Instagram)' : attribution.sourceRaw.ad_source_app === 'facebook' ? ' (Facebook)' : ''}:{' '}
+              {attribution.sourceRaw.ad_url ? (
+                <a href={attribution.sourceRaw.ad_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  {attribution.sourceRaw.ad_title}
+                </a>
+              ) : attribution.sourceRaw.ad_title}
             </p>
           )}
           {attribution.sourceRaw.note && (

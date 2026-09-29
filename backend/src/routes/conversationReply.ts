@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { requestManualReply, requestManualMediaReply, startConversation } from '../conversation/ConversationService.js';
 import { evolutionConnectionService } from '../channels/evolution/EvolutionConnectionService.js';
 import { summarizeConversation } from '../conversation/ConversationSummaryService.js';
+import { getConversationInsight } from '../conversation/ConversationInsightService.js';
 import { configService } from '../config/ConfigService.js';
 
 const paramsSchema = z.object({ conversationId: z.string().min(1) });
@@ -79,6 +80,21 @@ const startBodySchema = z.object({
 });
 
 const noopValidator = () => () => true;
+
+const insightBodySchema = z.object({
+  mode: z.enum(['default', 'shorter', 'alternative']).optional(),
+}).optional();
+
+const insightBodyJsonSchema = {
+  type: 'object',
+  properties: {
+    mode: {
+      type: 'string',
+      enum: ['default', 'shorter', 'alternative'],
+      description: 'default reaproveita o insight em cache enquanto não chega mensagem nova; shorter/alternative geram outra versão da resposta sugerida.',
+    },
+  },
+} as const;
 
 const startBodyJsonSchema = {
   type: 'object',
@@ -165,6 +181,38 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     } catch (error) {
       request.log.error(error);
       return reply.code(502).send({ error: error instanceof Error ? error.message : 'Erro ao gerar o resumo.' });
+    }
+  });
+
+  app.post('/v1/conversations/:conversationId/insight', {
+    preHandler: authMiddleware,
+    validatorCompiler: noopValidator,
+    // A cache miss pays for a real model request — same bound as the summary.
+    config: {
+      rateLimit: {
+        max: configService.getNumber('AGENT_CHAT_RATE_LIMIT_MAX', 20),
+        timeWindow: configService.getNumber('RATE_LIMIT_WINDOW_MS', 60_000),
+      },
+    },
+    schema: {
+      tags: ['conversations'],
+      summary: 'Lu copilot insight: suggested reply, customer need, detected fields, missing info and next steps',
+      security: [{ bearerAuth: [] }],
+      params: conversationParamsJsonSchema,
+      body: insightBodyJsonSchema,
+    },
+  }, async (request, reply) => {
+    const parsed = paramsSchema.safeParse(request.params);
+    if (!parsed.success) return reply.code(400).send({ error: 'conversationId obrigatório' });
+    const body = insightBodySchema.safeParse(request.body ?? undefined);
+    if (!body.success) return reply.code(400).send({ error: 'mode inválido' });
+
+    try {
+      const insight = await getConversationInsight(parsed.data.conversationId, body.data?.mode ?? 'default');
+      return insight ? reply.send(insight) : reply.code(204).send();
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(502).send({ error: error instanceof Error ? error.message : 'Erro ao gerar a sugestão.' });
     }
   });
 

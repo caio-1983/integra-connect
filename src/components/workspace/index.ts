@@ -10,5 +10,8 @@ export { CustomerWorkspace } from './CustomerWorkspace';
 export { CustomerCard } from './CustomerCard';
 export { HistoryCard } from './HistoryCard';
 export { CopilotPanel } from './CopilotPanel';
+export { LuSuggestionCard } from './LuSuggestionCard';
+export { LuOpportunityCard } from './LuOpportunityCard';
+export { ChatHome } from './ChatHome';
 export { NewConversationDialog } from './NewConversationDialog';
 export { GroupParticipantsModal } from './GroupParticipantsModal';

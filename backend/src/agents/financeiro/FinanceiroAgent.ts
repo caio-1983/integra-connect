@@ -7,7 +7,7 @@ const CONFIG: AgentConfig = {
   description: 'Trata cobranças, faturas e questões financeiras.',
   status: 'draft',
   priority: 5,
-  modelId: 'gpt-4.1',
+  modelId: 'gpt-4.1-mini',
   toolIds: ['finance_check_invoice'],
   knowledgeSourceIds: ['faq'],
   temperature: 0.7,

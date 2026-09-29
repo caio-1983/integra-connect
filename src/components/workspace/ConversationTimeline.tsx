@@ -1,10 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { MessageSquare, Bot, User, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply } from 'lucide-react';
+import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Sparkles } from 'lucide-react';
 import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn, contactDisplayName } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 
-const WAVE_BARS = 28;
+const WAVE_BARS = 40;
 
 /** WhatsApp-style per-sender name colors in group threads — intentionally
  *  multi-hue (not brand tokens) so distinct participants read apart at a glance.
@@ -71,6 +71,8 @@ interface ConversationTimelineProps {
   contactName?: string;
   /** Starts a reply to this message (WhatsApp "responder"). */
   onReply?: (msg: UIMessage) => void;
+  /** Lu's one-line reading of what the customer asked, shown right after the message it was based on. */
+  luNote?: { messageId: string; text: string; onOpen?: () => void } | null;
 }
 
 /** One-line preview of a message, as shown inside a quote or the reply bar. */
@@ -90,7 +92,7 @@ export function messageAuthor(msg: UIMessage, contactName?: string, isGroup?: bo
 }
 
 const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
-  messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply,
+  messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply, luNote,
 }) => {
   const messagesById = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages]);
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -117,13 +119,17 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const renderMessageContent = (msg: UIMessage) => {
+  /** `meta` (time + ticks) is placed inside the audio player's bottom line, as WhatsApp does. */
+  const renderMessageContent = (msg: UIMessage, meta?: React.ReactNode) => {
     if (msg.type === MessageType.IMAGE) {
       return (
         <img
           src={msg.mediaUrl || msg.content}
           alt="Anexo"
-          className="rounded-lg max-w-full h-auto max-h-72 object-cover border border-border/50 shadow-sm"
+          className={cn(
+            'block max-w-full h-auto max-h-72 object-cover border border-border/60',
+            msg.replyToId ? 'rounded-xl' : 'rounded-[inherit]',
+          )}
           loading="lazy"
           onError={(e) => {
             (e.target as HTMLImageElement).src = 'https://placehold.co/300x200/f1f5f9/64748b?text=Erro+Imagem';
@@ -159,7 +165,6 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
         if (audio) audio.playbackRate = next;
       };
 
-      const isOut = msg.direction === MessageDirection.OUTGOING;
       const bars = waveformBars(msg.id);
       const playedFraction = duration ? progress / duration : 0;
 
@@ -171,7 +176,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
       };
 
       return (
-        <div className="flex items-center gap-3 min-w-[228px] py-0.5">
+        <div className="flex items-center gap-2 w-[260px] max-w-full pt-1">
           {msg.mediaUrl && (
             <audio
               ref={el => { if (el) audioRefs.current[msg.id] = el; }}
@@ -193,49 +198,55 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
             onClick={togglePlay}
             disabled={!msg.mediaUrl}
             aria-label={isPlaying ? 'Pausar áudio' : 'Reproduzir áudio'}
-            className={cn(
-              'flex items-center justify-center w-9 h-9 rounded-full transition-all shadow-sm shrink-0 active:scale-95 disabled:opacity-50',
-              isOut ? 'bg-white text-slate-800 hover:bg-white/90' : 'bg-primary text-white hover:bg-primary/90',
-            )}
+            className="flex items-center justify-center w-9 h-9 shrink-0 text-[#54656f] dark:text-[#aebac1] hover:text-[var(--wa-text)] active:scale-95 transition disabled:opacity-40"
           >
-            {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 ml-0.5 fill-current" />}
+            {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
           </button>
-          <div
-            className="flex-1 flex items-center gap-[2px] h-6 cursor-pointer"
-            onClick={(e) => seek(e.clientX, e.currentTarget)}
-          >
-            {bars.map((bh, i) => {
-              const played = i / WAVE_BARS <= playedFraction;
-              return (
-                <span
-                  key={i}
-                  className={cn(
-                    'w-[3px] rounded-full transition-colors duration-150',
-                    isOut
-                      ? played ? 'bg-white' : 'bg-white/35'
-                      : played ? 'bg-primary' : 'bg-muted-foreground/25',
-                  )}
-                  style={{ height: `${Math.round(bh * 100)}%` }}
-                />
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <span className={cn('text-[10px] font-medium tabular-nums', isOut ? 'text-white/70' : 'text-muted-foreground')}>
-              {formatAudioTime(progress > 0 ? progress : duration)}
-            </span>
-            {(isPlaying || progress > 0) && (
-              <button
-                onClick={cycleSpeed}
-                aria-label={`Velocidade ${SPEED_LABEL[speed]}`}
-                className={cn(
-                  'rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums leading-none transition-colors',
-                  isOut ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-muted-foreground/15 text-muted-foreground hover:bg-muted-foreground/25',
-                )}
-              >
-                {SPEED_LABEL[speed]}
-              </button>
-            )}
+          <div className="flex-1 min-w-0 flex flex-col gap-1">
+            {/* WhatsApp waveform: grey bars, the played part tinted, a dot at the playhead. */}
+            <div
+              role="slider"
+              aria-label="Posição do áudio"
+              aria-valuemin={0}
+              aria-valuemax={Math.round(duration)}
+              aria-valuenow={Math.round(progress)}
+              tabIndex={0}
+              className="relative h-7 flex items-center justify-between cursor-pointer"
+              onClick={(e) => seek(e.clientX, e.currentTarget)}
+            >
+              {bars.map((bh, i) => {
+                const played = (i + 0.5) / WAVE_BARS <= playedFraction;
+                return (
+                  <span
+                    key={i}
+                    className={cn(
+                      'w-[3px] shrink-0 rounded-full transition-colors duration-150',
+                      played ? 'bg-[#53bdeb]' : 'bg-[#b4bcc1] dark:bg-[#6a7a84]',
+                    )}
+                    style={{ height: `${Math.max(3, Math.round(bh * 26))}px` }}
+                  />
+                );
+              })}
+              <span
+                aria-hidden="true"
+                className="absolute top-1/2 w-3 h-3 -mt-1.5 -ml-1.5 rounded-full bg-[#53bdeb] shadow-sm pointer-events-none"
+                style={{ left: `${Math.min(100, playedFraction * 100)}%` }}
+              />
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] leading-none text-[var(--wa-meta)]">
+              <span className="tabular-nums">{formatAudioTime(progress > 0 ? progress : duration)}</span>
+              {(isPlaying || progress > 0) && (
+                <button
+                  onClick={cycleSpeed}
+                  aria-label={`Velocidade ${SPEED_LABEL[speed]}`}
+                  className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums leading-none bg-black/5 dark:bg-white/10 hover:bg-black/10"
+                >
+                  {SPEED_LABEL[speed]}
+                </button>
+              )}
+              <span className="flex-1" />
+              {meta}
+            </div>
           </div>
         </div>
       );
@@ -274,103 +285,141 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
 
   return (
     <>
-      <div className="flex justify-center mb-4">
-        <span className="px-4 py-1.5 bg-muted border border-border text-muted-foreground text-xs font-medium rounded-full">
+      <div className="flex justify-center mb-3">
+        <span className="px-3 py-1.5 bg-[var(--wa-in)] text-[var(--wa-meta)] text-xs font-medium uppercase rounded-lg shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]">
           Hoje
         </span>
       </div>
 
-      {messages.map((msg) => {
+      {messages.map((msg, idx) => {
         const isOutgoing = msg.direction === MessageDirection.OUTGOING;
+        // WhatsApp groups a side's consecutive messages: only the first gets the
+        // tail and the larger gap above it.
+        const prev = messages[idx - 1];
+        const firstOfRun = !prev || (prev.direction === MessageDirection.OUTGOING) !== isOutgoing;
         const msgChannel = msg.channel ?? primaryChannel;
         const showChannelHint = msgChannel !== primaryChannel;
         const channelCfg = CHANNEL_CONFIG[msgChannel];
         const ChannelIcon = channelCfg.icon;
         const quoted = msg.replyToId ? messagesById.get(msg.replyToId) : undefined;
         const canReply = !!onReply && !msg.id.startsWith('temp-');
+        const bareImage = msg.type === MessageType.IMAGE && !msg.replyToId;
+        const isText = msg.type !== MessageType.IMAGE && msg.type !== MessageType.AUDIO && !msg.mediaUrl;
         const replyButton = canReply && (
           <button
             type="button"
             onClick={() => onReply!(msg)}
             title="Responder"
             aria-label="Responder"
-            className="self-center p-1.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
+            className="self-center p-1.5 rounded-full text-[var(--wa-meta)] hover:bg-black/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
           >
             <Reply className="w-3.5 h-3.5" />
           </button>
         );
+        // Time + ticks live inside the bubble, bottom-right, as in WhatsApp.
+        const meta = (
+          <span className={cn(
+            'inline-flex items-center gap-1 text-[11px] leading-none whitespace-nowrap',
+            bareImage ? 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]' : 'text-[var(--wa-meta)]',
+          )}>
+            {isOutgoing && msg.fromType === 'nina' && <Bot aria-label="Enviada pela IA" className="w-3 h-3" />}
+            {msg.timestamp}
+            {isOutgoing && (
+              msg.status === 'read'      ? <CheckCheck aria-label="Lida" className="w-4 h-4 text-[#53bdeb]" /> :
+              msg.status === 'delivered' ? <CheckCheck aria-label="Entregue" className="w-4 h-4" /> :
+                                          <Check      aria-label="Enviada" className="w-3.5 h-3.5" />
+            )}
+          </span>
+        );
         return (
+          <React.Fragment key={msg.id}>
           <div
-            key={msg.id}
             id={`msg-${msg.id}`}
             className={cn(
-              'flex group gap-1 animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-xl transition-colors',
+              'flex group gap-1 rounded-lg transition-colors',
               isOutgoing ? 'justify-end' : 'justify-start',
+              firstOfRun ? 'mt-3' : 'mt-0.5',
               flashId === msg.id && 'bg-primary/10',
             )}
           >
             {isOutgoing && replyButton}
-            <div className={cn('flex flex-col max-w-[75%]', isOutgoing ? 'items-end' : 'items-start')}>
+            <div className={cn('flex flex-col max-w-[65%]', isOutgoing ? 'items-end' : 'items-start')}>
               {showChannelHint && (
                 <span className={cn('flex items-center gap-1 mb-1 px-1.5 py-0.5 rounded text-[10px] font-medium border', channelCfg.color)}>
                   <ChannelIcon className="w-2.5 h-2.5" />
                   via {channelCfg.label}
                 </span>
               )}
-              {!isOutgoing && isGroup && (msg.senderName || msg.senderPhone) && (
-                <span className={cn('mb-0.5 px-1 text-[11px] font-semibold', senderColorClass(msg.senderPhone || msg.senderName || ''))}>
-                  {contactDisplayName(msg.senderName, msg.senderPhone, 'Participante')}
-                </span>
-              )}
               <div className={cn(
-                'px-4 py-2.5 rounded-2xl shadow-sm text-sm leading-relaxed',
-                isOutgoing
-                  ? msg.fromType === 'nina'
-                    ? 'bg-accent text-accent-foreground rounded-tr-sm'
-                    : 'bg-primary text-primary-foreground rounded-tr-sm'
-                  : 'bg-muted text-foreground rounded-tl-sm border border-border',
+                'relative rounded-lg text-[14.2px] leading-[19px] text-[var(--wa-text)] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]',
+                isOutgoing ? 'bg-[var(--wa-out)]' : 'bg-[var(--wa-in)]',
+                firstOfRun && (isOutgoing ? 'rounded-tr-none wa-tail-out' : 'rounded-tl-none wa-tail-in'),
+                msg.type === MessageType.IMAGE ? 'p-1' : 'px-2 pt-1.5 pb-2',
               )}>
+                {!isOutgoing && isGroup && firstOfRun && (msg.senderName || msg.senderPhone) && (
+                  <span className={cn('block mb-0.5 text-[12.8px] font-semibold', senderColorClass(msg.senderPhone || msg.senderName || ''))}>
+                    {contactDisplayName(msg.senderName, msg.senderPhone, 'Participante')}
+                  </span>
+                )}
                 {msg.replyToId && (
                   <button
                     type="button"
                     onClick={() => quoted && jumpTo(quoted.id)}
                     disabled={!quoted}
                     className={cn(
-                      'block w-full text-left mb-1.5 px-2.5 py-1.5 rounded-lg border-l-4 text-xs',
-                      isOutgoing ? 'bg-black/10 border-white/60' : 'bg-background/70 border-primary',
-                      quoted ? 'cursor-pointer hover:opacity-90' : 'cursor-default',
+                      'block w-full text-left mb-1 px-2.5 py-1.5 rounded-md border-l-4 border-[#06cf9c] bg-black/5 dark:bg-white/5 text-xs',
+                      quoted ? 'cursor-pointer hover:bg-black/10 dark:hover:bg-white/10' : 'cursor-default',
                     )}
                   >
                     {quoted ? (
                       <>
-                        <span className="block font-semibold">{messageAuthor(quoted, contactName, isGroup)}</span>
-                        <span className="block line-clamp-2 opacity-80">{messagePreview(quoted)}</span>
+                        <span className="block font-semibold text-[#06cf9c]">{messageAuthor(quoted, contactName, isGroup)}</span>
+                        <span className="block line-clamp-2 text-[var(--wa-meta)]">{messagePreview(quoted)}</span>
                       </>
                     ) : (
-                      <span className="italic opacity-80">Mensagem original não carregada</span>
+                      <span className="italic text-[var(--wa-meta)]">Mensagem original não carregada</span>
                     )}
                   </button>
                 )}
-                {renderMessageContent(msg)}
-              </div>
-
-              <div className="flex items-center mt-1 gap-1.5 px-1">
-                {/* Author icon + time stay subtle until hover; the read receipt
-                    below is always at full opacity so "visualizado" reads clearly. */}
-                <span className="flex items-center gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
-                  {isOutgoing && msg.fromType === 'nina'  && <Bot  className="w-3 h-3 text-accent" />}
-                  {isOutgoing && msg.fromType === 'human' && <User className="w-3 h-3 text-primary" />}
-                  <span className="text-[10px] text-muted-foreground font-medium">{msg.timestamp}</span>
-                </span>
-                {isOutgoing && (
-                  msg.status === 'read'      ? <CheckCheck className="w-4 h-4 text-sky-500" /> :
-                  msg.status === 'delivered' ? <CheckCheck className="w-3.5 h-3.5 text-muted-foreground" /> :
-                                              <Check      className="w-3.5 h-3.5 text-muted-foreground" />
+                {isText ? (
+                  <p className="whitespace-pre-wrap break-words">
+                    {linkify(msg.content)}
+                    {/* Spacer so the floating time never overlaps the last line. */}
+                    <span className="inline-block w-16" aria-hidden="true" />
+                    <span className="float-right -mb-1 mt-2 ml-2">{meta}</span>
+                  </p>
+                ) : (
+                  msg.type === MessageType.AUDIO ? renderMessageContent(msg, meta) : (
+                    <>
+                      {renderMessageContent(msg)}
+                      <div className={cn('flex justify-end', bareImage ? 'absolute right-2.5 bottom-2.5' : 'mt-1 px-1')}>
+                        {meta}
+                      </div>
+                    </>
+                  )
                 )}
               </div>
             </div>
             {!isOutgoing && replyButton}
           </div>
+          {luNote?.messageId === msg.id && luNote.text && (
+            <div className="flex justify-center my-3">
+              <div className="flex items-center gap-2 max-w-[85%] pl-3 pr-1.5 py-1.5 rounded-lg bg-[var(--wa-in)] text-xs text-[var(--wa-meta)] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]">
+                <Sparkles className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+                <span><span className="font-bold text-accent">Lu anotou</span> {luNote.text}</span>
+                {luNote.onOpen && (
+                  <button
+                    type="button"
+                    onClick={luNote.onOpen}
+                    className="flex-shrink-0 px-2 py-1 rounded-md bg-accent/10 text-accent font-semibold hover:bg-accent/20"
+                  >
+                    Ver detalhes
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          </React.Fragment>
         );
       })}
 

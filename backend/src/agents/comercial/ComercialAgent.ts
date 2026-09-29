@@ -7,7 +7,7 @@ const CONFIG: AgentConfig = {
   description: 'Conduz negociações, propostas e fechamento de negócios.',
   status: 'draft',
   priority: 4,
-  modelId: 'gpt-4.1',
+  modelId: 'gpt-4.1-mini',
   toolIds: ['crm_lookup', 'scheduling_suggest_slots'],
   knowledgeSourceIds: ['faq'],
   temperature: 0.7,

@@ -10,6 +10,7 @@ import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { useAuth } from '@/hooks/useAuth';
 import { api } from '@/services/api';
 import { cn } from '@/lib/utils';
+import type { TaskDueKind } from '@/hooks/useMyTasks';
 
 interface TeamMemberOption { id: string; name: string; user_id?: string | null }
 
@@ -26,6 +27,17 @@ interface ConversationQueueProps {
   onMarkAsUnread?: (id: string) => void;
   onMarkAsRead?: (id: string) => void;
   onSetArchived?: (id: string, archived: boolean) => void;
+  /** Controlled filter — lets the chat home's shortcuts ("Aguardando", "Minhas") drive the list. */
+  activeFilter?: QueueFilter;
+  onFilterChange?: (filter: QueueFilter) => void;
+  /** Most urgent pending task of the logged-in attendant per contact — badge on the row. */
+  taskBadgeByContact?: Map<string, { kind: TaskDueKind; label: string }>;
+}
+
+/** The customer spoke last and nobody on the team (or Lu) answered yet. */
+export function isAwaitingReply(c: UIConversation): boolean {
+  const last = c.messages[c.messages.length - 1];
+  return !!last && last.fromType === 'user';
 }
 
 function applyFilter(
@@ -33,6 +45,7 @@ function applyFilter(
   filter: QueueFilter,
   query: string,
   instance: string,
+  userId: string | undefined,
 ): UIConversation[] {
   let result = conversations;
   if (instance !== 'all') {
@@ -48,6 +61,8 @@ function applyFilter(
   }
   switch (filter) {
     case 'unread': return result.filter(c => c.unreadCount > 0);
+    case 'waiting': return result.filter(isAwaitingReply);
+    case 'mine':   return result.filter(c => !!userId && c.assignedUserId === userId);
     case 'nina':   return result.filter(c => c.status === 'nina');
     case 'human':  return result.filter(c => c.status === 'human');
     case 'paused': return result.filter(c => c.status === 'paused');
@@ -55,8 +70,10 @@ function applyFilter(
   }
 }
 
-function buildCounts(conversations: UIConversation[]): Record<QueueFilter, number> {
+function buildCounts(conversations: UIConversation[], userId: string | undefined): Record<QueueFilter, number> {
   return {
+    waiting: conversations.filter(isAwaitingReply).length,
+    mine:   conversations.filter(c => !!userId && c.assignedUserId === userId).length,
     all:    conversations.length,
     unread: conversations.filter(c => c.unreadCount > 0).length,
     nina:   conversations.filter(c => c.status === 'nina').length,
@@ -68,10 +85,13 @@ function buildCounts(conversations: UIConversation[]): Record<QueueFilter, numbe
 const ConversationQueue: React.FC<ConversationQueueProps> = ({
   conversations, selectedId, onSelect, loading, sdrName, onNewConversation, teamMembers = [],
   onMarkAsUnread, onMarkAsRead, onSetArchived,
+  activeFilter: controlledFilter, onFilterChange, taskBadgeByContact,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<QueueFilter>('all');
+  const [localFilter, setLocalFilter] = useState<QueueFilter>('all');
+  const activeFilter = controlledFilter ?? localFilter;
+  const setActiveFilter = onFilterChange ?? setLocalFilter;
   const [instanceFilter, setInstanceFilter] = useState('all');
   const { instances: connectedInstances } = useWhatsappInstances();
   const { labels } = useInstanceLabels();
@@ -112,41 +132,42 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
   const byInstance = (list: UIConversation[]) => instanceFilter === 'all'
     ? list
     : list.filter(c => c.instance === instanceFilter);
-  const counts = buildCounts(byInstance(inbox));
+  const counts = buildCounts(byInstance(inbox), user?.id);
   const archivedCount = byInstance(archived).length;
-  const filtered = applyFilter(searchBase, showArchived ? 'all' : activeFilter, searchQuery, instanceFilter);
+  const filtered = applyFilter(searchBase, showArchived ? 'all' : activeFilter, searchQuery, instanceFilter, user?.id);
 
   return (
-    <div className="w-64 xl:w-72 border-r border-border flex flex-col bg-card flex-shrink-0">
+    <div className="w-[30%] min-w-[320px] max-w-[560px] border-r border-border flex flex-col bg-card flex-shrink-0">
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-border flex-shrink-0">
+      <div className="px-4 pt-4 pb-2 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           {showArchived ? (
             <button
               onClick={() => { setShowArchived(false); setSearchQuery(''); }}
-              className="flex items-center gap-1.5 text-xs font-bold text-foreground uppercase tracking-wider hover:text-primary transition-colors"
+              className="flex items-center gap-2 text-lg font-bold text-foreground hover:text-primary transition-colors"
             >
-              <ArrowLeft className="w-3.5 h-3.5" /> Arquivadas
+              <ArrowLeft className="w-4 h-4" /> Arquivadas
             </button>
           ) : (
-            <h2 className="text-xs font-bold text-foreground uppercase tracking-wider">Conversas</h2>
+            <h2 className="text-xl font-bold text-foreground">Conversas</h2>
           )}
           <button
             onClick={onNewConversation}
             title="Nova conversa"
-            className="w-6 h-6 flex items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            aria-label="Nova conversa"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-5 h-5" />
           </button>
         </div>
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
             placeholder={showArchived ? 'Buscar nas arquivadas...' : 'Buscar...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-7 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground transition-all"
+            className="w-full pl-10 pr-3 h-10 bg-muted border-0 rounded-lg text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground transition-all"
           />
         </div>
 
@@ -156,7 +177,7 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
             <select
               value={instanceFilter}
               onChange={(e) => setInstanceFilter(e.target.value)}
-              className="w-full pl-7 pr-6 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground focus:ring-1 focus:ring-ring/50 outline-none transition-all appearance-none cursor-pointer"
+              className="w-full pl-7 pr-6 h-8 bg-background border border-border rounded-lg text-xs text-foreground focus:ring-1 focus:ring-ring/50 outline-none transition-all appearance-none cursor-pointer"
             >
               <option value="all">Todos os números ({viewBase.length})</option>
               {instances.map(inst => (
@@ -190,12 +211,6 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
         </button>
       )}
 
-      {/* Count */}
-      <div className="px-4 pb-2 flex-shrink-0">
-        <p className="text-[10px] text-muted-foreground/60">
-          {filtered.length} conversa{filtered.length !== 1 ? 's' : ''}{showArchived ? ' arquivada' + (filtered.length !== 1 ? 's' : '') : ''}
-        </p>
-      </div>
 
       {/* List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -226,6 +241,7 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
               onMarkAsRead={onMarkAsRead && (() => onMarkAsRead(conv.id))}
               onToggleArchived={onSetArchived && (() => onSetArchived(conv.id, !conv.isArchived))}
               showArchivedBadge={!showArchived}
+              taskBadge={taskBadgeByContact?.get(conv.contactId)}
             />
           ))
         )}

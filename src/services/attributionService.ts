@@ -225,6 +225,10 @@ export interface UnmappedSignal {
   matchType: CampaignMatchType;
   value: string;
   leadCount: number;
+  /** Ad ids only: the ad's headline and post link, so a manager can tell which
+   *  ad an 18-digit id is without opening Ads Manager. */
+  adTitle?: string;
+  adUrl?: string;
 }
 
 /**
@@ -264,8 +268,19 @@ export async function fetchUnmappedSignals(): Promise<UnmappedSignal[]> {
       if (!value) continue;
       const id = `${matchType}::${value.toLowerCase()}`;
       const existing = counts.get(id);
-      if (existing) existing.leadCount += 1;
-      else counts.set(id, { matchType, value, leadCount: 1 });
+      if (existing) {
+        existing.leadCount += 1;
+        existing.adTitle ??= key === 'ad_id' ? raw.ad_title : undefined;
+        existing.adUrl ??= key === 'ad_id' ? raw.ad_url : undefined;
+      } else {
+        counts.set(id, {
+          matchType,
+          value,
+          leadCount: 1,
+          adTitle: key === 'ad_id' ? raw.ad_title : undefined,
+          adUrl: key === 'ad_id' ? raw.ad_url : undefined,
+        });
+      }
       // Only the most specific signal present is offered, mirroring how the
       // view's priority ordering would resolve it — otherwise mapping the
       // WhatsApp number would silently shadow the ad id.

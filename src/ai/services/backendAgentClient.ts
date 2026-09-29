@@ -1,4 +1,4 @@
-import type { AgentContext, AgentExecutionResult, AgentId, ConversationSummary } from '@/ai/types';
+import type { AgentContext, AgentExecutionResult, AgentId, ConversationInsight, ConversationSummary, InsightMode } from '@/ai/types';
 import { backendAuthOnlyHeaders, backendBaseUrl, backendHeaders } from '@/services/backendGateway';
 
 /**
@@ -53,6 +53,27 @@ export async function fetchConversationSummary(conversationId: string): Promise<
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { error?: string } | null;
     throw new Error(body?.error ?? `A Lu não conseguiu resumir a conversa (${response.status}).`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Lu's copilot view of the conversation (suggested reply, need, fields, next
+ * steps). `default` returns the backend's cached insight while no new message
+ * arrived; null when the conversation has nothing to read yet.
+ */
+export async function fetchConversationInsight(conversationId: string, mode: InsightMode = 'default'): Promise<ConversationInsight | null> {
+  const response = await fetch(`${backendBaseUrl()}/v1/conversations/${encodeURIComponent(conversationId)}/insight`, {
+    method: 'POST',
+    headers: backendHeaders(),
+    body: JSON.stringify({ mode }),
+  });
+
+  if (response.status === 204) return null;
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(body?.error ?? `A Lu não conseguiu ler a conversa (${response.status}).`);
   }
 
   return response.json();

@@ -7,7 +7,7 @@ const CONFIG: AgentConfig = {
   description: 'Triagem inicial de novos contatos antes de rotear para o agente especializado.',
   status: 'draft',
   priority: 1,
-  modelId: 'gpt-4.1',
+  modelId: 'gpt-4.1-mini',
   toolIds: ['crm_lookup'],
   knowledgeSourceIds: ['faq'],
   temperature: 0.7,

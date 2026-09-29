@@ -95,7 +95,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel =
     conversation.status === 'nina' ? sdrName :
-    conversation.status === 'human' ? 'Humano' : 'Pausado';
+    conversation.status === 'human' ? 'Lu pausada · atendimento humano' : 'Pausado';
   const channelCfg = CHANNEL_CONFIG[conversation.primaryChannel];
   const ChannelIcon = channelCfg.icon;
   const isGroup = conversation.contactPhone.endsWith('@g.us');

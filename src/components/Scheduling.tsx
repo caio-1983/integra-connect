@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, AlignLeft, X, Loader2, LayoutGrid, List, Columns, User, UserCircle, Bot, Pencil, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, AlignLeft, X, Loader2, LayoutGrid, List, Columns, User, UserCircle, Bot, Pencil, CheckCircle2, SquareCheck } from 'lucide-react';
 import { Button } from './Button';
-import { Appointment, Contact } from '../types';
+import { Appointment, Contact, ScheduledTask } from '../types';
 import { api } from '../services/api';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -34,6 +34,8 @@ const Scheduling: React.FC = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  // Tasks with a due date show as all-day items next to the appointments.
+  const [scheduledTasks, setScheduledTasks] = useState<ScheduledTask[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,12 +73,14 @@ const Scheduling: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [appointmentsData, contactsData] = await Promise.all([
+        const [appointmentsData, contactsData, tasksData] = await Promise.all([
           api.fetchAppointments(),
-          api.fetchContacts()
+          api.fetchContacts(),
+          api.fetchScheduledTasks(),
         ]);
         setAppointments(appointmentsData);
         setContacts(contactsData);
+        setScheduledTasks(tasksData);
       } catch (error) {
         console.error("Erro ao carregar dados", error);
       } finally {
@@ -108,6 +112,9 @@ const Scheduling: React.FC = () => {
           loadData();
         }
       )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+        api.fetchScheduledTasks().then(setScheduledTasks);
+      })
       .subscribe();
 
     return () => {
@@ -297,8 +304,26 @@ const Scheduling: React.FC = () => {
     for (const a of appointments) {
       if (a.user_id && !ids.includes(a.user_id)) ids.push(a.user_id);
     }
+    for (const t of scheduledTasks) {
+      if (t.assigneeUserId && !ids.includes(t.assigneeUserId)) ids.push(t.assigneeUserId);
+    }
     return ids;
-  }, [teamUsers, appointments]);
+  }, [teamUsers, appointments, scheduledTasks]);
+
+  const tasksOn = (dateStr: string) => scheduledTasks.filter(t => t.dueDate === dateStr);
+
+  // A task is all-day: a chip with a checkbox icon, in its assignee's color.
+  const renderTaskChip = (t: ScheduledTask, size: 'sm' | 'md') => (
+    <div
+      key={`task-${t.id}`}
+      onClick={(e) => e.stopPropagation()}
+      title={`Tarefa · ${t.title} · ${t.contactName}${t.assigneeName ? ` · ${t.assigneeName}` : ''}`}
+      className={`${size === 'sm' ? 'text-[10px] px-2 py-1' : 'text-xs px-2.5 py-1.5'} rounded border border-dashed truncate font-medium flex items-center gap-1 cursor-default ${getUserColor(t.assigneeUserId).chip} ${t.status === 'done' ? 'opacity-50 line-through' : ''}`}
+    >
+      <SquareCheck className={size === 'sm' ? 'w-2.5 h-2.5 flex-shrink-0' : 'w-3.5 h-3.5 flex-shrink-0'} />
+      <span className="truncate">{t.title} · {t.contactName}</span>
+    </div>
+  );
 
   const getUserColor = (userId?: string) => {
     if (!userId) return NO_USER_COLOR;
@@ -310,10 +335,10 @@ const Scheduling: React.FC = () => {
     teamUsers.find(u => u.user_id === userId)?.name ?? (userId ? 'Usuário' : 'Sem responsável');
 
   const legendUsers = useMemo(() => {
-    const present = new Set(appointments.map(a => a.user_id ?? ''));
+    const present = new Set([...appointments.map(a => a.user_id ?? ''), ...scheduledTasks.map(t => t.assigneeUserId ?? '')]);
     return userOrder.filter(id => present.has(id));
-  }, [userOrder, appointments]);
-  const hasUnowned = appointments.some(a => !a.user_id);
+  }, [userOrder, appointments, scheduledTasks]);
+  const hasUnowned = appointments.some(a => !a.user_id) || scheduledTasks.some(t => !t.assigneeUserId);
 
   // --- RENDERERS ---
 
@@ -341,6 +366,14 @@ const Scheduling: React.FC = () => {
                 const day = index + 1;
                 const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                 const dayAppointments = appointments.filter(a => a.date === dateStr);
+                const dayTasks = tasksOn(dateStr);
+                const total = dayAppointments.length + dayTasks.length;
+                // Tasks are all-day, so they come first; together they share the cell's chip limit.
+                const shownTasks = dayTasks.slice(0, MONTH_CELL_MAX_CHIPS);
+                const shownApps = total > MONTH_CELL_MAX_CHIPS
+                  ? dayAppointments.slice(0, Math.max(0, MONTH_CELL_MAX_CHIPS - shownTasks.length))
+                  : dayAppointments;
+                const hidden = total - shownTasks.length - shownApps.length;
                 const isToday = formatDateStr(new Date()) === dateStr;
 
                 return (
@@ -353,10 +386,8 @@ const Scheduling: React.FC = () => {
                             {day}
                         </span>
                         <div className="space-y-1 flex-1 min-h-0">
-                            {(dayAppointments.length > MONTH_CELL_MAX_CHIPS
-                              ? dayAppointments.slice(0, MONTH_CELL_MAX_CHIPS)
-                              : dayAppointments
-                            ).map(app => (
+                            {shownTasks.map(t => renderTaskChip(t, 'sm'))}
+                            {shownApps.map(app => (
                                 <div
                                     key={app.id}
                                     className={`text-[10px] px-2 py-1 rounded border truncate font-medium cursor-pointer relative ${getUserColor(app.user_id).chip} ${app.status === 'completed' ? 'opacity-50 line-through' : ''}`}
@@ -369,7 +400,7 @@ const Scheduling: React.FC = () => {
                                     {app.time} - {app.title}
                                 </div>
                             ))}
-                            {dayAppointments.length > MONTH_CELL_MAX_CHIPS && (
+                            {hidden > 0 && (
                                 <button
                                     type="button"
                                     onClick={(e) => {
@@ -379,7 +410,7 @@ const Scheduling: React.FC = () => {
                                     }}
                                     className="w-full text-left text-[10px] font-semibold px-2 text-muted-foreground hover:text-foreground hover:underline"
                                 >
-                                    +{dayAppointments.length - MONTH_CELL_MAX_CHIPS} mais
+                                    +{hidden} mais
                                 </button>
                             )}
                         </div>
@@ -422,6 +453,18 @@ const Scheduling: React.FC = () => {
                      )
                 })}
             </div>
+
+            {/* Tarefas do dia (sem horário) */}
+            {weekDays.some(day => tasksOn(formatDateStr(day)).length > 0) && (
+                <div className="grid grid-cols-8 border-b border-border">
+                    <div className="p-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right border-r border-border">Tarefas</div>
+                    {weekDays.map((day, i) => (
+                        <div key={i} className="p-1 border-r border-border/50 space-y-1 min-w-0">
+                            {tasksOn(formatDateStr(day)).map(t => renderTaskChip(t, 'sm'))}
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Time Grid */}
             <div className="flex-1">
@@ -489,6 +532,12 @@ const Scheduling: React.FC = () => {
         <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar bg-card">
              <div className="p-4 border-b border-border bg-card sticky top-0 z-10">
                 <h3 className="text-xl font-bold text-foreground capitalize">{currentDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
+                {tasksOn(dateStr).length > 0 && (
+                    <div className="mt-3 flex flex-col gap-1.5">
+                        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Tarefas do dia</span>
+                        {tasksOn(dateStr).map(t => renderTaskChip(t, 'md'))}
+                    </div>
+                )}
              </div>
 
              <div className="flex-1 p-4">
