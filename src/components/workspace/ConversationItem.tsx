@@ -8,6 +8,8 @@ import { MessageType, UIConversation, ConversationStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { AttendantTag } from './AttendantTag';
+import { CampaignBadge } from './CampaignBadge';
+import type { LeadCampaign } from '@/services/attributionService';
 import { messagePreview } from './ConversationTimeline';
 
 interface ConversationItemProps {
@@ -24,6 +26,8 @@ interface ConversationItemProps {
   showArchivedBadge?: boolean;
   /** The logged-in attendant's most urgent pending task for this contact. */
   taskBadge?: { kind: 'late' | 'today' | 'later' | 'none'; label: string };
+  /** Campaign the lead came from — automatic origin badge, not a tag. */
+  campaign?: LeadCampaign;
 }
 
 const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color: string }> = {
@@ -32,7 +36,7 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
   paused: { icon: Pause, color: 'bg-amber-50 text-amber-700 border-amber-200' },
 };
 
-const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName, teamMembers = [], onMarkAsUnread, onMarkAsRead, onToggleArchived, showArchivedBadge, taskBadge }) => {
+const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName, teamMembers = [], onMarkAsUnread, onMarkAsRead, onToggleArchived, showArchivedBadge, taskBadge, campaign }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel = conversation.status === 'nina' ? sdrName : conversation.status === 'human' ? 'Humano' : 'Pausado';
   const channelCfg = CHANNEL_CONFIG[conversation.primaryChannel];
@@ -116,7 +120,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
           )}
         </div>
 
-        {(conversation.assignedUserId || conversation.tags.length > 0 || (showArchivedBadge && conversation.isArchived)) && (
+        {(conversation.assignedUserId || campaign || conversation.tags.length > 0 || (showArchivedBadge && conversation.isArchived)) && (
           <div className="flex items-center gap-1.5 mt-1">
             {/* Para quem a conversa foi direcionada — vem antes das tags porque é a
                 informação que o gestor procura ao varrer a fila. */}
@@ -126,6 +130,9 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
                 <Archive className="w-2.5 h-2.5" /> Arquivada
               </span>
             )}
+            {/* Origin badge: computed from attribution, so it looks different
+                from the editable tags next to it. */}
+            {campaign && <CampaignBadge campaign={campaign} className="max-w-[140px]" />}
             {conversation.tags.slice(0, 1).map(tag => (
               <span key={tag} className="px-1.5 py-0.5 bg-muted border border-border text-muted-foreground text-[10px] rounded font-medium truncate max-w-[80px]">
                 {tag}

@@ -10,6 +10,19 @@ import { configService } from '../config/ConfigService.js';
 // inbound-media bucket.
 const MEDIA_BUCKET = 'audio-messages';
 
+/** One `meta_ad_catalog` row as the Marketing API lookup produces it. */
+export interface MetaAdCatalogRow {
+  ad_id: string;
+  ad_name: string | null;
+  ad_status: string | null;
+  adset_id: string | null;
+  adset_name: string | null;
+  campaign_id: string | null;
+  campaign_name: string | null;
+  ad_account_id: string | null;
+  lookup_error: string | null;
+}
+
 /** Operator display names, cached per reply (see getOperatorName). Short TTL so a
  *  rename in the team screen reaches outgoing signatures without a restart. */
 const OPERATOR_NAME_TTL_MS = 10 * 60 * 1000;
@@ -402,6 +415,52 @@ class ConversationRepository {
       }, { onConflict: 'contact_id', ignoreDuplicates: true });
 
     if (error) logger.warn({ contactId, err: error.message }, '[repo] failed to record lead attribution');
+  }
+
+  /** Whether this Meta ad id already has a row in `meta_ad_catalog` (resolved or failed). */
+  async hasCatalogedAd(adId: string): Promise<boolean> {
+    const { data } = await getSupabase().from('meta_ad_catalog').select('ad_id').eq('ad_id', adId).maybeSingle();
+    return Boolean(data);
+  }
+
+  /**
+   * Distinct ad ids seen in lead attribution that still need a catalog lookup:
+   * never looked up, or (with `retryFailed`) looked up and failed. `all` returns
+   * every id, for a full refresh after campaigns are renamed.
+   */
+  async listAdIdsForCatalog(mode: 'missing' | 'retryFailed' | 'all'): Promise<string[]> {
+    const supabase = getSupabase();
+    const PAGE = 1000;
+    const adIds = new Set<string>();
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('contact_attribution')
+        .select('source_raw')
+        .not('source_raw->>ad_id', 'is', null)
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(`[repo] listAdIdsForCatalog: ${error.message}`);
+      for (const row of data ?? []) {
+        const adId = (row.source_raw as Record<string, string> | null)?.ad_id;
+        if (adId) adIds.add(adId);
+      }
+      if (!data || data.length < PAGE) break;
+    }
+    if (mode === 'all') return [...adIds];
+
+    const { data, error } = await supabase.from('meta_ad_catalog').select('ad_id, lookup_error');
+    if (error) throw new Error(`[repo] listAdIdsForCatalog: ${error.message}`);
+    const settled = new Set(
+      (data ?? []).filter((r) => mode === 'missing' || !r.lookup_error).map((r) => r.ad_id as string),
+    );
+    return [...adIds].filter((id) => !settled.has(id));
+  }
+
+  async upsertAdCatalog(rows: MetaAdCatalogRow[]): Promise<void> {
+    if (rows.length === 0) return;
+    const { error } = await getSupabase()
+      .from('meta_ad_catalog')
+      .upsert(rows.map((r) => ({ ...r, fetched_at: new Date().toISOString() })), { onConflict: 'ad_id' });
+    if (error) throw new Error(`[repo] upsertAdCatalog: ${error.message}`);
   }
 
   /**

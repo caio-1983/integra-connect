@@ -166,6 +166,9 @@ function toAttribution(row: Record<string, any>): LeadAttribution {
     campaignId: row.campaign_id ?? null,
     campaignName: row.campaign_name ?? null,
     rawCampaignSignal: row.raw_campaign_signal ?? null,
+    metaAdName: row.catalog_ad_name ?? null,
+    metaAdsetName: row.catalog_adset_name ?? null,
+    metaCampaignName: row.catalog_campaign_name ?? null,
   };
 }
 
@@ -181,6 +184,39 @@ export async function fetchLeadAttribution(contactId: string): Promise<LeadAttri
     return null;
   }
   return data ? toAttribution(data) : null;
+}
+
+/** Campaign shown on a contact's origin badge. `mapped` = internal campaign
+ *  (Campanhas); otherwise the raw Meta campaign name from the ad catalog. */
+export interface LeadCampaign {
+  name: string;
+  mapped: boolean;
+}
+
+/**
+ * Campaign per contact, for the origin badge. Only contacts with a mapped
+ * campaign or a resolved Meta campaign come back. Chunked to keep the `in`
+ * filter's URL short.
+ */
+export async function fetchCampaignNamesByContact(contactIds: string[]): Promise<Map<string, LeadCampaign>> {
+  const result = new Map<string, LeadCampaign>();
+  for (let i = 0; i < contactIds.length; i += 150) {
+    const { data, error } = await supabase
+      .from('lead_attribution_resolved')
+      .select('contact_id, campaign_name, catalog_campaign_name')
+      .in('contact_id', contactIds.slice(i, i + 150))
+      .or('campaign_name.not.is.null,catalog_campaign_name.not.is.null');
+    if (error) {
+      console.error('[attribution] Error fetching campaign names:', error);
+      continue;
+    }
+    for (const row of data ?? []) {
+      if (!row.contact_id) continue;
+      if (row.campaign_name) result.set(row.contact_id, { name: row.campaign_name, mapped: true });
+      else if (row.catalog_campaign_name) result.set(row.contact_id, { name: row.catalog_campaign_name, mapped: false });
+    }
+  }
+  return result;
 }
 
 export interface ManualAttributionInput {
@@ -241,7 +277,7 @@ export interface UnmappedSignal {
 export async function fetchUnmappedSignals(): Promise<UnmappedSignal[]> {
   const { data, error } = await supabase
     .from('lead_attribution_resolved')
-    .select('source_raw, campaign_id')
+    .select('source_raw, campaign_id, catalog_campaign_name')
     .is('campaign_id', null);
 
   if (error) {
@@ -252,9 +288,11 @@ export async function fetchUnmappedSignals(): Promise<UnmappedSignal[]> {
   // Aggregated client-side rather than in SQL because it needs one row per
   // (signal kind, value) pair out of a JSONB column, and the unmapped set is
   // small by nature — it shrinks every time someone maps something.
+  // The Meta campaign name comes first once the ad catalog resolved it: one rule
+  // on the campaign covers all of its ads, where ad-id rules need one per ad.
   const KEY_TO_TYPE: [string, CampaignMatchType][] = [
-    ['ad_id', 'meta_ad_id'],
     ['meta_campaign_name', 'meta_campaign_name'],
+    ['ad_id', 'meta_ad_id'],
     ['utm_campaign', 'utm_campaign'],
     ['ref', 'ref_token'],
     ['instance', 'whatsapp_instance'],
@@ -262,7 +300,9 @@ export async function fetchUnmappedSignals(): Promise<UnmappedSignal[]> {
 
   const counts = new Map<string, UnmappedSignal>();
   for (const row of data ?? []) {
-    const raw = (row.source_raw ?? {}) as Record<string, string>;
+    const raw = { ...((row.source_raw ?? {}) as Record<string, string>) };
+    // Same precedence as the view: a typed campaign name wins over the catalog's.
+    if (!raw.meta_campaign_name && row.catalog_campaign_name) raw.meta_campaign_name = row.catalog_campaign_name;
     for (const [key, matchType] of KEY_TO_TYPE) {
       const value = raw[key];
       if (!value) continue;

@@ -16,7 +16,7 @@ import type { OutboundMediaPayload } from '../ChannelConnector.js';
  */
 
 const GRAPH_VERSION = 'v21.0';
-const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
+export const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 
 /** Parsed once — a malformed map should fail loudly at first use, not per message. */
 let tokenCache: Record<string, string> | null = null;

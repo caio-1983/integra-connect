@@ -7,6 +7,8 @@ import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { WorkspaceActions } from './WorkspaceActions';
 import { GroupParticipantsModal } from './GroupParticipantsModal';
 import { AttendantTag } from './AttendantTag';
+import { CampaignBadge } from './CampaignBadge';
+import { useLeadCampaigns } from '@/hooks/useLeadCampaigns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/Button';
 import { MOCK_PLAYGROUND_PRESETS } from '@/lib/mockAIData';
@@ -101,6 +103,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   const ChannelIcon = channelCfg.icon;
   const isGroup = conversation.contactPhone.endsWith('@g.us');
   const [participantsOpen, setParticipantsOpen] = useState(false);
+  const campaign = useLeadCampaigns([conversation.contactId]).get(conversation.contactId);
 
   return (
     <div className="h-14 px-4 flex items-center justify-between bg-card border-b border-border shrink-0 gap-4">
@@ -136,6 +139,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
             <span className="text-xs text-primary font-medium truncate">
               {isGroup ? 'Grupo do WhatsApp' : conversation.contactPhone}
             </span>
+            {campaign && <CampaignBadge campaign={campaign} className="max-w-[220px] flex-shrink" />}
             {/* Para quem esta conversa foi direcionada — derivado de
                 assigned_user_id, não de conversations.tags (ver AttendantTag). */}
             <AttendantTag

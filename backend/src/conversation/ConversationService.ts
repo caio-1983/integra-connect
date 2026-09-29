@@ -4,6 +4,7 @@ import { configService } from '../config/ConfigService.js';
 import { conversationRepository } from '../persistence/ConversationRepository.js';
 import { getConnector } from '../channels/connectorRegistry.js';
 import { applySignature } from '../channels/outboundSignature.js';
+import { ensureAdCataloged } from '../channels/meta/MetaAdsCatalog.js';
 import { runAgentChat } from '../runtime/AgentRuntime.js';
 import { contactAvatarService } from './ContactAvatarService.js';
 import {
@@ -70,6 +71,9 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
   // still attributed. Groups do carry ad clicks in practice.
   if (msg.attribution) {
     await conversationRepository.recordAttribution(contactId, msg.channel, msg.attribution, msg.instance);
+    // Fire-and-forget: resolving the ad id to campaign names is a Graph round
+    // trip the message path should not wait on.
+    if (msg.attribution.adId) void ensureAdCataloged(msg.attribution.adId);
   }
 
   // Lead is created only when a real person makes contact (first inbound → new

@@ -8,6 +8,7 @@ import { useInstanceLabels } from '@/hooks/useInstanceLabels';
 import { useInstanceAccessGrants } from '@/hooks/useInstanceAccessGrants';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { useAuth } from '@/hooks/useAuth';
+import { useLeadCampaigns } from '@/hooks/useLeadCampaigns';
 import { api } from '@/services/api';
 import { cn } from '@/lib/utils';
 import type { TaskDueKind } from '@/hooks/useMyTasks';
@@ -125,6 +126,7 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
   const { isAdmin } = useCompanySettings();
   const { user } = useAuth();
   const [privateInstances, setPrivateInstances] = useState<Record<string, string>>({});
+  const campaignByContact = useLeadCampaigns(conversations.map(c => c.contactId));
 
   useEffect(() => {
     api.fetchPrivateInstances().then(setPrivateInstances);
@@ -269,6 +271,7 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
               onToggleArchived={onSetArchived && (() => onSetArchived(conv.id, !conv.isArchived))}
               showArchivedBadge={!showArchived}
               taskBadge={taskBadgeByContact?.get(conv.contactId)}
+              campaign={campaignByContact.get(conv.contactId)}
             />
           ))}
           {/* Archived ones are loaded in full, so paging only applies to the inbox. */}

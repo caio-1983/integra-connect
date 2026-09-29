@@ -281,6 +281,10 @@ export interface LeadAttribution {
   /** The raw value that identifies a campaign, mapped or not — drives the
    *  "unmapped signals" list on the campaigns admin page. */
   rawCampaignSignal: string | null;
+  /** Names from `meta_ad_catalog`, when the ad id was resolved via Marketing API. */
+  metaAdName: string | null;
+  metaAdsetName: string | null;
+  metaCampaignName: string | null;
 }
 
 export interface LossReason {

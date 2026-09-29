@@ -163,6 +163,15 @@ export const LeadOriginCard: React.FC<LeadOriginCardProps> = ({ contactId, chann
               <span className="font-mono text-[10px] text-foreground break-all">{attribution.rawCampaignSignal}</span>
             </p>
           )}
+          {/* Names from the Meta ad catalog: what the team called the campaign in
+              Ads Manager, before (or regardless of) any mapping rule. */}
+          {attribution.metaCampaignName && (
+            <p className="text-[11px] text-muted-foreground truncate" title={[attribution.metaCampaignName, attribution.metaAdsetName, attribution.metaAdName].filter(Boolean).join(' › ')}>
+              Meta: <span className="text-foreground">{attribution.metaCampaignName}</span>
+              {attribution.metaAdsetName && <> › {attribution.metaAdsetName}</>}
+              {attribution.metaAdName && <> › {attribution.metaAdName}</>}
+            </p>
+          )}
           {attribution.sourceRaw.ad_title && (
             <p className="text-[11px] text-muted-foreground truncate" title={attribution.sourceRaw.ad_title}>
               Anúncio{attribution.sourceRaw.ad_source_app === 'instagram' ? ' (Instagram)' : attribution.sourceRaw.ad_source_app === 'facebook' ? ' (Facebook)' : ''}:{' '}
