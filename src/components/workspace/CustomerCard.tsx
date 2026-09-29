@@ -1,4 +1,5 @@
 import React from 'react';
+import { ContactAvatar } from '@/components/workspace/ContactAvatar';
 import { User, Plus, X } from 'lucide-react';
 import { UIConversation, TagDefinition } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -28,11 +29,7 @@ const CustomerIdentity: React.FC<{ conversation: UIConversation }> = ({ conversa
   const stage = conversation.clientMemory.lead_profile.lead_stage;
   return (
     <div className="flex items-center gap-3 px-4">
-      <img
-        src={conversation.contactAvatar}
-        alt=""
-        className="w-11 h-11 rounded-full object-cover border border-border flex-shrink-0"
-      />
+      <ContactAvatar src={conversation.contactAvatar} name={conversation.contactName} className="w-11 h-11 text-base border border-border flex-shrink-0" />
       <div className="min-w-0">
         <h3 className="text-sm font-bold text-foreground truncate">{conversation.contactName}</h3>
         <p className="text-xs text-muted-foreground truncate">

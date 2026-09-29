@@ -440,7 +440,8 @@ export function transformDBToUIConversation(
     contactId: conv.contact_id,
     contactName: contactDisplayName(conv.contact?.name || conv.contact?.call_name, conv.contact?.phone_number, 'Desconhecido'),
     contactPhone: conv.contact?.phone_number || '',
-    contactAvatar: conv.contact?.profile_picture_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(conv.contact?.name || 'U')}&background=0ea5e9&color=fff`,
+    // Empty → ContactAvatar renders local initials.
+    contactAvatar: conv.contact?.profile_picture_url || '',
     contactEmail: conv.contact?.email || null,
     status: conv.status,
     isActive: conv.is_active,

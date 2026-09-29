@@ -1,4 +1,5 @@
 import React from 'react';
+import { ContactAvatar } from '@/components/workspace/ContactAvatar';
 import { Bot, User, Pause, ChevronDown, MailX, MailOpen, Archive, ArchiveRestore, Clock, SquareCheck } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -61,11 +62,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
     >
       {/* Avatar */}
       <div className="relative flex-shrink-0">
-        <img
-          src={conversation.contactAvatar}
-          alt=""
-          className="w-12 h-12 rounded-full object-cover"
-        />
+        <ContactAvatar src={conversation.contactAvatar} name={conversation.contactName} className="w-12 h-12 text-lg" />
         {showChannel && (
           <span
             title={channelCfg.label}

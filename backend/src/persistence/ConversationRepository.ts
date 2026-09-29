@@ -89,7 +89,13 @@ function aiAutostart(): boolean {
   return (configService.get('AI_AUTOSTART') ?? '').toLowerCase() === 'true';
 }
 
-export interface FindOrCreateContactResult { contactId: string; }
+export interface FindOrCreateContactResult {
+  contactId: string;
+  /** When the profile picture was last fetched (null = never) — see ContactAvatarService. */
+  avatarCheckedAt: string | null;
+}
+/** A 1:1 WhatsApp contact whose picture is missing or stale, with an instance that can look it up. */
+export interface AvatarRefreshCandidate { contactId: string; phone: string; instance: string; }
 export interface FindOrCreateConversationResult { conversationId: string; created: boolean; }
 /** Resolved routing target for an outbound message on an existing conversation. */
 export interface ConversationChannelInfo { provider: string; channel: string; instance: string; to: string; }
@@ -115,7 +121,7 @@ class ConversationRepository {
     const isWhatsapp = channel === 'whatsapp';
     const { data: existing } = await supabase
       .from('contacts')
-      .select('id')
+      .select('id, profile_picture_checked_at')
       .eq('channel', channel)
       .eq('external_id', externalId)
       .maybeSingle();
@@ -127,7 +133,7 @@ class ConversationRepository {
         update.call_name = pushName;
       }
       await supabase.from('contacts').update(update).eq('id', existing.id);
-      return { contactId: existing.id };
+      return { contactId: existing.id, avatarCheckedAt: existing.profile_picture_checked_at ?? null };
     }
 
     const { data, error } = await supabase
@@ -145,7 +151,51 @@ class ConversationRepository {
       .single();
 
     if (error || !data) throw new Error(`[repo] failed to create contact: ${error?.message}`);
-    return { contactId: data.id };
+    return { contactId: data.id, avatarCheckedAt: null };
+  }
+
+  /** Stores a contact's picture (already copied to our storage), or just marks
+   * it checked when WhatsApp returned none — the picture already on file is
+   * kept then, since a hidden photo doesn't mean the old one is wrong. */
+  async setContactAvatar(contactId: string, publicUrl: string | null): Promise<void> {
+    const update: Record<string, unknown> = { profile_picture_checked_at: new Date().toISOString() };
+    if (publicUrl) update.profile_picture_url = publicUrl;
+    const { error } = await getSupabase().from('contacts').update(update).eq('id', contactId);
+    if (error) throw new Error(`[repo] failed to set contact avatar: ${error.message}`);
+  }
+
+  /** Uploads a contact picture to the public `contact-avatars` bucket. The
+   * returned URL carries a version param so a refreshed picture at the same
+   * path isn't served stale from the CDN. */
+  async uploadContactAvatar(contactId: string, image: Buffer, contentType: string): Promise<string> {
+    const supabase = getSupabase();
+    const path = `${contactId}.jpg`;
+    const { error } = await supabase.storage.from('contact-avatars').upload(path, image, { contentType, upsert: true });
+    if (error) throw new Error(`[repo] failed to upload contact avatar: ${error.message}`);
+    return `${supabase.storage.from('contact-avatars').getPublicUrl(path).data.publicUrl}?v=${Date.now()}`;
+  }
+
+  /** WhatsApp 1:1 contacts with a conversation whose picture was never checked
+   * or is older than `staleBefore`, paired with the instance of their latest
+   * conversation (a picture lookup needs a connected number). For the backfill. */
+  async listAvatarRefreshCandidates(staleBefore: string): Promise<AvatarRefreshCandidate[]> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('metadata, last_message_at, contacts!inner(id, external_id, channel, profile_picture_checked_at)')
+      .eq('contacts.channel', 'whatsapp')
+      .or(`profile_picture_checked_at.is.null,profile_picture_checked_at.lt.${staleBefore}`, { referencedTable: 'contacts' })
+      .order('last_message_at', { ascending: false, nullsFirst: false });
+    if (error) throw new Error(`[repo] failed to list avatar candidates: ${error.message}`);
+
+    const byContact = new Map<string, AvatarRefreshCandidate>();
+    for (const row of data ?? []) {
+      const contact = row.contacts as unknown as { id: string; external_id: string };
+      const instance = (row.metadata as { instance?: string } | null)?.instance;
+      if (!instance || !contact?.external_id || contact.external_id.includes('@')) continue; // groups/@lid
+      if (!byContact.has(contact.id)) byContact.set(contact.id, { contactId: contact.id, phone: contact.external_id, instance });
+    }
+    return [...byContact.values()];
   }
 
   /** `instance` is persisted on `conversations.metadata` at creation time —

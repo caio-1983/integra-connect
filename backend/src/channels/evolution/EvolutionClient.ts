@@ -287,4 +287,15 @@ export class EvolutionClient {
     }
     return this.request<RawContact[]>('POST', `/chat/findContacts/${instanceName}`, { where: {} });
   }
+
+  /** Current WhatsApp profile picture URL for a number (same route on v1/v2).
+   * Null when the contact hides the photo or has none. The URL is a signed
+   * pps.whatsapp.net link that expires — callers should copy the image, not
+   * persist the link. */
+  async fetchProfilePictureUrl(instanceName: string, number: string): Promise<string | null> {
+    const res = await this.request<{ profilePictureUrl?: string | null } | undefined>(
+      'POST', `/chat/fetchProfilePictureUrl/${instanceName}`, { number },
+    );
+    return res?.profilePictureUrl || null;
+  }
 }

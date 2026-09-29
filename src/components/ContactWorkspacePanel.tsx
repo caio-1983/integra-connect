@@ -1,4 +1,5 @@
 import React from 'react';
+import { ContactAvatar } from '@/components/workspace/ContactAvatar';
 import { X, Phone, Mail, FileText, User, Plus, Loader2, Calendar, TrendingUp, Clock } from 'lucide-react';
 import { UIConversation, TagDefinition } from '../types';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
@@ -113,11 +114,7 @@ const ContactWorkspacePanel: React.FC<ContactWorkspacePanelProps> = ({
           {/* Identity */}
           <div className="flex flex-col items-center text-center">
             <div className="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-primary to-accent shadow-xl mb-4">
-              <img
-                src={activeChat.contactAvatar}
-                alt={activeChat.contactName}
-                className="w-full h-full rounded-full object-cover border-2 border-background"
-              />
+              <ContactAvatar src={activeChat.contactAvatar} name={activeChat.contactName} className="w-full h-full text-3xl border-2 border-background" />
             </div>
             <h3 className="text-xl font-bold text-foreground mb-1">{activeChat.contactName}</h3>
             <p className="text-sm text-muted-foreground mb-4">

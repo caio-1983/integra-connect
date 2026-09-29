@@ -4,6 +4,7 @@ import { conversationRepository } from '../persistence/ConversationRepository.js
 import { getConnector } from '../channels/connectorRegistry.js';
 import { applySignature } from '../channels/outboundSignature.js';
 import { runAgentChat } from '../runtime/AgentRuntime.js';
+import { contactAvatarService } from './ContactAvatarService.js';
 import {
   ChannelEvents,
   type ConversationLifecyclePayload,
@@ -26,7 +27,11 @@ const AGENT_ID = 'atendimento';
 async function onInboundMessage(event: AppEvent): Promise<void> {
   const msg = event.payload as unknown as InboundMessageReceivedPayload;
 
-  const { contactId } = await conversationRepository.findOrCreateContact(msg.channel, msg.externalContactId, msg.contactName, msg.isGroup);
+  const { contactId, avatarCheckedAt } = await conversationRepository.findOrCreateContact(msg.channel, msg.externalContactId, msg.contactName, msg.isGroup);
+  // Profile picture: copied in the background, at most once a week per contact.
+  if (msg.provider === 'evolution' && !msg.isGroup && !msg.externalContactId.includes('@') && contactAvatarService.isStale(avatarCheckedAt)) {
+    contactAvatarService.refreshInBackground(contactId, msg.instance, msg.externalContactId);
+  }
   const { conversationId, created } = await conversationRepository.findOrCreateConversation(contactId, msg.instance, {
     channel: msg.channel,
     provider: msg.provider,

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ContactAvatar } from '@/components/workspace/ContactAvatar';
 import { Bot, User, Pause, MessageSquarePlus } from 'lucide-react';
 import { UIConversation, ConversationStatus } from '@/types';
 import { cn } from '@/lib/utils';
@@ -105,11 +106,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
     <div className="h-14 px-4 flex items-center justify-between bg-card border-b border-border shrink-0 gap-4">
       <div className="flex items-center gap-3 min-w-0">
         <div className="relative flex-shrink-0">
-          <img
-            src={conversation.contactAvatar}
-            alt={conversation.contactName}
-            className="w-8 h-8 rounded-full ring-2 ring-border"
-          />
+          <ContactAvatar src={conversation.contactAvatar} name={conversation.contactName} className="w-8 h-8 text-xs ring-2 ring-border" />
           <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-background rounded-full" />
         </div>
         <div className="min-w-0 flex-1">
