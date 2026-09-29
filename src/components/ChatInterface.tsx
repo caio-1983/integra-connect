@@ -23,7 +23,7 @@ import {
 import type { QueueFilter } from './workspace';
 
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, markAsUnread, setArchived, assignConversation, appendLocalMessage, refetch } = useConversations();
+  const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, markAsUnread, setArchived, assignConversation, appendLocalMessage, refetch, hasMore, loadingMore, loadMore } = useConversations();
   const { sdrName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
   const { grantsByInstance } = useInstanceAccessGrants();
@@ -211,6 +211,9 @@ const ChatInterface: React.FC = () => {
         activeFilter={queueFilter}
         onFilterChange={setQueueFilter}
         taskBadgeByContact={badgeByContact}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={loadMore}
       />
 
       <NewConversationDialog

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Search, Plus, Loader2, MessageSquare, Smartphone, ChevronDown, Archive, ArrowLeft } from 'lucide-react';
 import { UIConversation } from '@/types';
 import { ConversationItem } from './ConversationItem';
@@ -32,7 +32,32 @@ interface ConversationQueueProps {
   onFilterChange?: (filter: QueueFilter) => void;
   /** Most urgent pending task of the logged-in attendant per contact — badge on the row. */
   taskBadgeByContact?: Map<string, { kind: TaskDueKind; label: string }>;
+  /** Infinite scroll — older conversations load when the end of the list comes into view. */
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }
+
+/** Invisible marker at the end of the list; asks for the next page when it scrolls into view. */
+const LoadMoreSentinel: React.FC<{ onVisible: () => void; loading: boolean }> = ({ onVisible, loading }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || loading) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) onVisible(); },
+      { rootMargin: '200px' },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onVisible, loading]);
+
+  return (
+    <div ref={ref} className="flex justify-center py-4">
+      {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+    </div>
+  );
+};
 
 /** The customer spoke last and nobody on the team (or Lu) answered yet. */
 export function isAwaitingReply(c: UIConversation): boolean {
@@ -86,6 +111,7 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
   conversations, selectedId, onSelect, loading, sdrName, onNewConversation, teamMembers = [],
   onMarkAsUnread, onMarkAsRead, onSetArchived,
   activeFilter: controlledFilter, onFilterChange, taskBadgeByContact,
+  hasMore = false, loadingMore = false, onLoadMore,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
@@ -219,7 +245,7 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
             <span className="text-xs text-muted-foreground">Sincronizando...</span>
           </div>
-        ) : filtered.length === 0 ? (
+        ) : filtered.length === 0 && !hasMore ? (
           <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
             <MessageSquare className="w-8 h-8 text-muted-foreground/30 mb-3" />
             <p className="text-xs text-muted-foreground">
@@ -229,7 +255,8 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
             </p>
           </div>
         ) : (
-          filtered.map((conv) => (
+          <>
+          {filtered.map((conv) => (
             <ConversationItem
               key={conv.id}
               conversation={conv}
@@ -243,7 +270,12 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
               showArchivedBadge={!showArchived}
               taskBadge={taskBadgeByContact?.get(conv.contactId)}
             />
-          ))
+          ))}
+          {/* Archived ones are loaded in full, so paging only applies to the inbox. */}
+          {!showArchived && hasMore && onLoadMore && (
+            <LoadMoreSentinel onVisible={onLoadMore} loading={loadingMore} />
+          )}
+          </>
         )}
       </div>
     </div>

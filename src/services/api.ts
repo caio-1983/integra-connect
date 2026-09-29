@@ -83,6 +83,43 @@ const getDateString = (date: Date): string => {
   return date.toISOString().split('T')[0];
 };
 
+/** Conversations per page in the queue — more load as the list is scrolled. */
+const CONVERSATION_PAGE_SIZE = 50;
+/** Messages loaded per conversation (the most recent ones). */
+const MESSAGES_PER_CONVERSATION = 100;
+
+export interface ConversationPage {
+  conversations: UIConversation[];
+  /** `last_message_at` to pass to fetchOlderConversations; null when there's nothing older. */
+  nextCursor: string | null;
+}
+
+const activeConversationsQuery = () => supabase
+  .from('conversations')
+  .select('*, contact:contacts(*)')
+  .eq('is_active', true)
+  .order('last_message_at', { ascending: false, nullsFirst: false });
+
+const inboxQuery = () => activeConversationsQuery().is('archived_at', null);
+
+/** A full page means there may be more; the cursor is the oldest row's timestamp. */
+const pageCursor = (rows: { last_message_at: string | null }[]): string | null =>
+  rows.length < CONVERSATION_PAGE_SIZE ? null : rows[rows.length - 1].last_message_at;
+
+/** Attaches each conversation's most recent messages (oldest → newest, as the timeline expects). */
+const withRecentMessages = (conversations: unknown[]): Promise<UIConversation[]> =>
+  Promise.all(conversations.map(async (row) => {
+    const conv = row as DBConversation;
+    const { data: messages, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conv.id)
+      .order('sent_at', { ascending: false })
+      .limit(MESSAGES_PER_CONVERSATION);
+    if (error) console.error(`[API] Error fetching messages for ${conv.id}:`, error);
+    return transformDBToUIConversation(conv, ((messages || []) as unknown as DBMessage[]).reverse());
+  }));
+
 export const api = {
   /**
    * Fetch dashboard metrics with real data from Supabase
@@ -1377,23 +1414,12 @@ export const api = {
   /**
    * Fetch conversations with messages from database
    */
-  fetchConversations: async (): Promise<UIConversation[]> => {
-    console.log('[API] Fetching conversations from Supabase...');
-    
-    // Fetch active conversations with contact data. Archived ones are loaded in
-    // a separate query so they never push live conversations out of the limit.
-    const activeQuery = () => supabase
-      .from('conversations')
-      .select(`
-        *,
-        contact:contacts(*)
-      `)
-      .eq('is_active', true)
-      .order('last_message_at', { ascending: false });
-
+  fetchConversations: async (): Promise<ConversationPage> => {
+    // Archived ones are loaded in a separate query so they never push live
+    // conversations out of the first page.
     const [inbox, archived] = await Promise.all([
-      activeQuery().is('archived_at', null).limit(50),
-      activeQuery().not('archived_at', 'is', null).limit(100),
+      inboxQuery().limit(CONVERSATION_PAGE_SIZE),
+      activeConversationsQuery().not('archived_at', 'is', null).limit(100),
     ]);
 
     const convError = inbox.error ?? archived.error;
@@ -1401,37 +1427,21 @@ export const api = {
       console.error('[API] Error fetching conversations:', convError);
       throw convError;
     }
-    const conversations = [...(inbox.data ?? []), ...(archived.data ?? [])];
 
-    if (!conversations || conversations.length === 0) {
-      console.log('[API] No conversations found');
-      return [];
+    return {
+      conversations: await withRecentMessages([...(inbox.data ?? []), ...(archived.data ?? [])]),
+      nextCursor: pageCursor(inbox.data ?? []),
+    };
+  },
+
+  /** Next page of the (non-archived) inbox, older than `before` — the queue's infinite scroll. */
+  fetchOlderConversations: async (before: string): Promise<ConversationPage> => {
+    const { data, error } = await inboxQuery().lt('last_message_at', before).limit(CONVERSATION_PAGE_SIZE);
+    if (error) {
+      console.error('[API] Error fetching older conversations:', error);
+      throw error;
     }
-
-    console.log(`[API] Found ${conversations.length} conversations`);
-
-    // Fetch messages for each conversation
-    const conversationsWithMessages: UIConversation[] = await Promise.all(
-      conversations.map(async (conv) => {
-        const { data: messages, error: msgError } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('conversation_id', conv.id)
-          .order('sent_at', { ascending: true })
-          .limit(100);
-
-        if (msgError) {
-          console.error(`[API] Error fetching messages for ${conv.id}:`, msgError);
-        }
-
-        return transformDBToUIConversation(
-          conv as unknown as DBConversation,
-          (messages || []) as unknown as DBMessage[]
-        );
-      })
-    );
-
-    return conversationsWithMessages;
+    return { conversations: await withRecentMessages(data ?? []), nextCursor: pageCursor(data ?? []) };
   },
 
   /**

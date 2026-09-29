@@ -57,6 +57,10 @@ export function useConversations() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [realtimeConnected, setRealtimeConnected] = useState(true);
+  // Infinite scroll: where the next (older) page starts; null = everything loaded.
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
 
   // Track processed message IDs to prevent duplicates across re-renders
   const processedMessageIds = useRef(new Set<string>());
@@ -131,7 +135,7 @@ export function useConversations() {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.fetchConversations();
+      const { conversations: data, nextCursor } = await api.fetchConversations();
 
       // Reset processed IDs on fresh fetch and populate with existing messages
       processedMessageIds.current.clear();
@@ -142,6 +146,7 @@ export function useConversations() {
       });
 
       setConversations(data);
+      setCursor(nextCursor);
     } catch (err) {
       console.error('[useConversations] Error fetching:', err);
       setError('Erro ao carregar conversas');
@@ -150,6 +155,29 @@ export function useConversations() {
       setLoading(false);
     }
   }, []);
+
+  // Next page of older conversations, appended below. Rows that realtime
+  // already brought in (moved to the top) are skipped.
+  const loadMore = useCallback(async () => {
+    if (!cursor || loadingMoreRef.current) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const { conversations: page, nextCursor } = await api.fetchOlderConversations(cursor);
+      page.forEach(conv => conv.messages.forEach(msg => processedMessageIds.current.add(msg.id)));
+      setConversations(prev => {
+        const known = new Set(prev.map(c => c.id));
+        return [...prev, ...page.filter(c => !known.has(c.id))];
+      });
+      setCursor(nextCursor);
+    } catch (err) {
+      console.error('[useConversations] Error loading more:', err);
+      toast.error('Erro ao carregar mais conversas');
+    } finally {
+      loadingMoreRef.current = false;
+      setLoadingMore(false);
+    }
+  }, [cursor]);
 
   // Set up real-time subscription
   useEffect(() => {
@@ -680,6 +708,9 @@ export function useConversations() {
     setArchived,
     assignConversation,
     appendLocalMessage,
-    refetch: fetchConversations
+    refetch: fetchConversations,
+    hasMore: cursor !== null,
+    loadingMore,
+    loadMore,
   };
 }
