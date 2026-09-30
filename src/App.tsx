@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
@@ -18,7 +18,6 @@ import CRMCompanies from './components/crm/CRMCompanies';
 import CRMDeals from './components/crm/CRMDeals';
 import CRMTasks from './components/crm/CRMTasks';
 import ChannelManagement from './components/ChannelManagement';
-import WebchatWidgetSettings from './components/WebchatWidgetSettings';
 import CampaignSettings from './components/campaigns/CampaignSettings';
 import CampaignsLayout from './components/campaigns/CampaignsLayout';
 import CampaignScoreboard from './components/campaigns/CampaignScoreboard';
@@ -38,7 +37,6 @@ import { CompanySettingsProvider } from './hooks/useCompanySettings';
 import { AuthProvider } from './hooks/useAuth';
 import { ThemeProvider, useTheme } from './contexts/ThemeProvider';
 import { Toaster } from 'sonner';
-import { OnboardingWizard } from './components/OnboardingWizard';
 
 /** Toaster that follows the current light/dark mode. */
 const ThemedToaster: React.FC = () => {
@@ -48,29 +46,15 @@ const ThemedToaster: React.FC = () => {
 
 // Componente de Layout que envolve a aplicação principal
 const AppLayout: React.FC = () => {
-  const [showOnboarding, setShowOnboarding] = useState(false);
-
   return (
     <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
-      {/* Background Ambient Glows */}
-      <div className="fixed top-0 left-0 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[128px] pointer-events-none -translate-x-1/2 -translate-y-1/2 z-0"></div>
-      <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-accent/10 rounded-full blur-[128px] pointer-events-none translate-x-1/2 translate-y-1/2 z-0"></div>
-      
       <Sidebar />
-      
-      <main className="flex-1 h-full overflow-hidden relative z-10 flex flex-col">
-        {/* Top Border Gradient */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-border to-transparent opacity-50 z-20"></div>
-        
+
+      <main className="flex-1 h-full overflow-hidden relative flex flex-col">
         <div className="flex-1 w-full h-full relative">
-          <Outlet context={{ showOnboarding, setShowOnboarding }} />
+          <Outlet />
         </div>
       </main>
-
-      <OnboardingWizard 
-        isOpen={showOnboarding} 
-        onClose={() => setShowOnboarding(false)} 
-      />
     </div>
   );
 };
@@ -131,7 +115,6 @@ const App: React.FC = () => {
               </Route>
               {/* Omnichannel — Sprint 008 */}
               <Route path="/settings/channels" element={<ChannelManagement />} />
-              <Route path="/settings/webchat-widget" element={<WebchatWidgetSettings />} />
               {/* IA — Sprint 009 (gated: Fase 2) */}
               <Route element={<ModuleRoute module="ia" />}>
                 <Route path="/ia/agentes" element={<AIAgentsPage />} />

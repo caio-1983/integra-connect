@@ -12,7 +12,6 @@ import {
   HandCoins,
   CheckSquare,
   Radio,
-  Globe,
   Megaphone,
   Bot,
   BookOpen,
@@ -110,7 +109,6 @@ export const sidebarNavigation: SidebarSectionConfig[] = [
       { id: 'settings', label: 'Configurações', href: '/settings', icon: SettingsIcon },
       { id: 'team', label: 'Usuários', href: '/team', icon: UsersRound },
       { id: 'channels', label: 'Conexões', href: '/settings/channels', icon: Radio },
-      { id: 'webchat-widget', label: 'Chat do Site', href: '/settings/webchat-widget', icon: Globe },
     ],
   },
 ];
