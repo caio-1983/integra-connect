@@ -4,185 +4,133 @@
 
 @layer base {
   /* ===========================================================================
-     Theming model (Aparência em /settings):
-     - NEUTRALS (background/foreground/card/muted/border/…) are set by MODE only
-       — `:root` = light, `.dark` = dark.
-     - BRAND (primary/accent/ring/sidebar-primary/chart-1/chart-2) is set by the
-       PALETTE, per mode. The default palette (Oceano) lives in :root/.dark; other
-       palettes override brand tokens via [data-palette="…"].
-     ThemeProvider stamps `data-palette` on <html> and toggles the `.dark` class.
+     Visual language: WhatsApp Web. One palette, light and dark (`.dark` on
+     <html>, toggled in Configurações › Aparência). Values are WhatsApp Web's own
+     tones; light `primary` is the darker #008069 so white text on it passes AA,
+     dark `primary` is #00a884 with dark text.
+     Surface model: `background` is the backdrop behind panels, `card` a panel,
+     `muted` a header/footer bar (list header, chat header, composer),
+     `accent` a row hover, `secondary` a selected row / filled field.
      =========================================================================== */
 
-  /* ---- LIGHT: neutrals + default (Oceano) brand ---- */
+  /* ---- LIGHT ---- */
   :root {
-    --background: 192 38% 98%;           /* slate-50 com leve tom da paleta (Oceano) */
-    --foreground: 222 47% 11%;           /* slate-900 */
+    color-scheme: light;               /* native checkboxes, scrollbars, pickers */
+    --background: 216 20% 95%;           /* #f0f2f5 */
+    --foreground: 203 32% 10%;           /* #111b21 */
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 203 32% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --secondary: 214 32% 91%;            /* slate-200 */
-    --secondary-foreground: 222 47% 11%;
-    --muted: 214 32% 91%;
-    --muted-foreground: 215 16% 47%;     /* slate-500 */
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
+    --popover-foreground: 203 32% 10%;
+    --muted: 216 20% 95%;                /* #f0f2f5 — panel header / composer */
+    --muted-foreground: 202 12% 45%;     /* #667781 */
+    --secondary: 216 20% 95%;            /* #f0f2f5 — selected row, search field */
+    --secondary-foreground: 203 32% 10%;
+    --accent: 180 5% 96%;                /* #f5f6f6 — row hover */
+    --accent-foreground: 203 32% 10%;
+    --border: 200 16% 93%;               /* #e9edef — dividers */
+    --input: 204 12% 84%;                /* #d1d7db — field outlines */
     --radius: 0.5rem;
 
-    /* Sidebar neutrals — light */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 215 16% 47%;
-    --sidebar-accent: 210 40% 98%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 32% 91%;
-    /* Resolved sidebar surface — neutral fallback; tinted with the palette's
-       primary in the @supports(color-mix) block below. */
-    --sidebar-bg: hsl(var(--sidebar-background));
-
-    /* Extra categorical chart hues (series 3–5) — light */
-    --chart-3: 173 80% 40%;
-    --chart-4: 43 96% 48%;
-    --chart-5: 330 81% 60%;
-
-    /* Brand — Oceano (default), light. primary=cyan, accent=violet (current look) */
-    --primary: 188 95% 36%;
+    --primary: 169 100% 25%;             /* #008069 */
     --primary-foreground: 0 0% 100%;
-    --accent: 263 70% 50%;
-    --accent-foreground: 0 0% 100%;
-    --ring: var(--accent);
-    --sidebar-primary: var(--accent);
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-ring: var(--accent);
-    --chart-1: var(--primary);
-    --chart-2: var(--accent);
-  }
+    --primary-subtle: 111 91% 91%;       /* #d9fdd3 — active chip */
+    --primary-subtle-foreground: 169 100% 18%; /* #005c4b */
+    --ring: 169 100% 25%;
 
-  /* ---- DARK: neutrals + default (Oceano) brand ---- */
-  .dark {
-    --background: 200 33% 8%;            /* superfície escura com leve tom da paleta (Oceano) */
-    --foreground: 210 40% 96%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 96%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 96%;
-    --secondary: 217 33% 18%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 65%;
-    --destructive: 0 72% 51%;
+    --destructive: 346 100% 46%;         /* #ea0038 */
     --destructive-foreground: 0 0% 100%;
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
 
-    /* Sidebar neutrals — dark */
-    --sidebar-background: 222 47% 10%;
-    --sidebar-foreground: 215 20% 65%;
-    --sidebar-accent: 217 33% 16%;
-    --sidebar-accent-foreground: 210 40% 96%;
-    --sidebar-border: 217 33% 20%;
+    --icon: 202 14% 39%;                 /* #54656f — header / composer icons */
+    --avatar: 195 14% 89%;               /* #dfe5e7 — avatar without photo */
+    --avatar-foreground: 202 14% 39%;
+    --read-receipt: 199 80% 62%;         /* #53bdeb */
+
+    /* Status — semantic. The base tone is legible as small text on card and on
+       its -subtle fill (AA); -subtle is the badge background. `danger` is
+       status text; `destructive` stays the fill of irreversible-action buttons. */
+    --success: 163 94% 24%;
+    --success-subtle: 152 76% 95%;
+    --warning: 26 90% 37%;
+    --warning-subtle: 48 100% 95%;
+    --danger: 0 74% 42%;
+    --danger-subtle: 0 86% 97%;
+    --info: 199 88% 30%;                 /* origin / attribution chips */
+    --info-subtle: 199 80% 94%;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 202 14% 39%;
+    --sidebar-primary: 169 100% 25%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 180 5% 96%;
+    --sidebar-accent-foreground: 203 32% 10%;
+    --sidebar-border: 200 16% 93%;
+    --sidebar-ring: 169 100% 25%;
     --sidebar-bg: hsl(var(--sidebar-background));
 
-    /* Extra categorical chart hues (series 3–5) — dark */
-    --chart-3: 173 70% 50%;
-    --chart-4: 43 90% 60%;
-    --chart-5: 330 81% 70%;
-
-    /* Brand — Oceano (default), dark (brighter so it pops on the dark surface) */
-    --primary: 188 86% 48%;
-    --primary-foreground: 222 47% 8%;
-    --accent: 263 80% 68%;
-    --accent-foreground: 222 47% 8%;
-    --ring: var(--accent);
-    --sidebar-primary: var(--accent);
-    --sidebar-primary-foreground: 222 47% 8%;
-    --sidebar-ring: var(--accent);
-    --chart-1: var(--primary);
-    --chart-2: var(--accent);
+    --chart-1: 169 100% 25%;
+    --chart-2: 199 80% 45%;
+    --chart-3: 43 96% 48%;
+    --chart-4: 346 77% 50%;
+    --chart-5: 262 52% 55%;
   }
 
-  /* ---- Palette brand overrides — LIGHT ---- */
-  :root[data-palette="violet"] {
-    --background: 264 40% 98%;
-    --primary: 263 70% 50%;
-    --accent: 280 65% 58%;
-    --ring: var(--accent); --sidebar-primary: var(--accent); --sidebar-ring: var(--accent);
-    --chart-1: var(--primary); --chart-2: var(--accent);
-  }
-  :root[data-palette="emerald"] {
-    --background: 162 34% 98%;
-    --primary: 160 84% 39%;
-    --accent: 173 80% 36%;
-    --ring: var(--accent); --sidebar-primary: var(--accent); --sidebar-ring: var(--accent);
-    --chart-1: var(--primary); --chart-2: var(--accent);
-  }
-  :root[data-palette="amber"] {
-    --background: 40 55% 98%;
-    --primary: 32 95% 44%;
-    --accent: 20 90% 50%;
-    --ring: var(--accent); --sidebar-primary: var(--accent); --sidebar-ring: var(--accent);
-    --chart-1: var(--primary); --chart-2: var(--accent);
-  }
-  :root[data-palette="rose"] {
-    --background: 346 50% 98%;
-    --primary: 346 77% 50%;
-    --accent: 330 75% 55%;
-    --ring: var(--accent); --sidebar-primary: var(--accent); --sidebar-ring: var(--accent);
-    --chart-1: var(--primary); --chart-2: var(--accent);
-  }
-  :root[data-palette="indigo"] {
-    --background: 240 45% 98%;
-    --primary: 239 84% 57%;
-    --accent: 217 91% 55%;
-    --ring: var(--accent); --sidebar-primary: var(--accent); --sidebar-ring: var(--accent);
-    --chart-1: var(--primary); --chart-2: var(--accent);
-  }
+  /* ---- DARK ---- */
+  .dark {
+    color-scheme: dark;
+    --background: 202 31% 7%;            /* #0c1317 */
+    --foreground: 200 16% 93%;           /* #e9edef */
+    --card: 203 32% 10%;                 /* #111b21 */
+    --card-foreground: 200 16% 93%;
+    --popover: 200 23% 18%;              /* #233138 */
+    --popover-foreground: 200 16% 93%;
+    --muted: 202 23% 16%;                /* #202c33 */
+    --muted-foreground: 203 12% 58%;     /* #8696a0 */
+    --secondary: 202 22% 21%;            /* #2a3942 */
+    --secondary-foreground: 200 16% 93%;
+    --accent: 202 23% 16%;               /* #202c33 */
+    --accent-foreground: 200 16% 93%;
+    --border: 203 21% 17%;               /* #222d34 */
+    --input: 202 22% 21%;                /* #2a3942 */
 
-  /* ---- Palette brand overrides — DARK (after light so they win in dark mode) ---- */
-  .dark[data-palette="violet"] {
-    --background: 264 32% 8%;
-    --primary: 263 80% 68%;
-    --accent: 280 75% 72%;
-    --ring: var(--accent); --sidebar-primary: var(--accent); --sidebar-ring: var(--accent);
-    --chart-1: var(--primary); --chart-2: var(--accent);
-  }
-  .dark[data-palette="emerald"] {
-    --background: 164 28% 7%;
-    --primary: 160 70% 48%;
-    --accent: 173 70% 50%;
-    --ring: var(--accent); --sidebar-primary: var(--accent); --sidebar-ring: var(--accent);
-    --chart-1: var(--primary); --chart-2: var(--accent);
-  }
-  .dark[data-palette="amber"] {
-    --background: 32 25% 8%;
-    --primary: 38 92% 55%;
-    --accent: 25 95% 60%;
-    --ring: var(--accent); --sidebar-primary: var(--accent); --sidebar-ring: var(--accent);
-    --chart-1: var(--primary); --chart-2: var(--accent);
-  }
-  .dark[data-palette="rose"] {
-    --background: 344 28% 8%;
-    --primary: 346 80% 62%;
-    --accent: 330 80% 68%;
-    --ring: var(--accent); --sidebar-primary: var(--accent); --sidebar-ring: var(--accent);
-    --chart-1: var(--primary); --chart-2: var(--accent);
-  }
-  .dark[data-palette="indigo"] {
-    --background: 240 34% 8%;
-    --primary: 239 84% 70%;
-    --accent: 217 91% 68%;
-    --ring: var(--accent); --sidebar-primary: var(--accent); --sidebar-ring: var(--accent);
-    --chart-1: var(--primary); --chart-2: var(--accent);
-  }
+    --primary: 167 100% 33%;             /* #00a884 */
+    --primary-foreground: 203 32% 10%;
+    --primary-subtle: 170 67% 12%;       /* #0a332c */
+    --primary-subtle-foreground: 167 100% 33%;
+    --ring: 167 100% 33%;
 
-  /* Tint the sidebar surface with a touch of the active palette's primary.
-     One rule per mode covers every palette because it references --primary,
-     which is already palette-aware. @supports keeps a neutral fallback where
-     color-mix isn't available. */
-  @supports (color: color-mix(in oklab, red, blue)) {
-    :root { --sidebar-bg: color-mix(in oklab, hsl(var(--primary)) 6%, hsl(var(--sidebar-background))); }
-    .dark { --sidebar-bg: color-mix(in oklab, hsl(var(--primary)) 14%, hsl(var(--sidebar-background))); }
+    --destructive: 353 84% 65%;          /* #f15c6d */
+    --destructive-foreground: 203 32% 10%;
+
+    --icon: 202 13% 72%;                 /* #aebac1 */
+    --avatar: 202 5% 44%;                /* #6a7175 */
+    --avatar-foreground: 200 16% 93%;
+    --read-receipt: 199 80% 62%;
+
+    --success: 158 64% 52%;
+    --success-subtle: 160 45% 14%;
+    --warning: 43 96% 56%;
+    --warning-subtle: 38 45% 14%;
+    --danger: 0 91% 71%;
+    --danger-subtle: 0 45% 16%;
+    --info: 199 80% 62%;                 /* #53bdeb */
+    --info-subtle: 199 45% 16%;
+
+    --sidebar-background: 203 32% 10%;
+    --sidebar-foreground: 202 13% 72%;
+    --sidebar-primary: 167 100% 33%;
+    --sidebar-primary-foreground: 203 32% 10%;
+    --sidebar-accent: 202 23% 16%;
+    --sidebar-accent-foreground: 200 16% 93%;
+    --sidebar-border: 203 21% 17%;
+    --sidebar-ring: 167 100% 33%;
+    --sidebar-bg: hsl(var(--sidebar-background));
+
+    --chart-1: 167 100% 33%;
+    --chart-2: 199 80% 62%;
+    --chart-3: 43 90% 60%;
+    --chart-4: 346 80% 62%;
+    --chart-5: 262 60% 70%;
   }
 }
 
@@ -198,6 +146,10 @@
   button, a, input, textarea, select {
     @apply transition-colors duration-200;
   }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.25);
+  }
 }
 
 /* Scrollbar — token-driven so it follows the active theme */
@@ -209,11 +161,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
+  background: hsl(var(--foreground) / 0.2);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
+  background: hsl(var(--foreground) / 0.35);
 }
 
 /* Focus ring */
@@ -234,6 +186,8 @@
   --wa-out: #d9fdd3;
   --wa-text: #111b21;
   --wa-meta: #667781;
+  --wa-wave: #b4bcc1;
+  --wa-quote: #06cf9c;
 }
 .chat-wall::before {
   content: '';
@@ -252,6 +206,7 @@
   --wa-out: #005c4b;
   --wa-text: #e9edef;
   --wa-meta: #8696a0;
+  --wa-wave: #6a7a84;
 }
 .dark .chat-wall::before {
   background-color: #141f26;
@@ -275,4 +230,34 @@
   right: -8px;
   background: var(--wa-out);
   clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+/* Auth screen unit — the approved comp is 1791×878. `--u` is one comp pixel
+   at the current viewport, fitted like object-fit: contain, so the screen
+   keeps the comp's proportions at any size (see authUnit.ts). */
+.auth-u {
+  --u: min(calc(100vw / 1791), calc(100vh / 878));
+}
+
+/* Auth showcase panel — a clean light green-grey ground for the laptop
+   mockup (AuthScene.tsx): no scenery, only the lid, the aluminium and the
+   soft shadow under it. */
+.auth-scene {
+  --scene-top: #f2f5f3;
+  --scene-bottom: #e2e9e5;
+  --lid-rim: #8d959a;
+  --alu-hi: #eef0f1;
+  --alu: #c6cbce;
+  --alu-lo: #8f979c;
+  --laptop-shadow: rgba(24, 48, 38, 0.42);
+  background: linear-gradient(to bottom, var(--scene-top), var(--scene-bottom));
+}
+.dark .auth-scene {
+  --scene-top: #111b21;
+  --scene-bottom: #0b1317;
+  --lid-rim: #4a5257;
+  --alu-hi: #7a8389;
+  --alu: #555d63;
+  --alu-lo: #32383c;
+  --laptop-shadow: rgba(0, 0, 0, 0.7);
 }

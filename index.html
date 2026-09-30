@@ -1,21 +1,19 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-palette="oceano">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script>
-      // Apply the saved appearance (palette + light/dark) before first paint to
-      // avoid a flash. Kept in sync with themeConfigService (STORAGE_KEY / defaults).
+      // Apply the saved light/dark mode before first paint to avoid a flash.
+      // Kept in sync with themeConfigService (STORAGE_KEY / defaults).
       (function () {
         try {
           var cfg = JSON.parse(localStorage.getItem('ic_theme_v1') || '{}');
-          var root = document.documentElement;
-          root.dataset.palette = cfg.palette || 'oceano';
-          if (cfg.mode === 'dark') root.classList.add('dark');
+          if (cfg.mode === 'dark') document.documentElement.classList.add('dark');
         } catch (e) {}
       })();
     </script>
-    <title>Lumina Connect</title>
+    <title>Integra Connect</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     
   

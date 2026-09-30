@@ -19,7 +19,17 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        // WhatsApp Web's own stack.
+        sans: ['"Segoe UI"', '"Helvetica Neue"', 'Helvetica', '"Lucida Grande"', 'Arial', 'Ubuntu', 'Cantarell', '"Fira Sans"', 'sans-serif'],
+      },
       colors: {
+        icon: "hsl(var(--icon))",
+        avatar: {
+          DEFAULT: "hsl(var(--avatar))",
+          foreground: "hsl(var(--avatar-foreground))",
+        },
+        "read-receipt": "hsl(var(--read-receipt))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -28,6 +38,8 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          subtle: "hsl(var(--primary-subtle))",
+          "subtle-foreground": "hsl(var(--primary-subtle-foreground))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -36,6 +48,22 @@ export default {
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          subtle: "hsl(var(--success-subtle))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          subtle: "hsl(var(--warning-subtle))",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          subtle: "hsl(var(--info-subtle))",
+        },
+        danger: {
+          DEFAULT: "hsl(var(--danger))",
+          subtle: "hsl(var(--danger-subtle))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
@@ -54,8 +82,6 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         sidebar: {
-          // Tinted with a touch of the active palette's primary (see --sidebar-bg
-          // in index.css); falls back to the neutral --sidebar-background.
           DEFAULT: "var(--sidebar-bg)",
           foreground: "hsl(var(--sidebar-foreground))",
           primary: "hsl(var(--sidebar-primary))",
@@ -72,6 +98,12 @@ export default {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
+      },
+      boxShadow: {
+        // WhatsApp Web's floating layer (menus, popovers, dialogs).
+        "wa-menu": "0 2px 5px 0 rgba(11,20,26,.26), 0 2px 10px 0 rgba(11,20,26,.16)",
+        // Bubble / chip lift inside the chat wall.
+        "wa-bubble": "0 1px 0.5px rgba(11,20,26,.13)",
       },
       borderRadius: {
         lg: "var(--radius)",

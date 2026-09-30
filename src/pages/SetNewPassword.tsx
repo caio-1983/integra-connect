@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { AuthShell } from '@/components/auth/AuthShell';
-import { AnimatedInput } from '@/components/auth/AnimatedInput';
-import { AnimatedButton } from '@/components/auth/AnimatedButton';
-import { Reveal } from '@/components/auth/Reveal';
-import { SEQ } from '@/components/auth/authMotion';
+import { AuthField } from '@/components/auth/AuthField';
+import { AuthAlert } from '@/components/auth/AuthAlert';
+import { u } from '@/components/auth/authUnit';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Lock, ArrowRight, Loader2, ShieldCheck } from 'lucide-react';
+import { Loader2, Lock } from 'lucide-react';
 import { z } from 'zod';
 
 const passwordSchema = z.string().min(6, 'Senha deve ter pelo menos 6 caracteres');
@@ -20,11 +20,14 @@ const SetNewPassword: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ password?: string; confirmPassword?: string }>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#070707] flex items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-[#C9A45C]/70" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 aria-label="Carregando" className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -48,11 +51,14 @@ const SetNewPassword: React.FC = () => {
     }
 
     setErrors(newErrors);
+    if (newErrors.password) passwordRef.current?.focus();
+    else if (newErrors.confirmPassword) confirmRef.current?.focus();
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
 
     if (!validateForm()) return;
 
@@ -60,7 +66,14 @@ const SetNewPassword: React.FC = () => {
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) {
-        toast.error(updateError.message);
+        console.error('[auth] updateUser failed:', updateError);
+        setFormError(
+          /same|different from the old/i.test(updateError.message)
+            ? 'A nova senha precisa ser diferente da senha temporária.'
+            : /weak|characters/i.test(updateError.message)
+              ? 'Senha fraca. Use pelo menos 6 caracteres, misturando letras e números.'
+              : 'Não foi possível salvar a senha agora. Tente de novo em instantes.',
+        );
         return;
       }
 
@@ -72,7 +85,7 @@ const SetNewPassword: React.FC = () => {
         .eq('user_id', user.id);
 
       if (profileError) {
-        toast.error('Senha alterada, mas houve um erro ao atualizar o status. Tente recarregar a página.');
+        setFormError('Senha alterada, mas houve um erro ao atualizar o status. Recarregue a página para continuar.');
         return;
       }
 
@@ -86,49 +99,56 @@ const SetNewPassword: React.FC = () => {
 
   return (
     <AuthShell
-      logo={
-        <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] shadow-[0_0_44px_-10px_rgba(242,234,219,0.28)] backdrop-blur">
-          <ShieldCheck className="h-7 w-7 text-[#C9A45C]" />
-        </div>
-      }
       title="Defina sua nova senha"
       subtitle="Sua conta foi criada com uma senha temporária. Escolha uma nova senha para continuar."
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <Reveal delay={SEQ.fields}>
-          <AnimatedInput
-            id="password"
-            label="Nova senha"
-            type="password"
-            icon={Lock}
-            placeholder="••••••••"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            error={errors.password}
-          />
-        </Reveal>
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col" style={{ gap: u(26, 16) }}>
+        <AuthField
+          ref={passwordRef}
+          id="password"
+          label="Nova senha"
+          icon={Lock}
+          type="password"
+          autoComplete="new-password"
+          autoFocus
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+            setFormError(null);
+          }}
+          error={errors.password}
+        />
 
-        <Reveal delay={SEQ.fields + 0.12}>
-          <AnimatedInput
-            id="confirmPassword"
-            label="Confirmar nova senha"
-            type="password"
-            icon={Lock}
-            placeholder="••••••••"
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            error={errors.confirmPassword}
-          />
-        </Reveal>
+        <AuthField
+          ref={confirmRef}
+          id="confirmPassword"
+          label="Confirmar nova senha"
+          icon={Lock}
+          type="password"
+          autoComplete="new-password"
+          value={confirmPassword}
+          onChange={(e) => {
+            setConfirmPassword(e.target.value);
+            if (errors.confirmPassword) setErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+            setFormError(null);
+          }}
+          error={errors.confirmPassword}
+        />
 
-        <Reveal delay={SEQ.button} className="pt-1.5">
-          <AnimatedButton type="submit" isLoading={isSubmitting} loadingLabel="Salvando…">
-            Salvar nova senha
-            <ArrowRight className="h-4 w-4" />
-          </AnimatedButton>
-        </Reveal>
+        <div>
+          <AuthAlert message={formError} />
+          <Button type="submit" size="lg" className="w-full" style={{ height: u(54, 46), fontSize: u(19, 15) }} disabled={isSubmitting} aria-busy={isSubmitting || undefined}>
+            {isSubmitting ? (
+              <>
+                <Loader2 aria-hidden className="animate-spin" />
+                Salvando…
+              </>
+            ) : (
+              'Salvar nova senha'
+            )}
+          </Button>
+        </div>
       </form>
     </AuthShell>
   );
