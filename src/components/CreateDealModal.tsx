@@ -308,7 +308,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                       <FormDescription className="text-muted-foreground">
                         Cliente ou lead associado a esta oportunidade
                       </FormDescription>
-                      <FormMessage className="text-red-600" />
+                      <FormMessage className="text-danger" />
                     </FormItem>
                   )}
                 />
@@ -332,7 +332,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                             {...field}
                           />
                         </FormControl>
-                        <FormMessage className="text-red-600" />
+                        <FormMessage className="text-danger" />
                       </FormItem>
                     )}
                   />
@@ -356,7 +356,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                         <FormDescription className="text-muted-foreground">
                           Formato WhatsApp com código do país
                         </FormDescription>
-                        <FormMessage className="text-red-600" />
+                        <FormMessage className="text-danger" />
                       </FormItem>
                     )}
                   />
@@ -379,7 +379,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                           {...field}
                         />
                       </FormControl>
-                      <FormMessage className="text-red-600" />
+                      <FormMessage className="text-danger" />
                     </FormItem>
                   )}
                 />
@@ -407,7 +407,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                           {...field}
                         />
                       </FormControl>
-                      <FormMessage className="text-red-600" />
+                      <FormMessage className="text-danger" />
                     </FormItem>
                   )}
                 />
@@ -425,7 +425,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                           {...field}
                         />
                       </FormControl>
-                      <FormMessage className="text-red-600" />
+                      <FormMessage className="text-danger" />
                     </FormItem>
                   )}
                 />
@@ -447,7 +447,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                           {...field}
                         />
                       </FormControl>
-                      <FormMessage className="text-red-600" />
+                      <FormMessage className="text-danger" />
                     </FormItem>
                   )}
                 />
@@ -470,7 +470,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                           <SelectItem value="high" className="text-foreground focus:bg-muted">Alta</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormMessage className="text-red-600" />
+                      <FormMessage className="text-danger" />
                     </FormItem>
                   )}
                 />
@@ -516,7 +516,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                       <FormDescription className="text-muted-foreground">
                         Previsão de fechamento
                       </FormDescription>
-                      <FormMessage className="text-red-600" />
+                      <FormMessage className="text-danger" />
                     </FormItem>
                   )}
                 />
@@ -545,7 +545,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormMessage className="text-red-600" />
+                      <FormMessage className="text-danger" />
                     </FormItem>
                   )}
                 />
@@ -567,7 +567,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
                     <FormDescription className="text-muted-foreground">
                       Separe múltiplas tags com vírgula
                     </FormDescription>
-                    <FormMessage className="text-red-600" />
+                    <FormMessage className="text-danger" />
                   </FormItem>
                 )}
               />
@@ -586,7 +586,7 @@ export const CreateDealModal: React.FC<CreateDealModalProps> = ({
               <Button
                 type="submit"
                 disabled={isSubmitting}
-                className="bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground shadow-lg shadow-primary/20"
+                className="bg-gradient-to-r from-primary to-primary hover:opacity-90 text-primary-foreground shadow-lg shadow-primary/20"
               >
                 {isSubmitting ? 'Criando...' : contactMode === 'new' ? 'Criar Contato e Deal' : 'Criar Deal'}
               </Button>

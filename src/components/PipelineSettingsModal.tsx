@@ -229,7 +229,7 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
                     onDragStart={() => handleDragStart(index)}
                     onDragOver={(e) => handleDragOver(e, index)}
                     onDragEnd={handleDragEnd}
-                    className={`flex items-center gap-3 p-3 border rounded-lg bg-card cursor-move hover:bg-accent/50 transition-colors ${
+                    className={`flex items-center gap-3 p-3 border rounded-lg bg-card cursor-move hover:bg-accent transition-colors ${
                       draggedIndex === index ? 'opacity-50' : ''
                     }`}
                   >
@@ -322,11 +322,11 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
                           {stage.isAiManaged ? (
                             stage.aiTriggerCriteria ? (
                               <div title="Estágio automático com critério configurado">
-                                <Bot className="w-4 h-4 text-blue-500" />
+                                <Bot className="w-4 h-4 text-primary" />
                               </div>
                             ) : (
                               <div title="Estágio automático sem critério - IA não sabe quando usar">
-                                <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                                <AlertTriangle className="w-4 h-4 text-warning" />
                               </div>
                             )
                           ) : (
