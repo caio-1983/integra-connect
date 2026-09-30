@@ -13,20 +13,21 @@ interface SidebarItemProps {
 }
 
 /**
- * Item de navegação atômico — tema claro, aparência premium B2B (UI-001).
+ * Item de navegação — linguagem do WhatsApp Web.
  *
- * Dimensões: altura 40px | padding 12px | ícone 18px | texto 14px | gap 10px.
- *
- * Estados (Design System — 05-design-system.md + UI-001 paleta):
- *   Default:  texto slate-700, sem fundo.
- *   Hover:    bg-slate-50 (#F8FAFC) — sem glow, sem sombra.
- *   Focus:    anel violet-500/30.
- *   Active:   bg-violet-50 (#F5F3FF), texto violet-700, barra esquerda 3px violet-600.
+ * 44px de altura, ícone 20px na cor `icon`, rótulo 15px em `foreground`.
+ *   Hover:  fundo `sidebar-accent` (#f5f6f6 / #202c33).
+ *   Active: fundo `secondary` (#f0f2f5 / #2a3942), ícone e texto em `foreground`.
+ *   Badge:  contador verde como o de não lidas do WhatsApp — à direita com o
+ *           menu aberto, no canto do ícone com o menu recolhido.
  */
 export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, badgeCount }) => {
   const { open, animate } = useSidebar();
   const Icon = item.icon;
   const showBadge = !!badgeCount && badgeCount > 0;
+
+  const labelVisible = !animate || open;
+  const badgeText = showBadge ? (badgeCount! > 99 ? '99+' : String(badgeCount)) : '';
 
   return (
     <Link
@@ -34,47 +35,45 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, badgeC
       aria-current={isActive ? 'page' : undefined}
       title={!open ? item.label : undefined}
       className={cn(
-        'group/item relative flex min-h-[40px] items-center gap-2.5 rounded-lg px-3 text-sm transition-colors duration-150',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:ring-offset-1 focus-visible:ring-offset-background',
-        isActive
-          ? 'bg-accent/10 font-medium text-accent'
-          : 'font-normal text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground',
+        'group/item relative flex min-h-[44px] items-center gap-3.5 rounded-lg px-3 text-[15px] text-foreground transition-colors duration-150',
+        'focus-visible:ring-offset-0',
+        isActive ? 'bg-secondary font-medium' : 'hover:bg-sidebar-accent',
       )}
     >
-      {/* Barra lateral do estado ativo — 3px, UI-001 */}
-      {isActive && (
-        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent" />
-      )}
-
       <span className="relative flex-shrink-0">
         <Icon
-          className={cn(
-            'h-[18px] w-[18px] transition-colors',
-            isActive
-              ? 'text-accent'
-              : 'text-muted-foreground group-hover/item:text-foreground',
-          )}
+          aria-hidden="true"
+          className={cn('h-5 w-5 transition-colors', isActive ? 'text-foreground' : 'text-icon group-hover/item:text-foreground')}
         />
-        {showBadge && (
+        {showBadge && !labelVisible && (
           <span
-            className="absolute -right-1.5 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-none text-white"
+            className="absolute -right-2 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-semibold leading-none text-primary-foreground tabular-nums"
             aria-label={`${badgeCount} não lidas`}
           >
-            {badgeCount > 99 ? '99+' : badgeCount}
+            {badgeText}
           </span>
         )}
       </span>
 
       <motion.span
         animate={{
-          display: animate ? (open ? 'inline-block' : 'none') : 'inline-block',
-          opacity: animate ? (open ? 1 : 0) : 1,
+          display: labelVisible ? 'inline-block' : 'none',
+          opacity: labelVisible ? 1 : 0,
         }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
-        className="whitespace-pre"
+        className="flex-1 min-w-0 truncate"
       >
         {item.label}
       </motion.span>
+
+      {showBadge && labelVisible && (
+        <span
+          className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold leading-none text-primary-foreground tabular-nums"
+          aria-label={`${badgeCount} não lidas`}
+        >
+          {badgeText}
+        </span>
+      )}
     </Link>
   );
 };

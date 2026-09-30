@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, Plus, Loader2, MessageSquare, Smartphone, ChevronDown, Archive, ArrowLeft } from 'lucide-react';
+import { Search, SquarePen, Loader2, MessageSquare, Smartphone, ChevronDown, Archive, ArrowLeft } from 'lucide-react';
 import { UIConversation } from '@/types';
 import { ConversationItem } from './ConversationItem';
 import { ConversationFilters, QueueFilter } from './ConversationFilters';
@@ -166,46 +166,49 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
 
   return (
     <div className="w-[30%] min-w-[320px] max-w-[560px] border-r border-border flex flex-col bg-card flex-shrink-0">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-2 flex-shrink-0">
-        <div className="flex items-center justify-between mb-3">
-          {showArchived ? (
-            <button
-              onClick={() => { setShowArchived(false); setSearchQuery(''); }}
-              className="flex items-center gap-2 text-lg font-bold text-foreground hover:text-primary transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" /> Arquivadas
-            </button>
-          ) : (
-            <h2 className="text-xl font-bold text-foreground">Conversas</h2>
-          )}
+      {/* Header — WhatsApp Web: title left, actions as round icon buttons right */}
+      <div className="h-[60px] px-4 flex items-center justify-between flex-shrink-0">
+        {showArchived ? (
           <button
-            onClick={onNewConversation}
-            title="Nova conversa"
-            aria-label="Nova conversa"
-            className="w-9 h-9 flex items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            onClick={() => { setShowArchived(false); setSearchQuery(''); }}
+            className="flex items-center gap-6 text-[19px] font-medium text-foreground"
           >
-            <Plus className="w-5 h-5" />
+            <ArrowLeft className="w-6 h-6 text-icon" aria-hidden="true" /> Arquivadas
           </button>
-        </div>
+        ) : (
+          <h2 className="text-[22px] font-bold text-foreground">Conversas</h2>
+        )}
+        <button
+          onClick={onNewConversation}
+          title="Nova conversa"
+          aria-label="Nova conversa"
+          className="w-10 h-10 flex items-center justify-center rounded-full text-icon hover:bg-accent transition-colors"
+        >
+          <SquarePen className="w-5 h-5" aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="px-3 pb-2 flex-shrink-0 flex flex-col gap-2">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-icon pointer-events-none" aria-hidden="true" />
           <input
             type="text"
-            placeholder={showArchived ? 'Buscar nas arquivadas...' : 'Buscar...'}
+            aria-label="Pesquisar conversas"
+            placeholder={showArchived ? 'Pesquisar nas arquivadas' : 'Pesquisar conversa'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-3 h-10 bg-muted border-0 rounded-lg text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground transition-all"
+            className="w-full pl-12 pr-4 h-10 bg-secondary border-0 rounded-full text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
           />
         </div>
 
         {instances.length >= 1 && (
-          <div className="relative mt-2">
-            <Smartphone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+          <div className="relative">
+            <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-icon pointer-events-none" aria-hidden="true" />
             <select
+              aria-label="Filtrar por número"
               value={instanceFilter}
               onChange={(e) => setInstanceFilter(e.target.value)}
-              className="w-full pl-7 pr-6 h-8 bg-background border border-border rounded-lg text-xs text-foreground focus:ring-1 focus:ring-ring/50 outline-none transition-all appearance-none cursor-pointer"
+              className="w-full pl-10 pr-8 h-8 bg-card border border-input rounded-full text-[13px] text-foreground outline-none appearance-none cursor-pointer hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
             >
               <option value="all">Todos os números ({viewBase.length})</option>
               {instances.map(inst => (
@@ -214,31 +217,31 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
                 </option>
               ))}
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-icon pointer-events-none" aria-hidden="true" />
           </div>
         )}
-
       </div>
 
       {/* Filters */}
       {!showArchived && (
-        <div className="pt-2 flex-shrink-0">
+        <div className="flex-shrink-0">
           <ConversationFilters active={activeFilter} onChange={setActiveFilter} counts={counts} />
         </div>
       )}
 
-      {/* Entrada para as arquivadas, como no WhatsApp */}
+      {/* Entrada para as arquivadas, como no WhatsApp: uma linha na coluna do avatar */}
       {!showArchived && !searchQuery && archivedCount > 0 && (
         <button
           onClick={() => { setShowArchived(true); setSearchQuery(''); }}
-          className="mx-3 mb-2 flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs text-foreground/80 hover:bg-muted transition-colors flex-shrink-0"
+          className="flex items-center h-12 pl-3 pr-4 text-left hover:bg-accent transition-colors flex-shrink-0"
         >
-          <Archive className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="font-medium">Arquivadas</span>
-          <span className="ml-auto text-[10px] text-muted-foreground font-medium">{archivedCount}</span>
+          <span className="w-12 flex justify-center flex-shrink-0">
+            <Archive className="w-5 h-5 text-primary" aria-hidden="true" />
+          </span>
+          <span className="ml-3 flex-1 text-base text-foreground">Arquivadas</span>
+          <span className="text-xs font-medium text-primary tabular-nums">{archivedCount}</span>
         </button>
       )}
-
 
       {/* List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -249,8 +252,8 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
           </div>
         ) : filtered.length === 0 && !hasMore ? (
           <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
-            <MessageSquare className="w-8 h-8 text-muted-foreground/30 mb-3" />
-            <p className="text-xs text-muted-foreground">
+            <MessageSquare className="w-8 h-8 text-icon/40 mb-3" aria-hidden="true" />
+            <p className="text-sm text-muted-foreground">
               {searchQuery || (!showArchived && activeFilter !== 'all') || instanceFilter !== 'all'
                 ? 'Nenhuma conversa encontrada'
                 : showArchived ? 'Nenhuma conversa arquivada' : 'Aguardando conversas'}

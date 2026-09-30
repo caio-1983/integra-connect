@@ -7,7 +7,7 @@ import { LuOpportunityCard } from './LuOpportunityCard';
 import type { ConversationInsight } from '@/ai/types';
 import { AgendamentoBlock } from '@/components/crm/AgendamentoBlock';
 import { TarefasBlock } from '@/components/crm/TarefasBlock';
-import { CalendarCheck, CheckSquare, ChevronDown, NotebookPen, UserRound } from 'lucide-react';
+import { CalendarCheck, CheckSquare, ChevronDown, NotebookPen, UserRound, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CustomerWorkspaceProps {
@@ -30,6 +30,8 @@ interface CustomerWorkspaceProps {
   /** Lu's reading of the conversation (need, fields, next steps) — shared with the suggestion card. */
   insight: ConversationInsight | null;
   insightLoading: boolean;
+  /** Closes the panel (the X in its header, like WhatsApp's contact info). */
+  onClose?: () => void;
 }
 
 // Every row starts closed: the panel opens showing only who the customer is
@@ -46,11 +48,11 @@ const CollapsibleRow: React.FC<{
         type="button"
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
-        className="w-full h-11 flex items-center gap-2.5 px-4 text-left hover:bg-muted/50 transition-colors"
+        className="w-full h-[52px] flex items-center gap-4 px-5 text-left hover:bg-accent transition-colors"
       >
-        <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-        <span className="text-[13px] font-semibold text-foreground flex-1">{title}</span>
-        <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', open && 'rotate-180')} />
+        <Icon className="w-5 h-5 text-icon flex-shrink-0" aria-hidden="true" />
+        <span className="text-[15px] text-foreground flex-1">{title}</span>
+        <ChevronDown className={cn('w-4 h-4 text-icon transition-transform', open && 'rotate-180')} aria-hidden="true" />
       </button>
       {open && <div className="pb-3">{children}</div>}
     </div>
@@ -73,17 +75,29 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
   onAssignUser,
   insight,
   insightLoading,
+  onClose,
 }) => {
   const contactId = conversation.contactId;
 
   return (
     <div className="w-80 xl:w-[340px] border-l border-border bg-card flex flex-col flex-shrink-0 overflow-hidden">
-      <div className="h-14 flex items-center px-4 border-b border-border flex-shrink-0">
-        <h2 className="text-[15px] font-bold text-foreground">Detalhes</h2>
+      <div className="h-[60px] flex items-center gap-6 px-4 bg-muted flex-shrink-0">
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            title="Fechar"
+            aria-label="Fechar detalhes"
+            className="w-10 h-10 -ml-2 flex items-center justify-center rounded-full text-icon hover:bg-accent transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
+        <h2 className="text-base text-foreground">Detalhes</h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar py-4">
-          <div className="flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto custom-scrollbar pt-6">
+          <div className="flex flex-col gap-3">
             <CustomerIdentity conversation={conversation} />
 
             {/* Oportunidade + próximos passos: o que a Lu leu da conversa */}
@@ -91,7 +105,7 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
 
             <div className="flex flex-col">
               {/* Always open — the summary is what someone picking up the conversation reads first. */}
-              <div className="border-t border-border py-3">
+              <div className="py-3">
                 <CopilotPanel conversation={conversation} sdrName="Lu" />
               </div>
               <CollapsibleRow title="Agendamento" icon={CalendarCheck}>

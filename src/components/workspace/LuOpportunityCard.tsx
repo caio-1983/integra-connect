@@ -87,14 +87,15 @@ const LuOpportunityCard: React.FC<LuOpportunityCardProps> = ({ contactId, insigh
   if (!insight && !loading && rows.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-3 px-4">
-      <div className="rounded-xl border border-border overflow-hidden">
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border">
-          <span className="text-sm font-bold text-foreground flex-1">Oportunidade</span>
+    <div className="flex flex-col">
+      <div className="h-2 bg-background" aria-hidden="true" />
+      <section className="py-3">
+        <div className="flex items-center gap-2 px-5 pb-1">
+          <span className="text-sm text-muted-foreground flex-1">Oportunidade</span>
           {loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
         </div>
 
-        <div className="px-3 py-1.5">
+        <div className="px-5 py-1">
           {rows.length === 0 ? (
             <p className="text-xs text-muted-foreground py-2">A Lu ainda não identificou o que o cliente precisa.</p>
           ) : rows.map((row) => (
@@ -102,13 +103,13 @@ const LuOpportunityCard: React.FC<LuOpportunityCardProps> = ({ contactId, insigh
               <span className="w-24 flex-shrink-0 text-muted-foreground">{LABELS[row.key]}</span>
               <span className="flex-1 font-semibold text-foreground break-words">{row.value}</span>
               {row.pending
-                ? <span title="Preenchido pela Lu — ainda não confirmado" className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-accent"><Sparkles className="w-3 h-3" />Lu</span>
-                : <Check aria-label="Confirmado" className="w-3.5 h-3.5 text-emerald-600" />}
+                ? <span title="Preenchido pela Lu — ainda não confirmado" className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-primary"><Sparkles className="w-3 h-3" />Lu</span>
+                : <Check aria-label="Confirmado" className="w-3.5 h-3.5 text-success" />}
             </div>
           ))}
         </div>
 
-        <div className="px-3 pb-3 flex flex-col gap-2">
+        <div className="px-5 flex flex-col gap-2">
           {pendingCount > 0 && (
             <p className="text-xs text-muted-foreground">
               {pendingCount} {pendingCount === 1 ? 'campo preenchido' : 'campos preenchidos'} pela Lu ·{' '}
@@ -123,22 +124,20 @@ const LuOpportunityCard: React.FC<LuOpportunityCardProps> = ({ contactId, insigh
               </button>
             </p>
           )}
-          <button
-            type="button"
-            disabled
-            title="Em breve: orçamento com produtos, preços e estoque do Omie"
-            className="h-10 rounded-lg bg-primary text-primary-foreground text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <FileText className="w-4 h-4" /> Gerar orçamento
-          </button>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <FileText className="w-3.5 h-3.5 text-icon" aria-hidden="true" />
+            Orçamento com produtos do Omie: ainda não disponível
+          </p>
         </div>
-      </div>
+      </section>
 
       {insight && (insight.missing.length > 0 || insight.nextSteps.length > 0) && (
-        <div className="rounded-xl border border-accent/30 bg-accent/5 p-3 flex flex-col gap-2">
+        <>
+        <div className="h-2 bg-background" aria-hidden="true" />
+        <section className="px-5 py-3 flex flex-col gap-2">
           <div className="flex items-center gap-1.5">
-            <ListChecks className="w-4 h-4 text-accent" />
-            <span className="text-sm font-bold text-foreground flex-1">Próximos passos</span>
+            <ListChecks className="w-4 h-4 text-icon" aria-hidden="true" />
+            <span className="text-sm text-muted-foreground flex-1">Próximos passos</span>
             <span className="text-[11px] text-muted-foreground">sugeridos pela Lu</span>
           </div>
           {insight.missing.length > 0 && (
@@ -156,13 +155,15 @@ const LuOpportunityCard: React.FC<LuOpportunityCardProps> = ({ contactId, insigh
                   if (next.has(step)) next.delete(step); else next.add(step);
                   return next;
                 })}
-                className="mt-0.5 w-4 h-4 accent-emerald-600"
+                className="mt-0.5 w-4 h-4 accent-[hsl(var(--primary))]"
               />
               <span className={cn('text-foreground', done.has(step) && 'line-through text-muted-foreground')}>{step}</span>
             </label>
           ))}
-        </div>
+        </section>
+        </>
       )}
+      <div className="h-2 bg-background" aria-hidden="true" />
     </div>
   );
 };

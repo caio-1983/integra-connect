@@ -28,7 +28,7 @@ export const SidebarHeader: React.FC = () => {
         <img
           src="/logo-lumina-sidebar.png"
           alt="Integra Connect"
-          className="h-16 w-full object-contain object-center transition-all"
+          className="h-16 w-full object-contain object-center transition-all dark:brightness-0 dark:invert"
         />
       </Link>
 

@@ -1,16 +1,9 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Link, LinkProps } from "react-router-dom";
 import React, { useState, createContext, useContext } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X, ChevronLeft } from "lucide-react";
-
-interface Links {
-  label: string;
-  href: string;
-  icon: React.JSX.Element | React.ReactNode;
-}
 
 interface SidebarContextProps {
   open: boolean;
@@ -96,11 +89,11 @@ export const DesktopSidebar = ({
     <div className="relative h-full flex-shrink-0">
       <motion.div
         className={cn(
-          "h-full px-4 py-5 hidden md:flex md:flex-col w-[280px]",
+          "h-full px-2.5 py-3 hidden md:flex md:flex-col w-[248px]",
           className
         )}
         animate={{
-          width: animate ? (open ? "280px" : "76px") : "280px",
+          width: animate ? (open ? "248px" : "68px") : "248px",
         }}
         transition={{
           duration: 0.3,
@@ -116,14 +109,14 @@ export const DesktopSidebar = ({
         onClick={() => setOpen(!open)}
         aria-label={open ? "Recolher menu" : "Expandir menu"}
         className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6
-                   bg-card border border-border rounded-full
+                   bg-card border border-input rounded-full
                    hidden md:flex items-center justify-center
-                   hover:border-primary/40
-                   transition-all shadow-sm z-50 group"
+                   hover:bg-accent
+                   transition-colors z-50 group"
       >
         <ChevronLeft
           className={cn(
-            "w-4 h-4 text-muted-foreground group-hover:text-primary transition-all duration-300",
+            "w-4 h-4 text-icon group-hover:text-foreground transition-transform duration-300",
             !open && "rotate-180"
           )}
         />
@@ -142,15 +135,14 @@ export const MobileSidebar = ({
     <>
       <div
         className={cn(
-          "h-14 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-background/90 backdrop-blur-xl w-full border-b border-border"
+          "h-14 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-muted w-full border-b border-border"
         )}
         {...props}
       >
         <div className="flex justify-end z-20 w-full">
-          <Menu
-            className="text-muted-foreground cursor-pointer hover:text-primary transition-colors"
-            onClick={() => setOpen(!open)}
-          />
+          <button type="button" aria-label="Abrir menu" onClick={() => setOpen(!open)} className="text-icon hover:text-foreground transition-colors">
+            <Menu />
+          </button>
         </div>
         <AnimatePresence>
           {open && (
@@ -163,77 +155,23 @@ export const MobileSidebar = ({
                 ease: "easeInOut",
               }}
               className={cn(
-                "fixed h-full w-full inset-0 bg-background p-10 z-[100] flex flex-col justify-between",
+                "fixed h-full w-full inset-0 bg-card p-6 z-[100] flex flex-col justify-between",
                 className
               )}
             >
-              <div
-                className="absolute right-10 top-10 z-50 text-muted-foreground cursor-pointer hover:text-primary transition-colors"
+              <button
+                type="button"
+                aria-label="Fechar menu"
+                className="absolute right-6 top-6 z-50 text-icon hover:text-foreground transition-colors"
                 onClick={() => setOpen(!open)}
               >
                 <X />
-              </div>
+              </button>
               {children}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
     </>
-  );
-};
-
-export const SidebarLink = ({
-  link,
-  className,
-  isActive,
-  onClick,
-  ...props
-}: {
-  link: Links;
-  className?: string;
-  isActive?: boolean;
-  onClick?: () => void;
-  props?: Omit<LinkProps, 'to'>;
-}) => {
-  const { open, animate } = useSidebar();
-  return (
-    <Link
-      to={link.href}
-      onClick={onClick}
-      className={cn(
-        "flex items-center justify-start gap-3 group/sidebar py-3 px-3 rounded-xl transition-all duration-200 relative overflow-hidden",
-        isActive
-          ? "bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground",
-        className
-      )}
-      {...props}
-    >
-      {isActive && (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyan-500 rounded-l-md shadow-[0_0_10px_rgba(6,182,212,0.5)]" />
-      )}
-      <span className={cn(
-        "flex-shrink-0 transition-colors",
-        isActive ? "text-primary" : "text-muted-foreground group-hover/sidebar:text-foreground"
-      )}>
-        {link.icon}
-      </span>
-      <motion.span
-        animate={{
-          display: animate ? (open ? "inline-block" : "none") : "inline-block",
-          opacity: animate ? (open ? 1 : 0) : 1,
-        }}
-        transition={{
-          duration: 0.2,
-          ease: "easeInOut",
-        }}
-        className={cn(
-          "text-sm font-medium group-hover/sidebar:translate-x-1 transition duration-150 whitespace-pre",
-          isActive && "text-cyan-50"
-        )}
-      >
-        {link.label}
-      </motion.span>
-    </Link>
   );
 };

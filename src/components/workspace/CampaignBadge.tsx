@@ -11,10 +11,10 @@ import type { LeadCampaign } from '@/services/attributionService';
 export const CampaignBadge: React.FC<{ campaign: LeadCampaign; className?: string }> = ({ campaign, className }) => (
   <span
     className={cn(
-      'px-1.5 py-0.5 border text-[10px] rounded font-medium flex items-center gap-1 min-w-0',
+      'px-1.5 h-[18px] text-[11px] rounded-full font-medium flex items-center gap-1 min-w-0',
       campaign.mapped
-        ? 'bg-primary/10 border-primary/20 text-primary'
-        : 'bg-muted border-dashed border-border text-muted-foreground',
+        ? 'bg-info-subtle text-info'
+        : 'border border-dashed border-input text-muted-foreground',
       className,
     )}
     title={campaign.mapped ? `Origem: ${campaign.name}` : `Origem (campanha da Meta, sem mapeamento): ${campaign.name}`}

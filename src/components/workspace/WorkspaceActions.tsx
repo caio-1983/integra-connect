@@ -28,8 +28,8 @@ interface WorkspaceActionsProps {
 // it's rare) and only shows when someone else can actually receive it. The
 // disabled "Em breve" placeholders (Finalizar, Etiquetas, Agendar retorno,
 // Criar oportunidade) were removed.
-const ICON_BUTTON = 'w-10 h-10 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors';
-const ITEM = 'gap-3 py-2.5 px-3 text-sm rounded-lg';
+const ICON_BUTTON = 'w-10 h-10 flex items-center justify-center rounded-full text-icon hover:bg-accent transition-colors';
+const ITEM = 'gap-3';
 
 const WorkspaceActions: React.FC<WorkspaceActionsProps> = ({
   showCustomerPanel, onToggleCustomerPanel, teamMembers, assignedUserId, onTransfer, onMarkAsUnread,
@@ -45,25 +45,25 @@ const WorkspaceActions: React.FC<WorkspaceActionsProps> = ({
         title={showCustomerPanel ? 'Fechar detalhes' : 'Detalhes do contato'}
         aria-label={showCustomerPanel ? 'Fechar detalhes' : 'Detalhes do contato'}
         aria-pressed={showCustomerPanel}
-        className={cn(ICON_BUTTON, showCustomerPanel && 'bg-muted text-foreground')}
+        className={cn(ICON_BUTTON, showCustomerPanel && 'bg-secondary text-foreground')}
       >
         <Info className="w-5 h-5" />
       </button>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button type="button" title="Mais opções" aria-label="Mais opções" className={cn(ICON_BUTTON, 'data-[state=open]:bg-muted')}>
+          <button type="button" title="Mais opções" aria-label="Mais opções" className={cn(ICON_BUTTON, 'data-[state=open]:bg-secondary')}>
             <MoreVertical className="w-5 h-5" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-60 rounded-xl p-1.5">
+        <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuItem className={ITEM} onSelect={() => onMarkAsUnread()}>
-            <MailX className="h-[18px] w-[18px] text-muted-foreground" /> Marcar como não lida
+            <MailX className="h-[18px] w-[18px] text-icon" /> Marcar como não lida
           </DropdownMenuItem>
           {transferTargets.length > 0 && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground flex items-center gap-2">
+              <DropdownMenuLabel className="px-3 pt-2 pb-1 text-sm font-normal text-primary flex items-center gap-2">
                 <ArrowRightLeft className="h-3.5 w-3.5" /> Transferir para
               </DropdownMenuLabel>
               <div className="max-h-56 overflow-y-auto">

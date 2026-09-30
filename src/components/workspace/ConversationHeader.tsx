@@ -50,20 +50,20 @@ const SimulateCustomerMessagePopover: React.FC<{ onSimulate: (content: string) =
         <button
           type="button"
           title="Simular mensagem do cliente"
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-icon hover:bg-accent transition-colors"
         >
-          <MessageSquarePlus className="w-4 h-4" />
+          <MessageSquarePlus className="w-5 h-5" aria-hidden="true" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 space-y-3">
-        <p className="text-xs font-bold text-foreground uppercase tracking-wider">Simular mensagem do cliente</p>
+        <p className="text-sm font-medium text-foreground">Simular mensagem do cliente</p>
         <div className="flex flex-col gap-1.5">
           {MOCK_PLAYGROUND_PRESETS.map((preset) => (
             <button
               key={preset}
               type="button"
               onClick={() => handlePreset(preset)}
-              className="text-left text-xs px-2.5 py-1.5 rounded-lg border border-border bg-muted/40 hover:bg-muted text-foreground transition-colors"
+              className="text-left text-sm px-3 py-2 rounded-lg bg-secondary hover:bg-accent text-foreground transition-colors"
             >
               {preset}
             </button>
@@ -76,7 +76,7 @@ const SimulateCustomerMessagePopover: React.FC<{ onSimulate: (content: string) =
             onChange={(e) => setFreeText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleFreeText()}
             placeholder="Ou digite uma mensagem livre..."
-            className="h-8 flex-1 rounded-lg border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
+            className="h-9 flex-1 rounded-full border-0 bg-secondary px-4 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
           />
           <Button size="sm" variant="primary" onClick={handleFreeText}>Enviar</Button>
         </div>
@@ -86,9 +86,9 @@ const SimulateCustomerMessagePopover: React.FC<{ onSimulate: (content: string) =
 };
 
 const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color: string }> = {
-  nina:   { icon: Bot,   color: 'bg-violet-50 text-violet-700 border-violet-200' },
-  human:  { icon: User,  color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  paused: { icon: Pause, color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  nina:   { icon: Bot,   color: 'bg-primary-subtle text-primary-subtle-foreground' },
+  human:  { icon: User,  color: 'bg-card text-muted-foreground' },
+  paused: { icon: Pause, color: 'bg-warning-subtle text-warning' },
 };
 
 const ConversationHeader: React.FC<ConversationHeaderProps> = ({
@@ -106,37 +106,39 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   const campaign = useLeadCampaigns([conversation.contactId]).get(conversation.contactId);
 
   return (
-    <div className="h-14 px-4 flex items-center justify-between bg-card border-b border-border shrink-0 gap-4">
+    <div className="h-[60px] px-4 flex items-center justify-between bg-muted shrink-0 gap-4">
       <div className="flex items-center gap-3 min-w-0">
-        <div className="relative flex-shrink-0">
-          <ContactAvatar zoomable src={conversation.contactAvatar} name={conversation.contactName} className="w-8 h-8 text-xs ring-2 ring-border" />
-          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-background rounded-full" />
+        <div className="flex-shrink-0">
+          <ContactAvatar zoomable src={conversation.contactAvatar} name={conversation.contactName} className="w-10 h-10 text-sm" />
         </div>
         <div className="min-w-0 flex-1">
           {isGroup ? (
             <h2
               onClick={() => setParticipantsOpen(true)}
               title="Ver participantes do grupo"
-              className="text-sm font-bold text-foreground truncate cursor-pointer hover:underline"
+              className="text-base text-foreground truncate cursor-pointer hover:underline"
             >
               {conversation.contactName}
             </h2>
           ) : (
-            <h2 className="text-sm font-bold text-foreground truncate">{conversation.contactName}</h2>
+            <h2 className="text-base text-foreground truncate">{conversation.contactName}</h2>
           )}
-          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-            <span className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 flex-shrink-0', color)}>
-              <StatusIcon className="w-2.5 h-2.5" />
-              {statusLabel}
+          <div className="flex items-center gap-1.5 mt-0.5 min-w-0 overflow-hidden">
+            <span title={statusLabel} className={cn('px-1.5 h-[18px] min-w-0 max-w-full rounded-full text-[11px] font-medium flex items-center gap-1', color)}>
+              <StatusIcon className="w-2.5 h-2.5 flex-shrink-0" aria-hidden="true" />
+              <span className="truncate">{statusLabel}</span>
             </span>
+            {conversation.primaryChannel !== 'whatsapp' && (
             <span
               title={channelCfg.label}
-              className={cn('px-1.5 py-0.5 rounded text-[10px] font-medium border flex items-center gap-1 flex-shrink-0', channelCfg.color)}
+              className={cn('px-1.5 h-[18px] rounded-full text-[11px] font-medium border flex items-center gap-1 flex-shrink-0', channelCfg.color)}
             >
-              <ChannelIcon className="w-2.5 h-2.5" />
+              <ChannelIcon className="w-2.5 h-2.5" aria-hidden="true" />
               {channelCfg.label}
             </span>
-            <span className="text-xs text-primary font-medium truncate">
+            )}
+            {/* The details panel shows the number too — it gives way first when the header is tight. */}
+            <span className="hidden 2xl:inline text-[13px] text-muted-foreground truncate tabular-nums">
               {isGroup ? 'Grupo do WhatsApp' : conversation.contactPhone}
             </span>
             {campaign && <CampaignBadge campaign={campaign} className="max-w-[220px] flex-shrink" />}

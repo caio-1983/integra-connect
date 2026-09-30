@@ -28,11 +28,11 @@ const STAGE_LABELS: Record<string, string> = {
 const CustomerIdentity: React.FC<{ conversation: UIConversation }> = ({ conversation }) => {
   const stage = conversation.clientMemory.lead_profile.lead_stage;
   return (
-    <div className="flex items-center gap-3 px-4">
-      <ContactAvatar zoomable src={conversation.contactAvatar} name={conversation.contactName} className="w-11 h-11 text-base border border-border flex-shrink-0" />
-      <div className="min-w-0">
-        <h3 className="text-sm font-bold text-foreground truncate">{conversation.contactName}</h3>
-        <p className="text-xs text-muted-foreground truncate">
+    <div className="flex flex-col items-center gap-3 px-4 pb-2 text-center">
+      <ContactAvatar zoomable src={conversation.contactAvatar} name={conversation.contactName} className="w-24 h-24 text-3xl flex-shrink-0" />
+      <div className="min-w-0 max-w-full">
+        <h3 className="text-xl text-foreground truncate">{conversation.contactName}</h3>
+        <p className="mt-0.5 text-[15px] text-muted-foreground truncate tabular-nums">
           {conversation.contactPhone}{stage ? ` · ${STAGE_LABELS[stage] || stage}` : ''}
         </p>
       </div>

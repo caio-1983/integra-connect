@@ -37,7 +37,7 @@ const CopilotPanel: React.FC<CopilotPanelProps> = ({ conversation, sdrName }) =>
           type="button"
           onClick={handleRefresh}
           disabled={refreshing}
-          className="h-8 px-3 rounded-full text-xs font-semibold border border-border bg-card text-foreground hover:bg-muted flex items-center gap-1.5 disabled:opacity-50"
+          className="h-8 px-3 rounded-full text-xs font-semibold border border-input bg-card text-primary hover:bg-accent flex items-center gap-1.5 disabled:opacity-50"
         >
           <RefreshCw className={cn('w-3.5 h-3.5', refreshing && 'animate-spin')} />
           {refreshing ? 'Resumindo…' : copilot?.summary ? 'Atualizar' : 'Gerar resumo'}

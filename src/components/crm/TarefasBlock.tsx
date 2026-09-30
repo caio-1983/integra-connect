@@ -121,7 +121,7 @@ export const TarefasBlock: React.FC<TarefasBlockProps> = ({ contactId, teamMembe
             </button>
             <button
               onClick={() => setFormOpen(false)}
-              className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              className="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               aria-label="Cancelar"
             >
               <X className="w-3.5 h-3.5" />
@@ -131,7 +131,7 @@ export const TarefasBlock: React.FC<TarefasBlockProps> = ({ contactId, teamMembe
       ) : (
         <button
           onClick={() => setFormOpen(true)}
-          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-ring/50 hover:bg-muted/50 transition-colors"
+          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-ring/50 hover:bg-accent transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           Designar tarefa
@@ -152,7 +152,7 @@ export const TarefasBlock: React.FC<TarefasBlockProps> = ({ contactId, teamMembe
                 onClick={() => toggle(task)}
                 className={cn(
                   'w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors',
-                  task.status === 'done' ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-border hover:border-primary',
+                  task.status === 'done' ? 'bg-primary border-primary text-primary-foreground' : 'border-border hover:border-primary',
                 )}
                 aria-label={task.status === 'done' ? 'Reabrir tarefa' : 'Concluir tarefa'}
               >
@@ -185,7 +185,7 @@ export const TarefasBlock: React.FC<TarefasBlockProps> = ({ contactId, teamMembe
                   <button
                     onClick={() => setConfirmDeleteId(null)}
                     aria-label="Cancelar exclusão"
-                    className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="p-1 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>

@@ -22,10 +22,12 @@ interface NewConversationDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Called once the conversation exists — parent selects it in the queue. */
   onConversationStarted: (conversationId: string) => void;
+  /** Pre-fills the search when opened (e.g. a phone from the Contatos page). */
+  initialSearch?: string;
 }
 
 export const NewConversationDialog: React.FC<NewConversationDialogProps> = ({
-  open, onOpenChange, onConversationStarted,
+  open, onOpenChange, onConversationStarted, initialSearch,
 }) => {
   const { instances } = useWhatsappInstances();
   const connectedInstances = useMemo(() => instances.filter((i) => i.connected), [instances]);
@@ -42,6 +44,10 @@ export const NewConversationDialog: React.FC<NewConversationDialogProps> = ({
     if (!open) return;
     setSelectedInstance((prev) => prev || connectedInstances[0]?.name || '');
   }, [open, connectedInstances]);
+
+  useEffect(() => {
+    if (open && initialSearch) setSearch(initialSearch);
+  }, [open, initialSearch]);
 
   // Search server-side (debounced) so imported contacts beyond the recent
   // window — including nameless ones — are findable and selectable.
@@ -132,7 +138,7 @@ export const NewConversationDialog: React.FC<NewConversationDialogProps> = ({
                     key={c.id}
                     disabled={starting || connectedInstances.length === 0}
                     onClick={() => handleStart(c.phone, c.name || undefined)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors disabled:opacity-50"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-accent transition-colors disabled:opacity-50"
                   >
                     <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                       <User className="w-4 h-4 text-muted-foreground" />

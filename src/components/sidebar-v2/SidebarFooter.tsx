@@ -94,10 +94,10 @@ export const SidebarFooter: React.FC = () => {
             type="button"
             title="Conta"
             aria-label="Abrir menu da conta"
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 data-[state=open]:bg-sidebar-accent"
+            className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:ring-offset-0 data-[state=open]:bg-sidebar-accent"
           >
             {/* Avatar */}
-            <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-accent/10 text-[11px] font-bold text-accent">
+            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-foreground">
               {getUserInitials()}
             </div>
 
@@ -105,10 +105,10 @@ export const SidebarFooter: React.FC = () => {
               <>
                 {/* Nome + Cargo */}
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <p className="truncate text-[13px] font-medium leading-tight text-foreground">
+                  <p className="truncate text-sm leading-tight text-foreground">
                     {getDisplayName()}
                   </p>
-                  <p className="text-[11px] leading-tight text-muted-foreground">
+                  <p className="mt-0.5 text-xs leading-tight text-muted-foreground">
                     {getRole()}
                   </p>
                 </div>
@@ -122,7 +122,7 @@ export const SidebarFooter: React.FC = () => {
         <DropdownMenuContent
           side="top"
           align="start"
-          className="w-64 rounded-xl border-border bg-popover p-1.5 text-popover-foreground shadow-lg"
+          className="w-64"
         >
           <DropdownMenuLabel className="px-2.5 py-2">
             <p className="truncate text-[13px] font-medium leading-tight text-foreground">{getDisplayName()}</p>
@@ -133,7 +133,6 @@ export const SidebarFooter: React.FC = () => {
 
           <DropdownMenuItem
             onSelect={() => setChangePasswordOpen(true)}
-            className="text-foreground focus:bg-muted focus:text-foreground"
           >
             <KeyRound className="h-4 w-4 text-muted-foreground" />
             Mudar senha
@@ -143,7 +142,6 @@ export const SidebarFooter: React.FC = () => {
 
           <DropdownMenuItem
             onSelect={handleLogout}
-            className="text-foreground focus:bg-destructive/10 focus:text-destructive"
           >
             <LogOut className="h-4 w-4 text-muted-foreground" />
             Sair

@@ -14,7 +14,7 @@ interface SidebarSectionProps {
 /**
  * Agrupa itens de um mesmo domínio de negócio (UI-001 — Seções).
  *
- * Rótulo: 11px, medium, uppercase, tracking-wider, cinza suave.
+ * Rótulo: 13px, `muted-foreground`, caixa normal (como os títulos de grupo do WhatsApp).
  * Colapsado: divisor fino substitui o rótulo.
  */
 export const SidebarSection: React.FC<SidebarSectionProps> = ({ section, currentPath, badges }) => {
@@ -28,7 +28,7 @@ export const SidebarSection: React.FC<SidebarSectionProps> = ({ section, current
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.2 }}
-          className="px-3 pb-1 pt-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
+          className="px-3 pb-1 pt-3 text-[13px] text-muted-foreground"
         >
           {section.title}
         </motion.p>

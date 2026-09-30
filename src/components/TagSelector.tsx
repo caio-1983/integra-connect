@@ -142,7 +142,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
       <div className="flex-1 overflow-y-auto p-2">
         {Object.entries(tagsByCategory).map(([category, tags]) => (
           <div key={category} className="mb-3">
-            <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-2 py-1.5">
+            <h5 className="text-sm text-primary px-2 py-1.5">
               {categoryLabels[category] || category}
             </h5>
             <div className="space-y-0.5">
@@ -152,7 +152,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
                   <button
                     key={tag.key}
                     onClick={() => onToggleTag(tag.key)}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-accent/50 transition-colors text-left group"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-primary/50 transition-colors text-left group"
                   >
                     <div className="flex items-center gap-2">
                       <div
@@ -176,7 +176,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
       <div className="p-2 border-t border-border">
         <button
           onClick={() => setIsCreating(true)}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-accent transition-colors text-sm text-muted-foreground hover:text-foreground"
         >
           <Plus className="w-4 h-4" />
           <span>Criar nova tag</span>

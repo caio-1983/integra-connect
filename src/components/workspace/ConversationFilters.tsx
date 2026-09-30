@@ -11,13 +11,13 @@ interface ConversationFiltersProps {
   counts: Record<QueueFilter, number>;
 }
 
-// Always visible — the ones an attendant checks all day. The chips wrap instead
-// of scrolling sideways, so none of them ends up hidden past the column edge.
+// The ones an attendant checks all day, on a single row that scrolls sideways
+// like WhatsApp's; the rest live behind the "…" chip.
 const PRIMARY: Array<{ key: QueueFilter; label: string }> = [
   { key: 'all',     label: 'Todos'      },
   { key: 'unread',  label: 'Não lidas'  },
   { key: 'waiting', label: 'Aguardando' },
-  { key: 'nina',    label: 'IA'         },
+  { key: 'nina',    label: 'Lu'         },
   { key: 'human',   label: 'Humano'     },
 ];
 
@@ -29,7 +29,7 @@ const MORE: Array<{ key: QueueFilter; label: string }> = [
 const Count: React.FC<{ value: number; active: boolean }> = ({ value, active }) => (
   <span className={cn(
     'text-[10px] font-bold min-w-4 h-4 px-1 flex items-center justify-center rounded-full',
-    active ? 'bg-foreground/10 text-foreground' : 'bg-muted text-muted-foreground',
+    active ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground',
   )}>
     {value > 99 ? '99+' : value}
   </span>
@@ -40,17 +40,18 @@ const ConversationFilters: React.FC<ConversationFiltersProps> = ({ active, onCha
   const moreActive = MORE.find((f) => f.key === active);
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2">
+    <div className="flex flex-nowrap items-center gap-2 px-3 pb-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {PRIMARY.map(({ key, label }) => (
         <button
           key={key}
           type="button"
+          aria-pressed={active === key}
           onClick={() => onChange(key)}
           className={cn(
-            'flex items-center gap-1 px-2.5 h-7 rounded-full text-[13px] whitespace-nowrap transition-colors',
+            'flex flex-shrink-0 items-center gap-1.5 px-3 h-8 rounded-full text-sm whitespace-nowrap transition-colors',
             active === key
-              ? 'bg-[#d9fdd3] text-[#005c4b] dark:bg-[#005c4b] dark:text-[#d9fdd3] font-semibold'
-              : 'bg-muted text-muted-foreground hover:text-foreground',
+              ? 'bg-primary-subtle text-primary-subtle-foreground font-medium'
+              : 'bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground',
           )}
         >
           {label}
@@ -64,23 +65,23 @@ const ConversationFilters: React.FC<ConversationFiltersProps> = ({ active, onCha
             type="button"
             aria-label="Mais filtros"
             className={cn(
-              'flex items-center gap-1 px-2.5 h-7 rounded-full text-[13px] whitespace-nowrap transition-colors',
+              'flex flex-shrink-0 items-center gap-1.5 px-3 h-8 rounded-full text-sm whitespace-nowrap transition-colors',
               moreActive
-                ? 'bg-[#d9fdd3] text-[#005c4b] dark:bg-[#005c4b] dark:text-[#d9fdd3] font-semibold'
-                : 'bg-muted text-muted-foreground hover:text-foreground',
+                ? 'bg-primary-subtle text-primary-subtle-foreground font-medium'
+                : 'bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
           >
             {moreActive ? moreActive.label : <MoreHorizontal className="w-3.5 h-3.5" />}
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-40 p-1">
+        <PopoverContent align="start" className="w-44 p-1.5">
           {MORE.map(({ key, label }) => (
             <button
               key={key}
               type="button"
               onClick={() => { onChange(key); setMoreOpen(false); }}
               className={cn(
-                'w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs hover:bg-muted',
+                'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm hover:bg-accent',
                 active === key ? 'font-semibold text-foreground' : 'text-muted-foreground',
               )}
             >

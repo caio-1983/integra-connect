@@ -45,8 +45,8 @@ export const AttendantTag: React.FC<AttendantTagProps> = ({ assignedUserId, team
   const firstName = name.split(' ')[0];
 
   const chipClass = cn(
-    'inline-flex items-center gap-1 rounded border border-primary/25 bg-primary/10 font-medium text-primary',
-    compact ? 'px-1 py-0 text-[10px]' : 'px-1.5 py-0.5 text-[11px]',
+    'inline-flex items-center gap-1 rounded-full bg-primary-subtle font-medium text-primary-subtle-foreground',
+    compact ? 'px-1.5 h-[18px] text-[11px]' : 'px-2 h-5 text-xs',
     className,
   );
   const content = (
@@ -71,14 +71,14 @@ export const AttendantTag: React.FC<AttendantTagProps> = ({ assignedUserId, team
         <button
           type="button"
           title={`Direcionado para ${name} — clique para mudar ou remover`}
-          className={cn(chipClass, 'hover:bg-primary/20 transition-colors flex-shrink-0')}
+          className={cn(chipClass, 'hover:brightness-95 dark:hover:brightness-125 transition-[filter] flex-shrink-0')}
         >
           {content}
           <ChevronDown className="w-3 h-3 opacity-70" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-56 p-1">
-        <p className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+      <PopoverContent align="start" className="w-60 p-1.5">
+        <p className="px-3 py-2 text-sm text-primary">
           Mudar atendente
         </p>
         <div className="max-h-60 overflow-y-auto">
@@ -90,7 +90,7 @@ export const AttendantTag: React.FC<AttendantTagProps> = ({ assignedUserId, team
                 type="button"
                 disabled={current}
                 onClick={() => pick(m.id)}
-                className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-md text-xs text-foreground hover:bg-muted disabled:opacity-60 disabled:hover:bg-transparent transition-colors text-left"
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-accent disabled:opacity-60 disabled:hover:bg-transparent transition-colors text-left"
               >
                 <span className="truncate">{m.name}</span>
                 {current && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
@@ -102,7 +102,7 @@ export const AttendantTag: React.FC<AttendantTagProps> = ({ assignedUserId, team
         <button
           type="button"
           onClick={() => pick(null)}
-          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs text-destructive hover:bg-destructive/10 transition-colors"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-danger hover:bg-accent transition-colors"
         >
           <UserX className="w-3.5 h-3.5" />
           Remover atendente

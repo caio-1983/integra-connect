@@ -153,7 +153,7 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
             </button>
             <button
               onClick={() => setFormOpen(false)}
-              className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              className="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
               aria-label="Cancelar"
             >
               <X className="w-3.5 h-3.5" />
@@ -163,7 +163,7 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
       ) : (
         <button
           onClick={() => setFormOpen(true)}
-          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-ring/50 hover:bg-muted/50 transition-colors"
+          className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-ring/50 hover:bg-accent transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           Agendar retorno
@@ -187,12 +187,12 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
                 disabled={togglingId === ap.id}
                 title={done ? 'Reabrir (não realizado)' : 'Marcar como realizado'}
                 aria-label={done ? 'Reabrir agendamento' : 'Marcar agendamento como realizado'}
-                className="flex-shrink-0 mt-0.5 text-muted-foreground hover:text-emerald-600 disabled:opacity-50 transition-colors"
+                className="flex-shrink-0 mt-0.5 text-muted-foreground hover:text-success disabled:opacity-50 transition-colors"
               >
                 {togglingId === ap.id
                   ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   : done
-                    ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    ? <CheckCircle2 className="w-3.5 h-3.5 text-success" />
                     : <Circle className="w-3.5 h-3.5" />}
               </button>
               <div className="flex-1 min-w-0">
@@ -206,7 +206,7 @@ export const AgendamentoBlock: React.FC<AgendamentoBlockProps> = ({ contactId, c
                   <span className="px-1 py-0.5 rounded bg-muted border border-border">
                     {typeLabel[ap.type] ?? ap.type}
                   </span>
-                  {done && <span className="text-emerald-600 font-medium">Realizado</span>}
+                  {done && <span className="text-success font-medium">Realizado</span>}
                 </div>
               </div>
               <button

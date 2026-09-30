@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Sparkles } from 'lucide-react';
+import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Sparkles, Camera, Mic, FileText, Video, type LucideIcon } from 'lucide-react';
 import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn, contactDisplayName } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
@@ -35,9 +35,48 @@ function linkify(text: string): React.ReactNode {
         {part}
       </a>
     ) : (
-      <React.Fragment key={i}>{part}</React.Fragment>
+      <React.Fragment key={i}>{formatWhatsApp(part, i)}</React.Fragment>
     ),
   );
+}
+
+/** WhatsApp inline formatting — *bold*, _italic_, ~strike~, `mono` — so text
+ *  reads here as the customer sees it (e.g. the `*Nome*` attendant signature).
+ *  Markers only count at word edges, as in WhatsApp. */
+const FORMAT_RE = /(?<![\w*_~`])(\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~|`[^`\n]+`)(?![\w*_~`])/g;
+function formatWhatsApp(text: string, keyBase: number): React.ReactNode {
+  return text.split(FORMAT_RE).map((part, i) => {
+    const key = `${keyBase}-${i}`;
+    if (i % 2 === 1) { // split() puts the captured markers at odd indexes
+      const inner = part.slice(1, -1);
+      switch (part[0] + part[part.length - 1]) {
+        case '**': return <strong key={key} className="font-semibold">{inner}</strong>;
+        case '__': return <em key={key}>{inner}</em>;
+        case '~~': return <s key={key}>{inner}</s>;
+        case '``': return <code key={key} className="font-mono text-[13px]">{inner}</code>;
+      }
+    }
+    return <React.Fragment key={key}>{part}</React.Fragment>;
+  });
+}
+
+/** Leading emoji the backend stores as a media placeholder, mapped to a drawn icon. */
+const MEDIA_PREFIX: Array<[RegExp, LucideIcon]> = [
+  [/^📷\s*/u, Camera], [/^(🎵|🎤)\s*/u, Mic], [/^📄\s*/u, FileText], [/^🎥\s*/u, Video],
+];
+
+/** Icon for a message preview (quote, reply bar, queue row), or null for plain text. */
+export function previewIcon(msg: UIMessage | undefined, fallbackText = ''): LucideIcon | null {
+  if (msg?.type === MessageType.IMAGE) return Camera;
+  if (msg?.type === MessageType.AUDIO) return Mic;
+  const text = msg ? msg.content ?? '' : fallbackText;
+  return MEDIA_PREFIX.find(([re]) => re.test(text))?.[1] ?? null;
+}
+
+/** Removes a leading media emoji so the drawn icon carries it instead. */
+export function stripMediaEmoji(text: string): string {
+  for (const [re] of MEDIA_PREFIX) if (re.test(text)) return text.replace(re, '');
+  return text;
 }
 
 /** Deterministic pseudo-waveform (0.18–1 heights) seeded by the message id, so
@@ -92,12 +131,9 @@ export function imageCaption(msg: UIMessage): string {
 /** One-line preview of a message, as shown inside a quote or the reply bar. */
 export function messagePreview(msg: UIMessage): string {
   switch (msg.type) {
-    case MessageType.IMAGE: {
-      const caption = imageCaption(msg);
-      return caption ? `📷 ${caption}` : '📷 Imagem';
-    }
-    case MessageType.AUDIO: return '🎵 Áudio';
-    default: return msg.content || 'Mensagem';
+    case MessageType.IMAGE: return imageCaption(msg) || 'Foto';
+    case MessageType.AUDIO: return 'Áudio';
+    default: return stripMediaEmoji(msg.content || '') || 'Mensagem';
   }
 }
 
@@ -215,7 +251,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
             onClick={togglePlay}
             disabled={!msg.mediaUrl}
             aria-label={isPlaying ? 'Pausar áudio' : 'Reproduzir áudio'}
-            className="flex items-center justify-center w-9 h-9 shrink-0 text-[#54656f] dark:text-[#aebac1] hover:text-[var(--wa-text)] active:scale-95 transition disabled:opacity-40"
+            className="flex items-center justify-center w-9 h-9 shrink-0 text-icon hover:text-[var(--wa-text)] active:scale-95 transition disabled:opacity-40"
           >
             {isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
           </button>
@@ -238,7 +274,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                     key={i}
                     className={cn(
                       'w-[3px] shrink-0 rounded-full transition-colors duration-150',
-                      played ? 'bg-[#53bdeb]' : 'bg-[#b4bcc1] dark:bg-[#6a7a84]',
+                      played ? 'bg-read-receipt' : 'bg-[var(--wa-wave)]',
                     )}
                     style={{ height: `${Math.max(3, Math.round(bh * 26))}px` }}
                   />
@@ -246,7 +282,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
               })}
               <span
                 aria-hidden="true"
-                className="absolute top-1/2 w-3 h-3 -mt-1.5 -ml-1.5 rounded-full bg-[#53bdeb] shadow-sm pointer-events-none"
+                className="absolute top-1/2 w-3 h-3 -mt-1.5 -ml-1.5 rounded-full bg-read-receipt shadow-sm pointer-events-none"
                 style={{ left: `${Math.min(100, playedFraction * 100)}%` }}
               />
             </div>
@@ -303,7 +339,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
   return (
     <>
       <div className="flex justify-center mb-3">
-        <span className="px-3 py-1.5 bg-[var(--wa-in)] text-[var(--wa-meta)] text-xs font-medium uppercase rounded-lg shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]">
+        <span className="px-3 py-1.5 bg-[var(--wa-in)] text-[var(--wa-meta)] text-xs font-medium uppercase rounded-lg shadow-wa-bubble">
           Hoje
         </span>
       </div>
@@ -343,7 +379,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
             {isOutgoing && msg.fromType === 'nina' && <Bot aria-label="Enviada pela IA" className="w-3 h-3" />}
             {msg.timestamp}
             {isOutgoing && (
-              msg.status === 'read'      ? <CheckCheck aria-label="Lida" className="w-4 h-4 text-[#53bdeb]" /> :
+              msg.status === 'read'      ? <CheckCheck aria-label="Lida" className="w-4 h-4 text-read-receipt" /> :
               msg.status === 'delivered' ? <CheckCheck aria-label="Entregue" className="w-4 h-4" /> :
                                           <Check      aria-label="Enviada" className="w-3.5 h-3.5" />
             )}
@@ -369,7 +405,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                 </span>
               )}
               <div className={cn(
-                'relative rounded-lg text-[14.2px] leading-[19px] text-[var(--wa-text)] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]',
+                'relative rounded-lg text-[14.2px] leading-[19px] text-[var(--wa-text)] shadow-wa-bubble',
                 isOutgoing ? 'bg-[var(--wa-out)]' : 'bg-[var(--wa-in)]',
                 firstOfRun && (isOutgoing ? 'rounded-tr-none wa-tail-out' : 'rounded-tl-none wa-tail-in'),
                 msg.type === MessageType.IMAGE ? 'p-1' : 'px-2 pt-1.5 pb-2',
@@ -385,14 +421,17 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                     onClick={() => quoted && jumpTo(quoted.id)}
                     disabled={!quoted}
                     className={cn(
-                      'block w-full text-left mb-1 px-2.5 py-1.5 rounded-md border-l-4 border-[#06cf9c] bg-black/5 dark:bg-white/5 text-xs',
+                      'block w-full text-left mb-1 px-2.5 py-1.5 rounded-md border-l-4 border-[var(--wa-quote)] bg-black/5 dark:bg-white/5 text-xs',
                       quoted ? 'cursor-pointer hover:bg-black/10 dark:hover:bg-white/10' : 'cursor-default',
                     )}
                   >
                     {quoted ? (
                       <>
-                        <span className="block font-semibold text-[#06cf9c]">{messageAuthor(quoted, contactName, isGroup)}</span>
-                        <span className="block line-clamp-2 text-[var(--wa-meta)]">{messagePreview(quoted)}</span>
+                        <span className="block font-semibold text-[var(--wa-quote)]">{messageAuthor(quoted, contactName, isGroup)}</span>
+                        <span className="flex items-start gap-1 text-[var(--wa-meta)]">
+                          {(() => { const Icon = previewIcon(quoted); return Icon ? <Icon className="w-3.5 h-3.5 mt-px flex-shrink-0" aria-hidden="true" /> : null; })()}
+                          <span className="line-clamp-2">{formatWhatsApp(messagePreview(quoted), 0)}</span>
+                        </span>
                       </>
                     ) : (
                       <span className="italic text-[var(--wa-meta)]">Mensagem original não carregada</span>
@@ -432,14 +471,14 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
           </div>
           {luNote?.messageId === msg.id && luNote.text && (
             <div className="flex justify-center my-3">
-              <div className="flex items-center gap-2 max-w-[85%] pl-3 pr-1.5 py-1.5 rounded-lg bg-[var(--wa-in)] text-xs text-[var(--wa-meta)] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)]">
-                <Sparkles className="w-3.5 h-3.5 text-accent flex-shrink-0" />
-                <span><span className="font-bold text-accent">Lu anotou</span> {luNote.text}</span>
+              <div className="flex items-center gap-2 max-w-[85%] pl-3 pr-1.5 py-1.5 rounded-lg bg-[var(--wa-in)] text-xs text-[var(--wa-meta)] shadow-wa-bubble">
+                <Sparkles className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                <span><span className="font-bold text-primary">Lu anotou</span> {luNote.text}</span>
                 {luNote.onOpen && (
                   <button
                     type="button"
                     onClick={luNote.onOpen}
-                    className="flex-shrink-0 px-2 py-1 rounded-md bg-accent/10 text-accent font-semibold hover:bg-accent/20"
+                    className="flex-shrink-0 px-2 py-1 rounded-md bg-primary/10 text-primary font-semibold hover:bg-primary/20"
                   >
                     Ver detalhes
                   </button>

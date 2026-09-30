@@ -3,16 +3,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 active:scale-95",
+  "inline-flex items-center justify-center rounded-full font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        primary:   "bg-gradient-to-r from-primary to-accent text-primary-foreground hover:opacity-90 shadow-sm border border-transparent",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border",
-        outline:   "border border-border bg-transparent text-foreground hover:bg-muted hover:text-foreground",
-        ghost:     "text-muted-foreground hover:bg-muted hover:text-foreground",
-        danger:    "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200",
-        default:   "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border",
+        primary:   "bg-primary text-primary-foreground hover:bg-primary/90 border border-transparent",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-transparent",
+        outline:   "border border-input bg-card text-primary hover:bg-accent",
+        ghost:     "text-icon hover:bg-accent hover:text-foreground",
+        danger:    "bg-danger-subtle text-danger hover:bg-danger-subtle/70 border border-danger/25",
+        default:   "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-transparent",
       },
       size: {
         sm:      "h-8 px-3 text-xs",

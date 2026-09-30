@@ -42,7 +42,7 @@ const HistoryCard: React.FC<HistoryCardProps> = ({
 
       {/* Interaction summary — compact, below notes */}
       <div className="space-y-1.5">
-        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+        <p className="text-sm text-primary flex items-center gap-1.5">
           <Clock className="w-3 h-3" />
           Histórico
         </p>

@@ -30,6 +30,8 @@ const ChatInterface: React.FC = () => {
 
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [newConversationOpen, setNewConversationOpen] = useState(false);
+  // Search to pre-fill when the dialog opens from a /chat?contact= deep link.
+  const [newConversationSearch, setNewConversationSearch] = useState<string | undefined>();
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
   const { tasks: myTasks, setDone: setTaskDone, badgeByContact } = useMyTasks();
   const [inputText, setInputText] = useState('');
@@ -70,8 +72,17 @@ const ChatInterface: React.FC = () => {
     if (didInitRef.current || conversations.length === 0) return;
     const urlParams = new URLSearchParams(window.location.search);
     const conversationParam = urlParams.get('conversation');
+    const contactDigits = (urlParams.get('contact') ?? '').replace(/\D/g, '');
     if (conversationParam && conversations.some(c => c.id === conversationParam)) {
       setSelectedChatId(conversationParam);
+    } else if (contactDigits) {
+      const match = conversations.find(c => c.contactPhone.replace(/\D/g, '') === contactDigits);
+      if (match) {
+        setSelectedChatId(match.id);
+      } else {
+        setNewConversationSearch(contactDigits);
+        setNewConversationOpen(true);
+      }
     }
     didInitRef.current = true;
   }, [conversations]);
@@ -186,7 +197,7 @@ const ChatInterface: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex h-full bg-background items-center justify-center">
+      <div className="flex h-full bg-card items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Sincronizando conversas...</p>
@@ -196,7 +207,7 @@ const ChatInterface: React.FC = () => {
   }
 
   return (
-    <div className="flex h-full bg-background overflow-hidden border-t border-l border-border">
+    <div className="flex h-full bg-card overflow-hidden">
 
       {/* Coluna 1 — Conversas */}
       <ConversationQueue
@@ -220,13 +231,14 @@ const ChatInterface: React.FC = () => {
 
       <NewConversationDialog
         open={newConversationOpen}
-        onOpenChange={setNewConversationOpen}
+        onOpenChange={(open) => { setNewConversationOpen(open); if (!open) setNewConversationSearch(undefined); }}
         onConversationStarted={handleConversationStarted}
+        initialSearch={newConversationSearch}
       />
 
       {/* Coluna 2 — Conversa */}
       {activeChat ? (
-        <div className="flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 bg-card relative overflow-hidden">
           <ConversationHeader
             conversation={activeChat}
             sdrName={sdrName}
@@ -325,6 +337,7 @@ const ChatInterface: React.FC = () => {
           onNotesBlur={handleNotesBlur}
           insight={insight}
           insightLoading={insightLoading}
+          onClose={() => setShowCustomerWorkspace(false)}
           onAssignUser={async (userId) => {
             try {
               await assignConversation(activeChat.id, userId);

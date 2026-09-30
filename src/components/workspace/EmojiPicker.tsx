@@ -78,12 +78,12 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect, triggerClass
           aria-label="Inserir emoji"
           title="Emoji"
           className={cn(
-            'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors',
-            open && 'text-primary bg-muted',
+            'w-10 h-10 flex items-center justify-center rounded-full text-icon hover:bg-accent transition-colors flex-shrink-0',
+            open && 'bg-secondary text-foreground',
             triggerClassName,
           )}
         >
-          <Smile className="w-4 h-4" />
+          <Smile className="w-6 h-6" />
         </button>
       </PopoverTrigger>
       <PopoverContent
@@ -105,7 +105,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect, triggerClass
               title={cat.label}
               className={cn(
                 'flex-1 flex items-center justify-center h-8 rounded-md text-lg transition-colors',
-                cat.id === activeCategory ? 'bg-muted' : 'hover:bg-muted/60 opacity-70 hover:opacity-100',
+                cat.id === activeCategory ? 'bg-secondary' : 'hover:bg-accent opacity-70 hover:opacity-100',
               )}
             >
               {cat.icon}
@@ -115,7 +115,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect, triggerClass
 
         {/* Emoji grid */}
         <div className="px-2 py-2">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1 pb-1.5">
+          <p className="text-[13px] text-muted-foreground px-1 pb-1.5">
             {category.label}
           </p>
           <div className="grid grid-cols-8 gap-0.5 max-h-52 overflow-y-auto custom-scrollbar">
@@ -125,7 +125,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect, triggerClass
                 type="button"
                 onClick={() => handleSelect(emoji)}
                 aria-label={emoji}
-                className="flex items-center justify-center h-9 rounded-md text-xl hover:bg-muted transition-colors active:scale-90"
+                className="flex items-center justify-center h-9 rounded-md text-xl hover:bg-accent transition-colors"
               >
                 {emoji}
               </button>

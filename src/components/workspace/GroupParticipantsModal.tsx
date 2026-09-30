@@ -89,7 +89,7 @@ export const GroupParticipantsModal: React.FC<GroupParticipantsModalProps> = ({ 
                   {p.name && <div className="text-xs text-muted-foreground">{formatPhone(p.phoneNumber)}</div>}
                 </div>
                 {p.isAdmin && (
-                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-violet-50 text-violet-700 flex-shrink-0">
+                  <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary-subtle text-primary-subtle-foreground flex-shrink-0">
                     <ShieldCheck className="w-3 h-3" /> Admin
                   </span>
                 )}

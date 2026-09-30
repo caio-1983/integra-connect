@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Paperclip, Mic, Send, X, Zap, Reply } from 'lucide-react';
+import { Paperclip, Mic, SendHorizontal, X, Zap, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -246,13 +246,16 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     });
   };
 
+  const iconButton = 'w-10 h-10 flex items-center justify-center rounded-full text-icon hover:bg-accent transition-colors flex-shrink-0';
+  const attachmentRow = 'mb-2 flex items-center gap-2 rounded-lg bg-card px-2 py-1.5';
+  const removeButton = 'p-1 rounded-full text-icon hover:bg-accent flex-shrink-0';
+
   return (
-    <div className="px-4 py-3 bg-card border-t border-border flex-shrink-0">
+    <div className="px-4 py-2.5 bg-muted flex-shrink-0">
       {replyingTo && !isRecording && (
-        <div className="mb-2 flex items-start gap-2 rounded-lg border-l-4 border-primary bg-muted/60 px-3 py-2">
-          <Reply className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
-          <div className="flex-1 min-w-0 text-xs">
-            <span className="block font-semibold text-primary">Respondendo a {replyingTo.author}</span>
+        <div className="mb-2 flex items-stretch gap-2 rounded-lg bg-card p-1.5">
+          <div className="flex-1 min-w-0 rounded-md bg-secondary border-l-4 border-primary px-3 py-1.5 text-[13px]">
+            <span className="block font-medium text-primary">Respondendo a {replyingTo.author}</span>
             <span className="block text-muted-foreground truncate">{replyingTo.preview}</span>
           </div>
           <button
@@ -260,18 +263,18 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
             onClick={onCancelReply}
             title="Cancelar resposta"
             aria-label="Cancelar resposta"
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground flex-shrink-0"
+            className={cn(removeButton, 'self-center')}
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-5 h-5" />
           </button>
         </div>
       )}
       {pastedFile && !isRecording && (
-        <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/60 px-2 py-1.5">
+        <div className={attachmentRow}>
           {pastedPreview
             ? <img src={pastedPreview} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
-            : <Paperclip className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
-          <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
+            : <Paperclip className="w-4 h-4 text-icon flex-shrink-0" aria-hidden="true" />}
+          <span className="flex-1 min-w-0 text-[13px] text-muted-foreground truncate">
             {pastedPreview ? 'Imagem colada' : pastedFile.name} — o texto vai como legenda
           </span>
           <button
@@ -279,77 +282,34 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
             onClick={() => setPastedFile(null)}
             title="Remover anexo"
             aria-label="Remover anexo"
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground flex-shrink-0"
+            className={removeButton}
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
       {pendingImage?.imageUrl && !isRecording && (
-        <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/60 px-2 py-1.5">
+        <div className={attachmentRow}>
           <img src={pendingImage.imageUrl} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0" />
-          <span className="flex-1 min-w-0 text-xs text-muted-foreground">
-            Imagem de <span className="font-mono text-primary">/{pendingImage.shortcut}</span> — o texto vai como legenda
+          <span className="flex-1 min-w-0 text-[13px] text-muted-foreground">
+            Imagem de <span className="font-medium text-primary">/{pendingImage.shortcut}</span> — o texto vai como legenda
           </span>
           <button
             type="button"
             onClick={() => setPendingImage(null)}
             title="Remover imagem"
             aria-label="Remover imagem"
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground flex-shrink-0"
+            className={removeButton}
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-1">
         {/* Attachment actions */}
         {!isRecording && (
-          <div className="flex items-center gap-0.5 pb-1">
+          <div className="flex items-center">
             <EmojiPicker onSelect={insertText} />
-            <Popover open={quickRepliesOpen} onOpenChange={setQuickRepliesOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  title="Respostas rápidas"
-                  aria-label="Respostas rápidas"
-                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <Zap className="w-4 h-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent side="top" align="start" className="w-80 p-2">
-                <p className="text-xs font-bold text-foreground uppercase tracking-wider px-2 pt-1 pb-2">Respostas rápidas</p>
-                {quickReplies.length === 0 ? (
-                  <p className="text-xs text-muted-foreground px-2 pb-2">
-                    Nenhuma cadastrada. Admin ou gestor cadastra em Configurações.
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-0.5 max-h-72 overflow-y-auto">
-                    {quickReplies.map((reply) => (
-                      <button
-                        key={reply.id}
-                        type="button"
-                        onClick={() => {
-                          insertText(reply.message);
-                          if (reply.imageUrl) { setPendingImage(reply); setPastedFile(null); }
-                          setQuickRepliesOpen(false);
-                        }}
-                        className="flex items-start gap-2 text-left px-2.5 py-1.5 rounded-lg hover:bg-muted transition-colors"
-                      >
-                        {reply.imageUrl && (
-                          <img src={reply.imageUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
-                        )}
-                        <span className="min-w-0">
-                          <span className="block text-xs font-semibold text-primary font-mono">/{reply.shortcut}</span>
-                          <span className="block text-xs text-muted-foreground line-clamp-2">{reply.message}</span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </PopoverContent>
-            </Popover>
             <input
               ref={fileInputRef}
               type="file"
@@ -360,44 +320,78 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              title="Anexar arquivo"
+              title="Anexar"
               aria-label="Anexar arquivo"
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className={iconButton}
             >
-              <Paperclip className="w-4 h-4" />
+              <Plus className="w-6 h-6" />
             </button>
-            <button
-              type="button"
-              onClick={startRecording}
-              title="Gravar áudio"
-              aria-label="Gravar áudio"
-              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            >
-              <Mic className="w-4 h-4" />
-            </button>
+            <Popover open={quickRepliesOpen} onOpenChange={setQuickRepliesOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  title="Respostas rápidas"
+                  aria-label="Respostas rápidas"
+                  className={cn(iconButton, 'data-[state=open]:bg-secondary')}
+                >
+                  <Zap className="w-5 h-5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-80 p-2">
+                <p className="text-sm text-primary px-2 pt-1 pb-2">Respostas rápidas</p>
+                {quickReplies.length === 0 ? (
+                  <p className="text-[13px] text-muted-foreground px-2 pb-2">
+                    Nenhuma cadastrada. Admin ou gestor cadastra em Configurações.
+                  </p>
+                ) : (
+                  <div className="flex flex-col max-h-72 overflow-y-auto">
+                    {quickReplies.map((reply) => (
+                      <button
+                        key={reply.id}
+                        type="button"
+                        onClick={() => {
+                          insertText(reply.message);
+                          if (reply.imageUrl) { setPendingImage(reply); setPastedFile(null); }
+                          setQuickRepliesOpen(false);
+                        }}
+                        className="flex items-start gap-2 text-left px-2.5 py-2 rounded-lg hover:bg-accent transition-colors"
+                      >
+                        {reply.imageUrl && (
+                          <img src={reply.imageUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                        )}
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-foreground">/{reply.shortcut}</span>
+                          <span className="block text-[13px] text-muted-foreground line-clamp-2">{reply.message}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
           </div>
         )}
 
         {/* Input / Recording indicator */}
         {isRecording ? (
-          <div className="flex-1 h-10 bg-background rounded-xl border border-border flex items-center gap-3 px-3">
+          <div className="flex-1 h-[42px] bg-card rounded-lg flex items-center gap-3 px-3">
             <button
               type="button"
               onClick={() => finishRecording(true)}
               title="Cancelar gravação"
               aria-label="Cancelar gravação"
-              className="text-muted-foreground hover:text-destructive transition-colors"
+              className="text-icon hover:text-danger transition-colors"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
-            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-            <span className="text-sm text-foreground font-mono">{formatDuration(recordingSeconds)}</span>
-            <span className="text-xs text-muted-foreground">Gravando áudio...</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse flex-shrink-0" aria-hidden="true" />
+            <span className="text-[15px] text-foreground tabular-nums">{formatDuration(recordingSeconds)}</span>
+            <span className="text-[13px] text-muted-foreground">Gravando áudio…</span>
           </div>
         ) : (
-          <div className="relative flex-1 bg-background rounded-xl border border-border focus-within:ring-1 focus-within:ring-ring/30 focus-within:border-ring/50 transition-all">
+          <div className="relative flex-1 min-w-0 bg-card rounded-lg">
             {suggestions.length > 0 && (
-              <div role="listbox" className="absolute bottom-full left-0 right-0 mb-2 rounded-xl border border-border bg-popover shadow-lg p-1.5 z-20 max-h-72 overflow-y-auto">
+              <div role="listbox" className="absolute bottom-full left-0 right-0 mb-2 rounded-xl bg-popover shadow-wa-menu p-1.5 z-20 max-h-72 overflow-y-auto">
                 {suggestions.map((reply, i) => (
                   <button
                     key={reply.id}
@@ -408,16 +402,16 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
                     onMouseEnter={() => setHighlighted(i)}
                     onClick={() => applySuggestion(reply)}
                     className={cn(
-                      'w-full flex items-center gap-2 text-left px-2.5 py-1.5 rounded-lg transition-colors',
-                      i === activeSuggestion ? 'bg-muted' : 'hover:bg-muted/60',
+                      'w-full flex items-center gap-2 text-left px-2.5 py-2 rounded-lg transition-colors',
+                      i === activeSuggestion ? 'bg-secondary' : 'hover:bg-accent',
                     )}
                   >
                     {reply.imageUrl && (
                       <img src={reply.imageUrl} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
                     )}
                     <span className="min-w-0">
-                      <span className="block text-xs font-semibold text-primary font-mono">/{reply.shortcut}</span>
-                      <span className="block text-xs text-muted-foreground truncate">{reply.message}</span>
+                      <span className="block text-sm font-medium text-foreground">/{reply.shortcut}</span>
+                      <span className="block text-[13px] text-muted-foreground truncate">{reply.message}</span>
                     </span>
                   </button>
                 ))}
@@ -429,28 +423,37 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
               onChange={(e) => onChange(e.target.value)}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder={isNinaActive ? `${sdrName} está respondendo automaticamente...` : 'Digite sua mensagem... (Enter para enviar)'}
-              className="w-full bg-transparent border-none p-3 max-h-28 min-h-[40px] text-sm text-foreground focus:ring-0 resize-none outline-none placeholder:text-muted-foreground"
+              aria-label="Mensagem"
+              placeholder={isNinaActive ? `${sdrName} está respondendo…` : 'Digite uma mensagem'}
+              className="block w-full bg-transparent border-none px-3 py-[10px] placeholder-shown:whitespace-nowrap placeholder-shown:overflow-hidden placeholder-shown:text-ellipsis max-h-32 min-h-[42px] text-[15px] leading-[22px] text-foreground focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 resize-none outline-none placeholder:text-muted-foreground"
               rows={1}
             />
           </div>
         )}
 
-        {/* Send */}
-        <button
-          type="button"
-          onClick={() => (isRecording ? finishRecording(false) : handleSend())}
-          disabled={!isRecording && (!canSend || sendingImage)}
-          title={isRecording ? 'Enviar áudio' : undefined}
-          className={cn(
-            'w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all',
-            isRecording || canSend
-              ? 'bg-gradient-to-br from-cyan-600 to-teal-700 text-white shadow-sm hover:scale-105 active:scale-95'
-              : 'bg-muted text-muted-foreground cursor-not-allowed opacity-40',
-          )}
-        >
-          <Send className="w-4 h-4 ml-0.5" />
-        </button>
+        {/* Send / record share one slot, like WhatsApp: the mic becomes send once there is something to send. */}
+        {isRecording || canSend ? (
+          <button
+            type="button"
+            onClick={() => (isRecording ? finishRecording(false) : handleSend())}
+            disabled={!isRecording && sendingImage}
+            title={isRecording ? 'Enviar áudio' : 'Enviar'}
+            aria-label={isRecording ? 'Enviar áudio' : 'Enviar'}
+            className="w-10 h-10 ml-1 rounded-full flex items-center justify-center flex-shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            <SendHorizontal className="w-5 h-5" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={startRecording}
+            title="Gravar áudio"
+            aria-label="Gravar áudio"
+            className={iconButton}
+          >
+            <Mic className="w-6 h-6" />
+          </button>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 
@@ -35,9 +36,12 @@ export const ContactAvatar: React.FC<ContactAvatarProps> = ({ src, name, classNa
     return (
       <span
         aria-hidden
-        className={cn('rounded-full bg-sky-500 text-white font-medium flex items-center justify-center select-none overflow-hidden', className)}
+        className={cn('rounded-full bg-avatar text-avatar-foreground font-medium flex items-center justify-center select-none overflow-hidden', className)}
       >
-        {initials(name)}
+        {/* Nameless contacts display as a phone number — "+5" isn't initials; show WhatsApp's silhouette. */}
+        {/\p{L}/u.test(name)
+          ? initials(name)
+          : <UserRound className="w-[55%] h-[55%]" strokeWidth={1.75} />}
       </span>
     );
   }

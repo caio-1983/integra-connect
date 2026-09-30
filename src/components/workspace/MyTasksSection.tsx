@@ -14,10 +14,10 @@ interface MyTasksSectionProps {
 }
 
 const DUE_CLASS = {
-  late: 'text-red-700 dark:text-red-400',
-  today: 'text-amber-800 dark:text-amber-400',
-  later: 'text-[var(--wa-meta)]',
-  none: 'text-[var(--wa-meta)]',
+  late: 'text-danger',
+  today: 'text-warning',
+  later: 'text-muted-foreground',
+  none: 'text-muted-foreground',
 } as const;
 
 const RANK = { late: 0, today: 1, later: 2, none: 3 };
@@ -53,13 +53,13 @@ const MyTasksSection: React.FC<MyTasksSectionProps> = ({ tasks, onToggle, conver
             checked={done}
             aria-label={done ? `Reabrir: ${t.title}` : `Concluir: ${t.title}`}
             onChange={() => onToggle(t.id, !done).catch((err) => toast.error(err.message))}
-            className="w-[18px] h-[18px] accent-[#008069]"
+            className="w-[18px] h-[18px] accent-primary"
           />
         </label>
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-          <span className={cn('text-[14.5px] font-semibold truncate', done && 'line-through text-[var(--wa-meta)]')}>{t.title}</span>
-          <span className="flex flex-wrap items-center gap-x-2 text-[12.5px] text-[var(--wa-meta)]">
-            <span className={cn('font-semibold', done ? 'text-[var(--wa-meta)]' : DUE_CLASS[due.kind])}>{due.label}</span>
+          <span className={cn('text-[14.5px] font-semibold truncate', done && 'line-through text-muted-foreground')}>{t.title}</span>
+          <span className="flex flex-wrap items-center gap-x-2 text-[12.5px] text-muted-foreground">
+            <span className={cn('font-semibold', done ? 'text-muted-foreground' : DUE_CLASS[due.kind])}>{due.label}</span>
             <span aria-hidden="true">·</span>
             <span className="truncate">{t.contactName}</span>
             {who && (
@@ -84,21 +84,21 @@ const MyTasksSection: React.FC<MyTasksSectionProps> = ({ tasks, onToggle, conver
   };
 
   return (
-    <section id="minhas-tarefas" aria-label="Minhas tarefas" className="rounded-2xl bg-[var(--wa-in)] shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] overflow-hidden scroll-mt-6">
+    <section id="minhas-tarefas" aria-label="Minhas tarefas" className="rounded-lg bg-card overflow-hidden scroll-mt-6">
       <div className="flex items-center gap-2.5 px-4 py-3.5 border-b border-black/5 dark:border-white/10">
         <h2 className="text-[15px] font-bold flex-1">Minhas tarefas</h2>
-        <span className="text-[12.5px] text-[var(--wa-meta)]">ordenadas pelo prazo</span>
+        <span className="text-[12.5px] text-muted-foreground">ordenadas pelo prazo</span>
       </div>
       {mine.length > 0 ? mine.map(row) : (
-        <p className="px-4 py-3 text-[13px] text-[var(--wa-meta)] border-b border-black/5 dark:border-white/10">Nenhuma tarefa para você.</p>
+        <p className="px-4 py-3 text-[13px] text-muted-foreground border-b border-black/5 dark:border-white/10">Nenhuma tarefa para você.</p>
       )}
       {delegated.length > 0 && (
         <>
-          <h3 className="px-4 pt-3.5 pb-1.5 text-[12.5px] font-bold uppercase tracking-wide text-[var(--wa-meta)]">Que você atribuiu</h3>
+          <h3 className="px-4 pt-3.5 pb-1.5 text-sm text-primary">Que você atribuiu</h3>
           {delegated.map(row)}
         </>
       )}
-      <p className="px-4 py-2.5 text-[12.5px] text-[var(--wa-meta)]">Tarefas concluídas somem da lista no dia seguinte.</p>
+      <p className="px-4 py-2.5 text-[12.5px] text-muted-foreground">Tarefas concluídas somem da lista no dia seguinte.</p>
     </section>
   );
 };
