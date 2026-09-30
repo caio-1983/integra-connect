@@ -116,6 +116,17 @@ export interface FindOrCreateConversationResult { conversationId: string; create
 /** Resolved routing target for an outbound message on an existing conversation. */
 export interface ConversationChannelInfo { provider: string; channel: string; instance: string; to: string; }
 export interface InsertMessageResult { inserted: boolean; }
+export interface EditableMessage {
+  id: string;
+  providerMessageId: string | null;
+  fromType: string;
+  sentBy: string | null;
+  sentAt: string;
+  type: string;
+  mediaUrl: string | null;
+  content: string;
+  metadata: Record<string, unknown>;
+}
 export interface ImportContactInput { phoneNumber: string; name?: string | null; profilePictureUrl?: string | null; }
 export interface BulkImportContactsResult { imported: number; updated: number; }
 
@@ -715,6 +726,48 @@ class ConversationRepository {
       .eq('conversation_id', conversationId)
       .maybeSingle();
     return data ? { id: data.id, providerMessageId: data.whatsapp_message_id ?? null } : null;
+  }
+
+  /** A message an operator wants to edit, checked to belong to this
+   *  conversation — everything the edit rules need to accept or refuse it. */
+  async getMessageForEdit(conversationId: string, messageId: string): Promise<EditableMessage | null> {
+    const { data } = await getSupabase()
+      .from('messages')
+      .select('id, whatsapp_message_id, from_type, sent_by, sent_at, type, media_url, content, metadata')
+      .eq('id', messageId)
+      .eq('conversation_id', conversationId)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      id: data.id,
+      providerMessageId: data.whatsapp_message_id ?? null,
+      fromType: data.from_type,
+      sentBy: data.sent_by ?? null,
+      sentAt: data.sent_at,
+      type: data.type,
+      mediaUrl: data.media_url ?? null,
+      content: data.content ?? '',
+      metadata: (data.metadata as Record<string, unknown> | null) ?? {},
+    };
+  }
+
+  /**
+   * Stores an edit already accepted by the provider. The first version is kept
+   * in `metadata.original_content`, and later edits never overwrite it. The
+   * customer no longer sees it, but a supervisor reviewing the thread must be
+   * able to see what was actually said first.
+   */
+  async applyMessageEdit(message: EditableMessage, content: string): Promise<void> {
+    const metadata = {
+      ...message.metadata,
+      edited_at: new Date().toISOString(),
+      original_content: message.metadata.original_content ?? message.content,
+    };
+    const { error } = await getSupabase()
+      .from('messages')
+      .update({ content, metadata })
+      .eq('id', message.id);
+    if (error) throw new Error(`[repo] failed to store message edit: ${error.message}`);
   }
 
   /** `reply_to_id` for a row being inserted: our own id when the platform sent

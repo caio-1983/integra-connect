@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { api } from '@/services/api';
-import { sendConversationReply, sendConversationMediaReply } from '@/services/whatsappConnectionService';
+import { sendConversationReply, sendConversationMediaReply, editConversationMessage } from '@/services/whatsappConnectionService';
 import {
   UIConversation,
   UIMessage,
@@ -316,7 +316,9 @@ export function useConversations() {
                 const unreadCount = messages.filter(
                   m => m.fromType === 'user' && m.status !== 'read'
                 ).length;
-                return { ...conv, messages, unreadCount };
+                // An edit of the last message must also change the queue preview.
+                const isLast = conv.messages[conv.messages.length - 1]?.id === updatedMessage.id;
+                return { ...conv, messages, unreadCount, ...(isLast ? { lastMessage: updatedMessage.content || '' } : {}) };
               }
               return conv;
             });
@@ -550,6 +552,38 @@ export function useConversations() {
     }
   }, []);
 
+  /** Replaces a message's text in place (and the queue preview, when it is the
+   *  last one). Shared by the optimistic edit, its rollback and realtime. */
+  const patchMessageContent = useCallback((conversationId: string, messageId: string, content: string, editedAt: string | null) => {
+    setConversations(prev => prev.map(conv => {
+      if (conv.id !== conversationId) return conv;
+      const messages = conv.messages.map(m => (m.id === messageId ? { ...m, content, editedAt } : m));
+      const isLast = conv.messages[conv.messages.length - 1]?.id === messageId;
+      return { ...conv, messages, ...(isLast ? { lastMessage: content } : {}) };
+    }));
+  }, []);
+
+  // Edit one of the operator's own sent messages (WhatsApp "Editar").
+  const editMessage = useCallback(async (conversationId: string, message: UIMessage, content: string) => {
+    const text = content.trim();
+    if (!text || text === message.content) return;
+    const operatorId = await currentOperatorId();
+    if (!operatorId) {
+      toast.error('Sessão expirada. Entre novamente para editar.');
+      return;
+    }
+
+    patchMessageContent(conversationId, message.id, text, new Date().toISOString());
+    try {
+      // The realtime UPDATE then settles the row as stored.
+      await editConversationMessage(conversationId, message.id, text, operatorId);
+    } catch (err) {
+      console.error('[useConversations] Error editing message:', err);
+      toast.error(err instanceof Error ? err.message : 'Erro ao editar mensagem');
+      patchMessageContent(conversationId, message.id, message.content, message.editedAt ?? null);
+    }
+  }, [patchMessageContent]);
+
   // Update conversation status
   const updateStatus = useCallback(async (
     conversationId: string,
@@ -708,6 +742,7 @@ export function useConversations() {
     realtimeConnected,
     sendMessage,
     sendMediaMessage,
+    editMessage,
     updateStatus,
     markAsRead,
     markAsUnread,

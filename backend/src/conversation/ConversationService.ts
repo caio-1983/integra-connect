@@ -192,6 +192,50 @@ export async function requestManualReply(
   });
 }
 
+/** WhatsApp only accepts an edit within 15 minutes of sending. */
+const EDIT_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * An operator correcting a text message they sent from the platform ("Editar",
+ * as in WhatsApp). Restricted to their own messages: in a shared inbox the
+ * wire text carries the author's `*Nome*` signature, so editing a colleague's
+ * reply would put new words under their name. `operatorId` is self-asserted
+ * like everywhere else on this gateway, so this rule is about attribution, not
+ * security.
+ */
+export async function requestMessageEdit(
+  conversationId: string,
+  messageId: string,
+  content: string,
+  operatorId: string,
+): Promise<void> {
+  const message = await conversationRepository.getMessageForEdit(conversationId, messageId);
+  if (!message) throw new Error('Mensagem não encontrada nesta conversa.');
+  if (message.fromType !== 'human' || message.sentBy !== operatorId) {
+    throw new Error('Só é possível editar as suas próprias mensagens.');
+  }
+  if (message.type !== 'text' || message.mediaUrl) {
+    throw new Error('Só mensagens de texto podem ser editadas.');
+  }
+  if (!message.providerMessageId) {
+    throw new Error('Esta mensagem não chegou a ser confirmada pelo WhatsApp e não pode ser editada.');
+  }
+  if (Date.now() - new Date(message.sentAt).getTime() > EDIT_WINDOW_MS) {
+    throw new Error('O WhatsApp só permite editar até 15 minutos depois do envio.');
+  }
+  if (content === message.content) return;
+
+  const info = await conversationRepository.getConversationChannelInfo(conversationId);
+  if (!info) throw new Error('Conversa sem instância associada.');
+  const connector = getConnector(info.provider);
+  if (!connector?.editText) throw new Error('Este canal não permite editar mensagens.');
+
+  // Re-signed like the original send, so the customer still sees whose reply it is.
+  const signature = await conversationRepository.getOperatorName(operatorId);
+  await connector.editText(info.instance, message.providerMessageId, applySignature(content, signature, info.channel));
+  await conversationRepository.applyMessageEdit(message, content);
+}
+
 export interface ManualMediaReply {
   base64: string;
   mimeType: string;

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
-import { requestManualReply, requestManualMediaReply, startConversation } from '../conversation/ConversationService.js';
+import { requestManualReply, requestManualMediaReply, requestMessageEdit, startConversation } from '../conversation/ConversationService.js';
 import { evolutionConnectionService } from '../channels/evolution/EvolutionConnectionService.js';
 import { summarizeConversation } from '../conversation/ConversationSummaryService.js';
 import { getConversationInsight } from '../conversation/ConversationInsightService.js';
@@ -62,6 +62,30 @@ const replyBodyJsonSchema = {
       format: 'uuid',
       description: 'ID (messages.id) da mensagem desta conversa que está sendo respondida — enviada citada no WhatsApp.',
     },
+  },
+} as const;
+
+const editParamsSchema = z.object({ conversationId: z.string().min(1), messageId: z.string().uuid() });
+const editBodySchema = z.object({
+  content: z.string().trim().min(1),
+  operatorId: z.string().uuid(),
+});
+
+const editParamsJsonSchema = {
+  type: 'object',
+  required: ['conversationId', 'messageId'],
+  properties: {
+    conversationId: { type: 'string', minLength: 1, description: 'ID da conversa.' },
+    messageId: { type: 'string', format: 'uuid', description: 'ID (messages.id) da mensagem a editar.' },
+  },
+} as const;
+
+const editBodyJsonSchema = {
+  type: 'object',
+  required: ['content', 'operatorId'],
+  properties: {
+    content: { type: 'string', minLength: 1, description: 'Novo texto da mensagem.' },
+    operatorId: { ...OPERATOR_ID_DOC, description: 'ID do operador que está editando. Só a própria mensagem pode ser editada. Auto-declarado: use apenas para atribuição, nunca para autorização.' },
   },
 } as const;
 
@@ -244,6 +268,37 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     } catch (error) {
       request.log.error(error);
       return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao enviar resposta.' });
+    }
+  });
+
+  app.post('/v1/conversations/:conversationId/messages/:messageId/edit', {
+    preHandler: authMiddleware,
+    validatorCompiler: noopValidator,
+    schema: {
+      tags: ['conversations'],
+      summary: 'Edit the text of an operator\'s own message (WhatsApp, up to 15 minutes after sending)',
+      security: [{ bearerAuth: [] }],
+      params: editParamsJsonSchema,
+      body: editBodyJsonSchema,
+    },
+  }, async (request, reply) => {
+    const paramsResult = editParamsSchema.safeParse(request.params);
+    if (!paramsResult.success) return reply.code(400).send({ error: 'conversationId e messageId obrigatórios' });
+
+    const bodyResult = editBodySchema.safeParse(request.body);
+    if (!bodyResult.success) return reply.code(400).send({ error: 'content e operatorId obrigatórios' });
+
+    try {
+      await requestMessageEdit(
+        paramsResult.data.conversationId,
+        paramsResult.data.messageId,
+        bodyResult.data.content,
+        bodyResult.data.operatorId,
+      );
+      return reply.send({ edited: true });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao editar mensagem.' });
     }
   });
 

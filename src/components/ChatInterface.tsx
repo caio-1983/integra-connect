@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
-import { TagDefinition, UIMessage } from '../types';
+import { MessageType, TagDefinition, UIMessage } from '../types';
 import { messageAuthor, messagePreview } from './workspace/ConversationTimeline';
 import { useConversations } from '../hooks/useConversations';
+import { useAuth } from '@/hooks/useAuth';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { useInstanceAccessGrants } from '@/hooks/useInstanceAccessGrants';
 import { useAgentRuntime } from '@/ai/hooks/useAgentRuntime';
@@ -15,6 +16,7 @@ import {
   ConversationHeader,
   ConversationTimeline,
   MessageComposer,
+  EditMessageDialog,
   CustomerWorkspace,
   NewConversationDialog,
   LuSuggestionCard,
@@ -22,8 +24,11 @@ import {
 } from './workspace';
 import type { QueueFilter } from './workspace';
 
+/** WhatsApp accepts an edit only within 15 minutes of sending. */
+const EDIT_WINDOW_MS = 15 * 60 * 1000;
+
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, sendMediaMessage, updateStatus, markAsRead, markAsUnread, setArchived, assignConversation, appendLocalMessage, setConversationTags, refetch, hasMore, loadingMore, loadMore } = useConversations();
+  const { conversations, loading, sendMessage, sendMediaMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, assignConversation, appendLocalMessage, setConversationTags, refetch, hasMore, loadingMore, loadMore } = useConversations();
   const { sdrName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
   const { grantsByInstance } = useInstanceAccessGrants();
@@ -42,6 +47,21 @@ const ChatInterface: React.FC = () => {
   const [notesValue, setNotesValue] = useState('');
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [replyingTo, setReplyingTo] = useState<UIMessage | null>(null);
+  const [editingMessage, setEditingMessage] = useState<UIMessage | null>(null);
+  const { user } = useAuth();
+
+  // Same rules the backend enforces: your own WhatsApp text, still in the window.
+  const canEditMessage = useCallback((msg: UIMessage) =>
+    !!user?.id
+    && msg.fromType === 'human'
+    && msg.sentBy === user.id
+    && msg.type === MessageType.TEXT
+    && !msg.mediaUrl
+    && !!msg.whatsappMessageId
+    && (msg.channel ?? 'whatsapp') === 'whatsapp'
+    && !!msg.sentAt
+    && Date.now() - new Date(msg.sentAt).getTime() < EDIT_WINDOW_MS,
+  [user?.id]);
 
   const activeChat = conversations.find(c => c.id === selectedChatId);
   const { insight, loading: insightLoading, error: insightError, regenerate } = useConversationInsight(activeChat);
@@ -89,12 +109,13 @@ const ChatInterface: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || isTagSelectorOpen) return;
+      // Esc in the edit dialog closes only the dialog, not the conversation.
+      if (e.key !== 'Escape' || isTagSelectorOpen || editingMessage) return;
       setSelectedChatId(null);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isTagSelectorOpen]);
+  }, [isTagSelectorOpen, editingMessage]);
 
   // Holds a conversationId to skip the next auto-mark-as-read for — set right
   // before a manual "mark as unread" call so the effect below doesn't
@@ -120,6 +141,7 @@ const ChatInterface: React.FC = () => {
   useEffect(() => {
     if (activeChat) setNotesValue(activeChat.notes || '');
     setReplyingTo(null); // a pending reply belongs to the conversation it was started in
+    setEditingMessage(null);
     setShowCustomerWorkspace(false); // each conversation opens with Detalhes closed
   }, [activeChat?.id]);
 
@@ -274,6 +296,8 @@ const ChatInterface: React.FC = () => {
               isGroup={activeChat.isGroup}
               contactName={activeChat.contactName}
               onReply={setReplyingTo}
+              onEdit={setEditingMessage}
+              canEdit={canEditMessage}
               luNote={insight && insight.annotation ? {
                 messageId: insight.basedOnMessageId,
                 text: insight.annotation,
@@ -304,6 +328,12 @@ const ChatInterface: React.FC = () => {
               preview: messagePreview(replyingTo),
             }}
             onCancelReply={() => setReplyingTo(null)}
+          />
+
+          <EditMessageDialog
+            message={editingMessage}
+            onClose={() => setEditingMessage(null)}
+            onSave={(msg, text) => editMessage(activeChat.id, msg, text)}
           />
         </div>
       ) : (

@@ -5,6 +5,7 @@ export { ConversationItem } from './ConversationItem';
 export { ConversationHeader } from './ConversationHeader';
 export { ConversationTimeline } from './ConversationTimeline';
 export { MessageComposer } from './MessageComposer';
+export { EditMessageDialog } from './EditMessageDialog';
 export { WorkspaceActions } from './WorkspaceActions';
 export { CustomerWorkspace } from './CustomerWorkspace';
 export { CustomerCard } from './CustomerCard';

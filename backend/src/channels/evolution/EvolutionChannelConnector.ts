@@ -81,4 +81,8 @@ export const evolutionChannelConnector: ChannelConnector = {
       caption: media.caption,
     });
   },
+
+  async editText(instance: string, providerMessageId: string, text: string) {
+    await getEvolutionClient().updateMessage(instance, providerMessageId, text);
+  },
 };

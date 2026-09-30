@@ -35,4 +35,7 @@ export interface ChannelConnector {
   sendText(instance: string, to: string, text: string, options?: SendTextOptions): Promise<{ providerMessageId?: string }>;
   /** Send a media reply (image/video/audio/document) back out through this channel. */
   sendMedia(instance: string, to: string, media: OutboundMediaPayload): Promise<{ providerMessageId?: string }>;
+  /** Replace the text of a message we already sent. Optional: a channel with no
+   *  edit API (Messenger/Instagram) leaves it out and the caller refuses the edit. */
+  editText?(instance: string, providerMessageId: string, text: string): Promise<void>;
 }

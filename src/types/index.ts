@@ -425,6 +425,8 @@ export interface UIMessage {
   senderPhone?: string | null;
   /** `messages.id` this message replies to (WhatsApp "responder"). */
   replyToId?: string | null;
+  /** When the text was last edited (messages.metadata.edited_at) — shows "Editada". */
+  editedAt?: string | null;
 }
 
 // ============= Utility Functions =============
@@ -487,6 +489,7 @@ export function transformDBToUIMessage(msg: DBMessage): UIMessage {
     senderName: (msg.metadata as { sender?: { name?: string | null } } | null)?.sender?.name ?? null,
     senderPhone: (msg.metadata as { sender?: { phone?: string | null } } | null)?.sender?.phone ?? null,
     replyToId: msg.reply_to_id ?? null,
+    editedAt: (msg.metadata as { edited_at?: string } | null)?.edited_at ?? null,
   };
 }
 

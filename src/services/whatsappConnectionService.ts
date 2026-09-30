@@ -108,6 +108,25 @@ export async function sendConversationReply(
   await handle<{ accepted: true }>(res);
 }
 
+/** Edits the text of the operator's own message (WhatsApp, up to 15 minutes
+ * after sending). A refusal throws the backend's own reason (e.g. the window
+ * has passed), which is meant to be shown to the attendant as is. */
+export async function editConversationMessage(
+  conversationId: string,
+  messageId: string,
+  content: string,
+  operatorId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${base()}/v1/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/edit`,
+    { method: 'POST', headers: headers(), body: JSON.stringify({ content, operatorId }) },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error || 'Erro ao editar mensagem.');
+  }
+}
+
 export interface SendMediaReplyInput { base64: string; mimeType: string; fileName?: string; caption?: string; operatorId?: string; }
 
 /** Sends a human operator's media reply (attachment). base64 has no data: prefix. */

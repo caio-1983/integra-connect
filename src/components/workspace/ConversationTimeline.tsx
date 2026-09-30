@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Sparkles, Camera, Mic, FileText, Video, type LucideIcon } from 'lucide-react';
+import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Pencil, Sparkles, Camera, Mic, FileText, Video, type LucideIcon } from 'lucide-react';
 import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn, contactDisplayName } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
@@ -110,6 +110,9 @@ interface ConversationTimelineProps {
   contactName?: string;
   /** Starts a reply to this message (WhatsApp "responder"). */
   onReply?: (msg: UIMessage) => void;
+  /** Opens the edit dialog (WhatsApp "Editar"); offered only where `canEdit` says so. */
+  onEdit?: (msg: UIMessage) => void;
+  canEdit?: (msg: UIMessage) => boolean;
   /** Lu's one-line reading of what the customer asked, shown right after the message it was based on. */
   luNote?: { messageId: string; text: string; onOpen?: () => void } | null;
 }
@@ -145,7 +148,7 @@ export function messageAuthor(msg: UIMessage, contactName?: string, isGroup?: bo
 }
 
 const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
-  messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply, luNote,
+  messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply, onEdit, canEdit, luNote,
 }) => {
   const messagesById = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages]);
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -359,15 +362,27 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
         const caption = msg.type === MessageType.IMAGE ? imageCaption(msg) : '';
         const bareImage = msg.type === MessageType.IMAGE && !msg.replyToId && !caption;
         const isText = msg.type !== MessageType.IMAGE && msg.type !== MessageType.AUDIO && !msg.mediaUrl;
+        const hoverAction = 'self-center p-1.5 rounded-full text-[var(--wa-meta)] hover:bg-black/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0';
         const replyButton = canReply && (
           <button
             type="button"
             onClick={() => onReply!(msg)}
             title="Responder"
             aria-label="Responder"
-            className="self-center p-1.5 rounded-full text-[var(--wa-meta)] hover:bg-black/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
+            className={hoverAction}
           >
             <Reply className="w-3.5 h-3.5" />
+          </button>
+        );
+        const editButton = !!onEdit && !!canEdit?.(msg) && (
+          <button
+            type="button"
+            onClick={() => onEdit(msg)}
+            title="Editar"
+            aria-label="Editar mensagem"
+            className={hoverAction}
+          >
+            <Pencil className="w-3.5 h-3.5" />
           </button>
         );
         // Time + ticks live inside the bubble, bottom-right, as in WhatsApp.
@@ -377,6 +392,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
             bareImage ? 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.6)]' : 'text-[var(--wa-meta)]',
           )}>
             {isOutgoing && msg.fromType === 'nina' && <Bot aria-label="Enviada pela IA" className="w-3 h-3" />}
+            {msg.editedAt && <span>Editada</span>}
             {msg.timestamp}
             {isOutgoing && (
               msg.status === 'read'      ? <CheckCheck aria-label="Lida" className="w-4 h-4 text-read-receipt" /> :
@@ -396,6 +412,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
               flashId === msg.id && 'bg-primary/10',
             )}
           >
+            {isOutgoing && editButton}
             {isOutgoing && replyButton}
             <div className={cn('flex flex-col max-w-[65%]', isOutgoing ? 'items-end' : 'items-start')}>
               {showChannelHint && (
@@ -441,8 +458,8 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                 {isText ? (
                   <p className="whitespace-pre-wrap break-words">
                     {linkify(msg.content)}
-                    {/* Spacer so the floating time never overlaps the last line. */}
-                    <span className="inline-block w-16" aria-hidden="true" />
+                    {/* Spacer so the floating time never overlaps the last line ("Editada" widens it). */}
+                    <span className={cn('inline-block', msg.editedAt ? 'w-28' : 'w-16')} aria-hidden="true" />
                     <span className="float-right -mb-1 mt-2 ml-2">{meta}</span>
                   </p>
                 ) : (

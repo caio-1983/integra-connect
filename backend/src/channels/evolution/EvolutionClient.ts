@@ -152,6 +152,35 @@ export class EvolutionClient {
     return adapter.parseSendResult(response);
   }
 
+  /**
+   * POST /chat/updateMessage/{instance} — edits the text of a message we sent.
+   * v2 only. Verified against the v2.3.7 source:
+   *  - body is `{ number, key: { id, remoteJid, fromMe }, text }`;
+   *  - Evolution rejects with "RemoteJid does not match" unless `number` resolves
+   *    to exactly the stored `key.remoteJid`. We keep only the phone digits, and
+   *    a BR number can resolve to a different JID than its digits suggest (the
+   *    9th-digit rule). So the key is read back from Evolution's own store and
+   *    its JID passed as `number`, which createJid then returns unchanged;
+   *  - its 15-minute guard never fires (it compares against now + 15 min), so
+   *    the caller must enforce WhatsApp's edit window itself.
+   */
+  async updateMessage(instanceName: string, messageId: string, text: string): Promise<void> {
+    const adapter = await this.getAdapter();
+    if (adapter.major !== 2) {
+      throw new Error('Editar mensagens requer Evolution API v2.');
+    }
+    const stored = await this.findMessageById(instanceName, messageId);
+    const remoteJid: string | undefined = stored?.key?.remoteJid;
+    if (!remoteJid || stored?.key?.fromMe !== true) {
+      throw new Error('Mensagem não encontrada no WhatsApp deste número, não dá para editar.');
+    }
+    await this.request<unknown>('POST', `/chat/updateMessage/${encodeURIComponent(instanceName)}`, {
+      number: remoteJid,
+      key: { id: messageId, remoteJid, fromMe: true },
+      text,
+    });
+  }
+
   /** GET /instance/fetchInstances — identical shape on v1 and v2 (verified against the official OpenAPI specs). */
   async fetchInstances(): Promise<RawFetchedInstance[]> {
     return this.request<RawFetchedInstance[]>('GET', '/instance/fetchInstances');
