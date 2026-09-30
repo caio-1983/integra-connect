@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Megaphone, Loader2, ArrowDownRight, ArrowUpRight, Settings2 } from 'lucide-react';
-import { SectionBlock } from '@/components/layout';
-import { EmptyState } from '@/components/ui/feedback/EmptyState';
+import { Megaphone, ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
 import { fetchCampaignPerformance, type CampaignPerformanceRow } from '@/services/analyticsService';
 import { formatCurrency, formatCurrencyDelta } from '@/lib/formatCurrency';
+import { cn } from '@/lib/utils';
 import { useResultsPeriod } from './ResultsLayout';
+import { ReportEmpty, ReportError, ReportLoading, ReportNotice, td, th, tableWrap } from './ResultsUi';
 
 /**
  * Revenue per campaign against the previous period, biggest DROP first.
@@ -23,12 +24,15 @@ export const ResultsCampaigns: React.FC = () => {
   const period = useResultsPeriod();
   const [rows, setRows] = useState<CampaignPerformanceRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setFailed(false);
     fetchCampaignPerformance(period)
       .then((data) => { if (!cancelled) setRows(data); })
+      .catch(() => { if (!cancelled) { setRows([]); setFailed(true); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [period]);
@@ -38,43 +42,33 @@ export const ResultsCampaigns: React.FC = () => {
 
   return (
     <>
-      <SectionBlock
+      <Panel
         title="Faturamento por campanha"
-        icon={Megaphone}
-        description={`Comparado com o período anterior. Ordenado pela maior queda de receita — a primeira linha é onde o faturamento caiu mais.`}
-        action={
-          <Link
-            to="/campanhas/configurar"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-            Gerenciar campanhas
-          </Link>
-        }
+        description="Comparado com o período anterior. A primeira linha é a campanha em que a receita mais caiu."
+        action={<Link to="/campanhas/configurar" className="text-sm text-primary hover:underline underline-offset-4 rounded-sm">Gerenciar campanhas</Link>}
       >
         {loading ? (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Loader2 className="w-4 h-4 animate-spin" /> Calculando…
-          </div>
+          <ReportLoading />
+        ) : failed ? (
+          <ReportError />
         ) : rows.length === 0 ? (
-          <EmptyState
+          <ReportEmpty
             icon={Megaphone}
             title="Nenhum lead ou fechamento no período"
-            description="Quando entrarem leads ou houver negócios ganhos neste período, o faturamento aparece aqui separado por campanha."
-            compact
+            text="Quando entrarem leads ou houver negócios ganhos, o faturamento aparece aqui separado por campanha."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className={tableWrap}>
+            <table className="w-full">
               <caption className="sr-only">Faturamento, leads e variação por campanha</caption>
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground border-b border-border">
-                  <th scope="col" className="py-2 pr-4 font-medium">Campanha</th>
-                  <th scope="col" className="py-2 pr-4 font-medium text-right">Leads</th>
-                  <th scope="col" className="py-2 pr-4 font-medium text-right">Ganhos</th>
-                  <th scope="col" className="py-2 pr-4 font-medium text-right">Receita</th>
-                  <th scope="col" className="py-2 pr-4 font-medium text-right">Período anterior</th>
-                  <th scope="col" className="py-2 font-medium text-right">Variação</th>
+                <tr className="text-left border-b border-border">
+                  <th scope="col" className={th}>Campanha</th>
+                  <th scope="col" className={cn(th, 'text-right')}>Leads</th>
+                  <th scope="col" className={cn(th, 'text-right')}>Ganhos</th>
+                  <th scope="col" className={cn(th, 'text-right')}>Receita</th>
+                  <th scope="col" className={cn(th, 'text-right')}>Período anterior</th>
+                  <th scope="col" className={cn(th, 'text-right pr-0')}>Variação</th>
                 </tr>
               </thead>
               <tbody>
@@ -82,34 +76,24 @@ export const ResultsCampaigns: React.FC = () => {
                   const isDrop = row.revenueDelta < 0;
                   const isFlat = row.revenueDelta === 0;
                   return (
-                    <tr
-                      key={row.campaignId ?? row.campaignName}
-                      className="border-b border-border/60 last:border-0"
-                    >
-                      <td className="py-2.5 pr-4">
-                        <span className={row.campaignId ? 'text-foreground' : 'text-muted-foreground italic'}>
-                          {row.campaignName}
-                        </span>
+                    <tr key={row.campaignId ?? row.campaignName} className="border-b border-border last:border-0">
+                      <td className={cn(td, row.campaignId ? 'text-foreground' : 'text-muted-foreground')}>
+                        {row.campaignName}
                       </td>
-                      <td className="py-2.5 pr-4 text-right tabular-nums">
+                      <td className={cn(td, 'text-right')}>
                         {row.leads}
-                        {row.leadsPrev > 0 && (
-                          <span className="text-muted-foreground text-xs"> / {row.leadsPrev}</span>
-                        )}
+                        {row.leadsPrev > 0 && <span className="text-muted-foreground text-xs"> / {row.leadsPrev}</span>}
                       </td>
-                      <td className="py-2.5 pr-4 text-right tabular-nums">{row.won}</td>
-                      <td className="py-2.5 pr-4 text-right tabular-nums font-medium">{formatCurrency(row.revenue)}</td>
-                      <td className="py-2.5 pr-4 text-right tabular-nums text-muted-foreground">{formatCurrency(row.revenuePrev)}</td>
-                      <td className="py-2.5 text-right">
+                      <td className={cn(td, 'text-right')}>{row.won}</td>
+                      <td className={cn(td, 'text-right font-medium')}>{formatCurrency(row.revenue)}</td>
+                      <td className={cn(td, 'text-right text-muted-foreground')}>{formatCurrency(row.revenuePrev)}</td>
+                      <td className={cn(td, 'text-right pr-0')}>
                         {isFlat ? (
                           <span className="text-muted-foreground">—</span>
                         ) : (
-                          <span
-                            className={`inline-flex items-center gap-1 tabular-nums font-medium ${
-                              isDrop ? 'text-red-700' : 'text-emerald-700'
-                            }`}
-                          >
-                            {isDrop ? <ArrowDownRight className="w-3.5 h-3.5" /> : <ArrowUpRight className="w-3.5 h-3.5" />}
+                          <span className={cn('inline-flex items-center gap-1 font-medium', isDrop ? 'text-danger' : 'text-success')}>
+                            {isDrop ? <ArrowDownRight className="w-4 h-4" aria-hidden="true" /> : <ArrowUpRight className="w-4 h-4" aria-hidden="true" />}
+                            <span className="sr-only">{isDrop ? 'Queda de' : 'Alta de'}</span>
                             {formatCurrencyDelta(row.revenueDelta)}
                           </span>
                         )}
@@ -119,32 +103,30 @@ export const ResultsCampaigns: React.FC = () => {
                 })}
               </tbody>
               <tfoot>
-                <tr className="border-t border-border font-medium">
-                  <td className="py-2.5 pr-4">Total</td>
-                  <td className="py-2.5 pr-4" />
-                  <td className="py-2.5 pr-4" />
-                  <td className="py-2.5 pr-4 text-right tabular-nums">{formatCurrency(totalRevenue)}</td>
-                  <td className="py-2.5 pr-4" />
-                  <td className="py-2.5" />
+                <tr className="border-t border-border">
+                  <td className={cn(td, 'font-medium')}>Total</td>
+                  <td className={td} />
+                  <td className={td} />
+                  <td className={cn(td, 'text-right font-medium')}>{formatCurrency(totalRevenue)}</td>
+                  <td className={td} />
+                  <td className={cn(td, 'pr-0')} />
                 </tr>
               </tfoot>
             </table>
           </div>
         )}
-      </SectionBlock>
+      </Panel>
 
-      {unmapped && unmapped.leads > 0 && (
-        <SectionBlock title="Atenção" icon={Settings2}>
-          <p className="text-sm text-muted-foreground">
-            <strong className="text-foreground">{unmapped.leads} lead(s)</strong> deste período chegaram
-            com sinais de rastreamento que ainda não pertencem a nenhuma campanha, e por isso aparecem
-            como “Não mapeado”.{' '}
-            <Link to="/campanhas/configurar" className="text-primary hover:underline">
-              Mapeie esses sinais
-            </Link>{' '}
-            — o histórico é reatribuído na hora, sem reprocessar nada.
-          </p>
-        </SectionBlock>
+      {!failed && unmapped && unmapped.leads > 0 && (
+        <ReportNotice>
+          <strong className="font-medium text-foreground">
+            {unmapped.leads} {unmapped.leads === 1 ? 'lead' : 'leads'}
+          </strong>{' '}
+          deste período chegaram com sinais de rastreamento que ainda não pertencem a nenhuma campanha, por isso
+          aparecem como "Não mapeado".{' '}
+          <Link to="/campanhas/configurar" className="text-primary hover:underline underline-offset-4">Mapear esses sinais</Link>.
+          O histórico é reatribuído na hora.
+        </ReportNotice>
       )}
     </>
   );

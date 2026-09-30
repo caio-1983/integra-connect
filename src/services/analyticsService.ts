@@ -131,7 +131,11 @@ export async function fetchRevenueKpis(period: Period): Promise<KpiComparison> {
     supabase.rpc('report_revenue_kpis', { p_from: iso(period.prevFrom), p_to: iso(period.prevTo) }),
   ]);
 
-  if (now.error) console.error('[analytics] report_revenue_kpis failed:', now.error);
+  // A failed report must read as "unknown", never as R$ 0 — the tabs show an error state.
+  if (now.error || before.error) {
+    console.error('[analytics] report_revenue_kpis failed:', now.error ?? before.error);
+    throw now.error ?? before.error;
+  }
   return {
     current: toKpis((now.data as RawKpis[] | null)?.[0]),
     previous: toKpis((before.data as RawKpis[] | null)?.[0]),
@@ -172,7 +176,10 @@ export async function fetchCampaignPerformance(period: Period): Promise<Campaign
     supabase.rpc('report_campaign_performance', { p_from: iso(period.prevFrom), p_to: iso(period.prevTo) }),
   ]);
 
-  if (now.error) console.error('[analytics] report_campaign_performance failed:', now.error);
+  if (now.error || before.error) {
+    console.error('[analytics] report_campaign_performance failed:', now.error ?? before.error);
+    throw now.error ?? before.error;
+  }
 
   const currentRows = (now.data ?? []) as RawCampaignRow[];
   const previousRows = (before.data ?? []) as RawCampaignRow[];
@@ -246,7 +253,7 @@ export async function fetchOriginPerformance(period: Period): Promise<OriginRow[
 
   if (error) {
     console.error('[analytics] report_origin_performance failed:', error);
-    return [];
+    throw error;
   }
 
   return ((data ?? []) as RawOriginRow[])
@@ -285,7 +292,7 @@ export async function fetchLossReport(period: Period): Promise<LossRow[]> {
 
   if (error) {
     console.error('[analytics] report_loss_reasons failed:', error);
-    return [];
+    throw error;
   }
 
   return ((data ?? []) as { reason_code: string; reason_label: string; lost_count: number; value_lost: number }[])
@@ -314,7 +321,7 @@ export async function fetchFunnel(period: Period): Promise<FunnelRow[]> {
 
   if (error) {
     console.error('[analytics] report_funnel failed:', error);
-    return [];
+    throw error;
   }
 
   const rows = ((data ?? []) as { stage_id: string; stage_title: string; stage_position: number; entered: number }[])
@@ -349,7 +356,7 @@ export async function fetchAttendantPerformance(period: Period): Promise<Attenda
 
   if (error) {
     console.error('[analytics] report_attendant_performance failed:', error);
-    return [];
+    throw error;
   }
 
   return ((data ?? []) as {

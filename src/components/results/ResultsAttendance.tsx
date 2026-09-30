@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Headset, Loader2, AlertTriangle } from 'lucide-react';
-import { SectionBlock } from '@/components/layout';
-import { EmptyState } from '@/components/ui/feedback/EmptyState';
+import { Headset, TriangleAlert } from 'lucide-react';
+import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
+import { ContactAvatar } from '@/components/workspace/ContactAvatar';
 import { fetchAttendantPerformance, formatDuration, type AttendantRow } from '@/services/analyticsService';
+import { cn } from '@/lib/utils';
 import { useResultsPeriod } from './ResultsLayout';
+import { ReportEmpty, ReportError, ReportLoading, ReportNotice, td, th, tableWrap } from './ResultsUi';
 
 /**
  * Per-attendant supervision — the "controle de mensagens" the team asked for,
@@ -22,12 +24,15 @@ export const ResultsAttendance: React.FC = () => {
   const period = useResultsPeriod();
   const [rows, setRows] = useState<AttendantRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setFailed(false);
     fetchAttendantPerformance(period)
       .then((data) => { if (!cancelled) setRows(data); })
+      .catch(() => { if (!cancelled) { setRows([]); setFailed(true); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [period]);
@@ -36,46 +41,49 @@ export const ResultsAttendance: React.FC = () => {
 
   return (
     <>
-      <SectionBlock
+      <Panel
         title="Desempenho por atendente"
-        icon={Headset}
-        description="Mensagens enviadas e tempo até a primeira resposta humana no período. Só aparecem números dos canais a que você tem acesso."
+        description="Mensagens enviadas e tempo até a primeira resposta humana. Só entram os números a que você tem acesso."
       >
         {loading ? (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <Loader2 className="w-4 h-4 animate-spin" /> Calculando…
-          </div>
+          <ReportLoading />
+        ) : failed ? (
+          <ReportError />
         ) : rows.length === 0 ? (
-          <EmptyState
+          <ReportEmpty
             icon={Headset}
             title="Nenhuma atividade no período"
-            description="Nenhum atendente enviou mensagens neste período. Respostas enviadas antes desta atualização não têm autor registrado e não aparecem aqui."
-            compact
+            text="Nenhum atendente enviou mensagens neste período. Respostas anteriores ao registro de autor não aparecem aqui."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <div className={tableWrap}>
+            <table className="w-full">
               <caption className="sr-only">Mensagens, conversas e tempo de resposta por atendente</caption>
               <thead>
-                <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground border-b border-border">
-                  <th scope="col" className="py-2 pr-4 font-medium">Atendente</th>
-                  <th scope="col" className="py-2 pr-4 font-medium text-right">Mensagens</th>
-                  <th scope="col" className="py-2 pr-4 font-medium text-right">Conversas</th>
-                  <th scope="col" className="py-2 pr-4 font-medium text-right">1ª resposta (média)</th>
-                  <th scope="col" className="py-2 font-medium text-right">Aguardando resposta</th>
+                <tr className="text-left border-b border-border">
+                  <th scope="col" className={th}>Atendente</th>
+                  <th scope="col" className={cn(th, 'text-right')}>Mensagens</th>
+                  <th scope="col" className={cn(th, 'text-right')}>Conversas</th>
+                  <th scope="col" className={cn(th, 'text-right')}>1ª resposta (média)</th>
+                  <th scope="col" className={cn(th, 'text-right pr-0')}>Aguardando resposta</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.userId} className="border-b border-border/60 last:border-0">
-                    <td className="py-2.5 pr-4 text-foreground">{row.name}</td>
-                    <td className="py-2.5 pr-4 text-right tabular-nums">{row.messagesSent}</td>
-                    <td className="py-2.5 pr-4 text-right tabular-nums">{row.conversationsHandled}</td>
-                    <td className="py-2.5 pr-4 text-right tabular-nums">{formatDuration(row.avgFirstResponseSeconds)}</td>
-                    <td className="py-2.5 text-right tabular-nums">
+                  <tr key={row.userId} className="border-b border-border last:border-0">
+                    <td className={td}>
+                      <span className="flex items-center gap-3">
+                        <ContactAvatar name={row.name} className="w-8 h-8 text-xs flex-shrink-0" />
+                        <span className="text-foreground">{row.name}</span>
+                      </span>
+                    </td>
+                    <td className={cn(td, 'text-right')}>{row.messagesSent}</td>
+                    <td className={cn(td, 'text-right')}>{row.conversationsHandled}</td>
+                    <td className={cn(td, 'text-right')}>{formatDuration(row.avgFirstResponseSeconds)}</td>
+                    <td className={cn(td, 'text-right pr-0')}>
                       {row.awaitingCount > 0 ? (
-                        <span className="inline-flex items-center gap-1 text-amber-700 font-medium">
-                          <AlertTriangle className="w-3.5 h-3.5" />
+                        <span className="inline-flex items-center gap-1 text-warning font-medium">
+                          <TriangleAlert className="w-4 h-4" aria-hidden="true" />
                           {row.awaitingCount}
                         </span>
                       ) : (
@@ -88,16 +96,16 @@ export const ResultsAttendance: React.FC = () => {
             </table>
           </div>
         )}
-      </SectionBlock>
+      </Panel>
 
-      {!loading && totalAwaiting > 0 && (
-        <SectionBlock title="Conversas sem resposta" icon={AlertTriangle}>
-          <p className="text-sm text-muted-foreground">
-            <strong className="text-foreground">{totalAwaiting} conversa(s) atribuída(s)</strong> estão com a
-            última mensagem do contato e nenhuma resposta — nem da IA, nem de uma pessoa. Este número é do
-            momento atual, não do período selecionado.
-          </p>
-        </SectionBlock>
+      {!loading && !failed && totalAwaiting > 0 && (
+        <ReportNotice>
+          <strong className="font-medium text-foreground">
+            {totalAwaiting} {totalAwaiting === 1 ? 'conversa atribuída está' : 'conversas atribuídas estão'}
+          </strong>{' '}
+          com a última mensagem do contato e nenhuma resposta, nem da IA nem de uma pessoa. Este número é de agora,
+          não do período selecionado.
+        </ReportNotice>
       )}
     </>
   );

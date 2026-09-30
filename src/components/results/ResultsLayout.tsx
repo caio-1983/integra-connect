@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { NavLink, Outlet, useOutletContext } from 'react-router-dom';
-import { PageContainer, PageHeader, Toolbar } from '@/components/layout';
+import { PageContainer, PageHeader } from '@/components/layout';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { PERIOD_PRESETS, resolvePeriod, type Period, type PeriodPreset } from '@/services/analyticsService';
+import { cn } from '@/lib/utils';
 
 /**
  * Shell for the "Resultados" surface: one period selector shared by every tab.
@@ -48,46 +49,46 @@ export const ResultsLayout: React.FC = () => {
 
   return (
     <PageContainer>
-      <PageHeader
-        title="Resultados"
-        description={`Faturamento, origem dos leads, perdas e atendimento em ${period.label}, comparados com o período anterior.`}
-      />
+      <div className="w-full max-w-6xl mx-auto flex flex-col gap-3">
+        <PageHeader
+          title="Resultados"
+          description={`${period.label.charAt(0).toUpperCase()}${period.label.slice(1)}, comparado com o período anterior.`}
+          className="mb-1"
+          actions={
+            <Select value={preset} onValueChange={(v) => setPreset(v as PeriodPreset)}>
+              <SelectTrigger className="h-9 w-44 rounded-full bg-card" aria-label="Período">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PERIOD_PRESETS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
 
-      <Toolbar>
-        <nav className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border" aria-label="Seções de resultados">
+        {/* Tabs as WhatsApp filter chips. */}
+        <nav className="flex items-center gap-2 overflow-x-auto pb-1" aria-label="Seções de resultados">
           {visibleTabs.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}
               end={tab.to === '/dashboard'}
-              className={({ isActive }) =>
-                `px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                  isActive
-                    ? 'bg-card text-foreground shadow-sm border border-border'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`
-              }
+              className={({ isActive }) => cn(
+                'flex-shrink-0 px-4 h-8 rounded-full text-sm flex items-center whitespace-nowrap transition-colors',
+                isActive
+                  ? 'bg-primary-subtle text-primary-subtle-foreground font-medium'
+                  : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground border border-border',
+              )}
             >
               {tab.label}
             </NavLink>
           ))}
         </nav>
 
-        <div className="ml-auto">
-          <Select value={preset} onValueChange={(v) => setPreset(v as PeriodPreset)}>
-            <SelectTrigger className="h-9 w-40" aria-label="Período">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PERIOD_PRESETS.map((p) => (
-                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </Toolbar>
-
-      <Outlet context={{ period } satisfies ResultsContext} />
+        <Outlet context={{ period } satisfies ResultsContext} />
+      </div>
     </PageContainer>
   );
 };

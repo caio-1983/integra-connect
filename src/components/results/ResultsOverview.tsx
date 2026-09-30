@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { CircleDollarSign, Users, Percent, Receipt, LineChart, TrendingUp } from 'lucide-react';
-import { SectionBlock } from '@/components/layout';
-import { KPICard } from '@/components/ui/cards/KPICard';
+import { CircleDollarSign, Users, Percent, Receipt } from 'lucide-react';
+import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
+import { KPIStrip } from '@/components/operations/KPIStrip';
 import { api } from '@/services/api';
 import { fetchRevenueKpis, formatPercentDelta, type KpiComparison } from '@/services/analyticsService';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { useResultsPeriod } from './ResultsLayout';
+import { ReportError, ReportLoading, pct } from './ResultsUi';
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /**
  * Headline numbers, each against the previous window.
@@ -20,23 +23,28 @@ export const ResultsOverview: React.FC = () => {
   const [kpis, setKpis] = useState<KpiComparison | null>(null);
   const [chartData, setChartData] = useState<{ name: string; chats: number; sales: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [kpiFailed, setKpiFailed] = useState(false);
+  const [chartFailed, setChartFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setKpiFailed(false);
+    setChartFailed(false);
 
     // The daily volume chart still comes from the existing api helper, which takes
     // a day count — derived from the selected window so the chart and the KPIs
     // describe the same period.
     const days = Math.max(1, Math.round((period.to.getTime() - period.from.getTime()) / 86_400_000));
 
-    Promise.all([fetchRevenueKpis(period), api.fetchChartData(days)])
+    Promise.allSettled([fetchRevenueKpis(period), api.fetchChartData(days)])
       .then(([k, chart]) => {
         if (cancelled) return;
-        setKpis(k);
-        setChartData(chart as { name: string; chats: number; sales: number }[]);
+        if (k.status === 'fulfilled') setKpis(k.value);
+        else { console.error('[results] KPIs:', k.reason); setKpis(null); setKpiFailed(true); }
+        if (chart.status === 'fulfilled') setChartData(chart.value as { name: string; chats: number; sales: number }[]);
+        else { console.error('[results] gráfico:', chart.reason); setChartFailed(true); }
       })
-      .catch((error) => console.error('[results] Erro ao carregar visão geral:', error))
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
@@ -44,89 +52,69 @@ export const ResultsOverview: React.FC = () => {
 
   const current = kpis?.current;
   const previous = kpis?.previous;
+  const cmp = (a?: number, b?: number) =>
+    current && previous && a !== undefined && b !== undefined
+      ? { trend: formatPercentDelta(a, b), trendUp: a >= b }
+      : {};
 
   return (
     <>
-      <SectionBlock title="Indicadores do período" icon={TrendingUp}>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KPICard
-            label="Receita ganha"
-            value={formatCurrency(current?.revenue)}
-            subLabel={`${current?.wonCount ?? 0} negócio(s) fechado(s)`}
-            trend={current && previous ? formatPercentDelta(current.revenue, previous.revenue) : undefined}
-            trendUp={current && previous ? current.revenue >= previous.revenue : undefined}
-            icon={CircleDollarSign}
-            color="emerald"
-            loading={loading}
-          />
-          <KPICard
-            label="Leads novos"
-            value={String(current?.newLeads ?? 0)}
-            subLabel="primeiro contato no período"
-            trend={current && previous ? formatPercentDelta(current.newLeads, previous.newLeads) : undefined}
-            trendUp={current && previous ? current.newLeads >= previous.newLeads : undefined}
-            icon={Users}
-            color="cyan"
-            loading={loading}
-          />
-          <KPICard
-            label="Taxa de conversão"
-            value={`${(current?.conversionRate ?? 0).toFixed(1)}%`}
-            subLabel={`${current?.lostCount ?? 0} perdido(s)`}
-            trend={current && previous ? formatPercentDelta(current.conversionRate, previous.conversionRate) : undefined}
-            trendUp={current && previous ? current.conversionRate >= previous.conversionRate : undefined}
-            icon={Percent}
-            color="violet"
-            loading={loading}
-          />
-          <KPICard
-            label="Ticket médio"
-            value={formatCurrency(current?.avgTicket)}
-            subLabel="por negócio ganho"
-            trend={current && previous ? formatPercentDelta(current.avgTicket, previous.avgTicket) : undefined}
-            trendUp={current && previous ? current.avgTicket >= previous.avgTicket : undefined}
-            icon={Receipt}
-            color="amber"
-            loading={loading}
-          />
-        </div>
-      </SectionBlock>
+      <KPIStrip
+        loading={loading}
+        failed={kpiFailed}
+        items={[
+          { label: 'Receita ganha', value: formatCurrency(current?.revenue), icon: CircleDollarSign,
+            hint: kpiFailed ? 'negócios fechados' : plural(current?.wonCount ?? 0, 'negócio fechado', 'negócios fechados'), ...cmp(current?.revenue, previous?.revenue) },
+          { label: 'Leads novos', value: String(current?.newLeads ?? 0), icon: Users,
+            hint: 'primeira mensagem no período', ...cmp(current?.newLeads, previous?.newLeads) },
+          { label: 'Taxa de conversão', value: pct(current?.conversionRate ?? 0), icon: Percent,
+            hint: kpiFailed ? 'leads que viraram venda' : plural(current?.lostCount ?? 0, 'perdido', 'perdidos'), ...cmp(current?.conversionRate, previous?.conversionRate) },
+          { label: 'Ticket médio', value: formatCurrency(current?.avgTicket), icon: Receipt,
+            hint: 'por negócio ganho', ...cmp(current?.avgTicket, previous?.avgTicket) },
+        ]}
+      />
+      <p className="text-xs text-muted-foreground">
+        {kpiFailed ? 'Não foi possível carregar os indicadores.' : 'As setas comparam com o período anterior.'}
+      </p>
 
-      <SectionBlock
-        title="Volume de atendimentos"
-        icon={LineChart}
-        description="Mensagens trocadas por dia no período."
-      >
-        <div className="h-[280px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorChats" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tickMargin={10} fontSize={12} stroke="hsl(var(--muted-foreground))" />
-              <YAxis axisLine={false} tickLine={false} fontSize={12} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip
-                contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '12px', border: '1px solid hsl(var(--border))', color: 'hsl(var(--foreground))' }}
-                itemStyle={{ color: 'hsl(var(--chart-1))' }}
-              />
-              <Area
-                type="monotone"
-                dataKey="chats"
-                name="Mensagens"
-                stroke="hsl(var(--chart-1))"
-                strokeWidth={2.5}
-                fillOpacity={1}
-                fill="url(#colorChats)"
-                activeDot={{ r: 5, strokeWidth: 0, fill: 'hsl(var(--chart-1))' }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </SectionBlock>
+      <Panel title="Mensagens por dia" description="Mensagens trocadas em todas as conversas no período.">
+        {loading ? (
+          <ReportLoading />
+        ) : chartFailed ? (
+          <ReportError />
+        ) : (
+          <div className="h-[280px] w-full px-4 pb-4">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorChats" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tickMargin={10} fontSize={12} stroke="hsl(var(--muted-foreground))" />
+                <YAxis axisLine={false} tickLine={false} fontSize={12} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderRadius: '8px', border: 'none', boxShadow: '0 2px 5px 0 rgba(11,20,26,.26), 0 2px 10px 0 rgba(11,20,26,.16)', color: 'hsl(var(--foreground))' }}
+                  itemStyle={{ color: 'hsl(var(--chart-1))' }}
+                  cursor={{ stroke: 'hsl(var(--border))' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="chats"
+                  name="Mensagens"
+                  stroke="hsl(var(--chart-1))"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#colorChats)"
+                  activeDot={{ r: 4, strokeWidth: 0, fill: 'hsl(var(--chart-1))' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </Panel>
     </>
   );
 };
