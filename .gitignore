@@ -40,3 +40,7 @@ graphify-out/
 
 # Dumps de banco — contem telefones e nomes reais, nunca versionar
 backups/
+
+# Impeccable — local state (screenshots, cache, live server); design.json is the DESIGN.md sidecar
+.impeccable/*
+!.impeccable/design.json

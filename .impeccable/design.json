@@ -1,0 +1,722 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-30T02:07:14.340Z",
+  "title": "Design System: Integra Connect",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "WhatsApp Deep Green",
+        "canonical": "hsl(169 100% 25%)",
+        "tonalRamp": [
+          "hsl(169 100% 15%)",
+          "hsl(169 100% 25%)",
+          "hsl(169 100% 35%)",
+          "hsl(169 100% 45%)",
+          "hsl(169 100% 60%)",
+          "hsl(169 100% 75%)",
+          "hsl(169 100% 87%)",
+          "hsl(169 100% 95%)"
+        ]
+      },
+      "primary-dark": {
+        "role": "primary",
+        "displayName": "WhatsApp Green (dark mode)",
+        "canonical": "hsl(167 100% 33%)",
+        "tonalRamp": [
+          "hsl(167 100% 15%)",
+          "hsl(167 100% 25%)",
+          "hsl(167 100% 35%)",
+          "hsl(167 100% 45%)",
+          "hsl(167 100% 60%)",
+          "hsl(167 100% 75%)",
+          "hsl(167 100% 87%)",
+          "hsl(167 100% 95%)"
+        ]
+      },
+      "primary-subtle": {
+        "role": "primary",
+        "displayName": "Mint Selection",
+        "canonical": "hsl(111 91% 91%)",
+        "tonalRamp": [
+          "hsl(111 91% 15%)",
+          "hsl(111 91% 25%)",
+          "hsl(111 91% 35%)",
+          "hsl(111 91% 45%)",
+          "hsl(111 91% 60%)",
+          "hsl(111 91% 75%)",
+          "hsl(111 91% 87%)",
+          "hsl(111 91% 95%)"
+        ]
+      },
+      "primary-subtle-dark": {
+        "role": "primary",
+        "displayName": "Deep Teal Selection (dark mode)",
+        "canonical": "hsl(170 67% 12%)",
+        "tonalRamp": [
+          "hsl(170 67% 15%)",
+          "hsl(170 67% 25%)",
+          "hsl(170 67% 35%)",
+          "hsl(170 67% 45%)",
+          "hsl(170 67% 60%)",
+          "hsl(170 67% 75%)",
+          "hsl(170 67% 87%)",
+          "hsl(170 67% 95%)"
+        ]
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Panel Backdrop",
+        "canonical": "hsl(216 20% 95%)",
+        "tonalRamp": [
+          "hsl(216 20% 15%)",
+          "hsl(216 20% 25%)",
+          "hsl(216 20% 35%)",
+          "hsl(216 20% 45%)",
+          "hsl(216 20% 60%)",
+          "hsl(216 20% 75%)",
+          "hsl(216 20% 87%)",
+          "hsl(216 20% 95%)"
+        ]
+      },
+      "background-dark": {
+        "role": "neutral",
+        "displayName": "Panel Backdrop (dark mode)",
+        "canonical": "hsl(202 31% 7%)",
+        "tonalRamp": [
+          "hsl(202 31% 15%)",
+          "hsl(202 31% 25%)",
+          "hsl(202 31% 35%)",
+          "hsl(202 31% 45%)",
+          "hsl(202 31% 60%)",
+          "hsl(202 31% 75%)",
+          "hsl(202 31% 87%)",
+          "hsl(202 31% 95%)"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "hsl(203 32% 10%)",
+        "tonalRamp": [
+          "hsl(203 32% 15%)",
+          "hsl(203 32% 25%)",
+          "hsl(203 32% 35%)",
+          "hsl(203 32% 45%)",
+          "hsl(203 32% 60%)",
+          "hsl(203 32% 75%)",
+          "hsl(203 32% 87%)",
+          "hsl(203 32% 95%)"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Panel White",
+        "canonical": "hsl(0 0% 100%)",
+        "tonalRamp": [
+          "hsl(0 0% 15%)",
+          "hsl(0 0% 25%)",
+          "hsl(0 0% 35%)",
+          "hsl(0 0% 45%)",
+          "hsl(0 0% 60%)",
+          "hsl(0 0% 75%)",
+          "hsl(0 0% 87%)",
+          "hsl(0 0% 95%)"
+        ]
+      },
+      "card-dark": {
+        "role": "neutral",
+        "displayName": "Panel Night",
+        "canonical": "hsl(203 32% 10%)",
+        "tonalRamp": [
+          "hsl(203 32% 15%)",
+          "hsl(203 32% 25%)",
+          "hsl(203 32% 35%)",
+          "hsl(203 32% 45%)",
+          "hsl(203 32% 60%)",
+          "hsl(203 32% 75%)",
+          "hsl(203 32% 87%)",
+          "hsl(203 32% 95%)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Bar Grey",
+        "canonical": "hsl(216 20% 95%)",
+        "tonalRamp": [
+          "hsl(216 20% 15%)",
+          "hsl(216 20% 25%)",
+          "hsl(216 20% 35%)",
+          "hsl(216 20% 45%)",
+          "hsl(216 20% 60%)",
+          "hsl(216 20% 75%)",
+          "hsl(216 20% 87%)",
+          "hsl(216 20% 95%)"
+        ]
+      },
+      "muted-dark": {
+        "role": "neutral",
+        "displayName": "Bar Grey (dark mode)",
+        "canonical": "hsl(202 23% 16%)",
+        "tonalRamp": [
+          "hsl(202 23% 15%)",
+          "hsl(202 23% 25%)",
+          "hsl(202 23% 35%)",
+          "hsl(202 23% 45%)",
+          "hsl(202 23% 60%)",
+          "hsl(202 23% 75%)",
+          "hsl(202 23% 87%)",
+          "hsl(202 23% 95%)"
+        ]
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "Slate Meta",
+        "canonical": "hsl(202 12% 45%)",
+        "tonalRamp": [
+          "hsl(202 12% 15%)",
+          "hsl(202 12% 25%)",
+          "hsl(202 12% 35%)",
+          "hsl(202 12% 45%)",
+          "hsl(202 12% 60%)",
+          "hsl(202 12% 75%)",
+          "hsl(202 12% 87%)",
+          "hsl(202 12% 95%)"
+        ]
+      },
+      "secondary": {
+        "role": "neutral",
+        "displayName": "Selected Grey",
+        "canonical": "hsl(216 20% 95%)",
+        "tonalRamp": [
+          "hsl(216 20% 15%)",
+          "hsl(216 20% 25%)",
+          "hsl(216 20% 35%)",
+          "hsl(216 20% 45%)",
+          "hsl(216 20% 60%)",
+          "hsl(216 20% 75%)",
+          "hsl(216 20% 87%)",
+          "hsl(216 20% 95%)"
+        ]
+      },
+      "secondary-dark": {
+        "role": "neutral",
+        "displayName": "Selected Grey (dark mode)",
+        "canonical": "hsl(202 22% 21%)",
+        "tonalRamp": [
+          "hsl(202 22% 15%)",
+          "hsl(202 22% 25%)",
+          "hsl(202 22% 35%)",
+          "hsl(202 22% 45%)",
+          "hsl(202 22% 60%)",
+          "hsl(202 22% 75%)",
+          "hsl(202 22% 87%)",
+          "hsl(202 22% 95%)"
+        ]
+      },
+      "accent": {
+        "role": "neutral",
+        "displayName": "Hover Wash",
+        "canonical": "hsl(180 5% 96%)",
+        "tonalRamp": [
+          "hsl(180 5% 15%)",
+          "hsl(180 5% 25%)",
+          "hsl(180 5% 35%)",
+          "hsl(180 5% 45%)",
+          "hsl(180 5% 60%)",
+          "hsl(180 5% 75%)",
+          "hsl(180 5% 87%)",
+          "hsl(180 5% 95%)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Divider",
+        "canonical": "hsl(200 16% 93%)",
+        "tonalRamp": [
+          "hsl(200 16% 15%)",
+          "hsl(200 16% 25%)",
+          "hsl(200 16% 35%)",
+          "hsl(200 16% 45%)",
+          "hsl(200 16% 60%)",
+          "hsl(200 16% 75%)",
+          "hsl(200 16% 87%)",
+          "hsl(200 16% 95%)"
+        ]
+      },
+      "input": {
+        "role": "neutral",
+        "displayName": "Field Outline",
+        "canonical": "hsl(204 12% 84%)",
+        "tonalRamp": [
+          "hsl(204 12% 15%)",
+          "hsl(204 12% 25%)",
+          "hsl(204 12% 35%)",
+          "hsl(204 12% 45%)",
+          "hsl(204 12% 60%)",
+          "hsl(204 12% 75%)",
+          "hsl(204 12% 87%)",
+          "hsl(204 12% 95%)"
+        ]
+      },
+      "icon": {
+        "role": "neutral",
+        "displayName": "Icon Slate",
+        "canonical": "hsl(202 14% 39%)",
+        "tonalRamp": [
+          "hsl(202 14% 15%)",
+          "hsl(202 14% 25%)",
+          "hsl(202 14% 35%)",
+          "hsl(202 14% 45%)",
+          "hsl(202 14% 60%)",
+          "hsl(202 14% 75%)",
+          "hsl(202 14% 87%)",
+          "hsl(202 14% 95%)"
+        ]
+      },
+      "avatar": {
+        "role": "neutral",
+        "displayName": "Avatar Grey",
+        "canonical": "hsl(195 14% 89%)",
+        "tonalRamp": [
+          "hsl(195 14% 15%)",
+          "hsl(195 14% 25%)",
+          "hsl(195 14% 35%)",
+          "hsl(195 14% 45%)",
+          "hsl(195 14% 60%)",
+          "hsl(195 14% 75%)",
+          "hsl(195 14% 87%)",
+          "hsl(195 14% 95%)"
+        ]
+      },
+      "read-receipt": {
+        "role": "tertiary",
+        "displayName": "Read Blue",
+        "canonical": "hsl(199 80% 62%)",
+        "tonalRamp": [
+          "hsl(199 80% 15%)",
+          "hsl(199 80% 25%)",
+          "hsl(199 80% 35%)",
+          "hsl(199 80% 45%)",
+          "hsl(199 80% 60%)",
+          "hsl(199 80% 75%)",
+          "hsl(199 80% 87%)",
+          "hsl(199 80% 95%)"
+        ]
+      },
+      "destructive": {
+        "role": "status",
+        "displayName": "WhatsApp Red",
+        "canonical": "hsl(346 100% 46%)",
+        "tonalRamp": [
+          "hsl(346 100% 15%)",
+          "hsl(346 100% 25%)",
+          "hsl(346 100% 35%)",
+          "hsl(346 100% 45%)",
+          "hsl(346 100% 60%)",
+          "hsl(346 100% 75%)",
+          "hsl(346 100% 87%)",
+          "hsl(346 100% 95%)"
+        ]
+      },
+      "success": {
+        "role": "status",
+        "displayName": "Success",
+        "canonical": "hsl(163 94% 24%)",
+        "tonalRamp": [
+          "hsl(163 94% 15%)",
+          "hsl(163 94% 25%)",
+          "hsl(163 94% 35%)",
+          "hsl(163 94% 45%)",
+          "hsl(163 94% 60%)",
+          "hsl(163 94% 75%)",
+          "hsl(163 94% 87%)",
+          "hsl(163 94% 95%)"
+        ]
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "Warning",
+        "canonical": "hsl(26 90% 37%)",
+        "tonalRamp": [
+          "hsl(26 90% 15%)",
+          "hsl(26 90% 25%)",
+          "hsl(26 90% 35%)",
+          "hsl(26 90% 45%)",
+          "hsl(26 90% 60%)",
+          "hsl(26 90% 75%)",
+          "hsl(26 90% 87%)",
+          "hsl(26 90% 95%)"
+        ]
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Danger",
+        "canonical": "hsl(0 74% 42%)",
+        "tonalRamp": [
+          "hsl(0 74% 15%)",
+          "hsl(0 74% 25%)",
+          "hsl(0 74% 35%)",
+          "hsl(0 74% 45%)",
+          "hsl(0 74% 60%)",
+          "hsl(0 74% 75%)",
+          "hsl(0 74% 87%)",
+          "hsl(0 74% 95%)"
+        ]
+      },
+      "info": {
+        "role": "status",
+        "displayName": "Info",
+        "canonical": "hsl(199 88% 30%)",
+        "tonalRamp": [
+          "hsl(199 88% 15%)",
+          "hsl(199 88% 25%)",
+          "hsl(199 88% 35%)",
+          "hsl(199 88% 45%)",
+          "hsl(199 88% 60%)",
+          "hsl(199 88% 75%)",
+          "hsl(199 88% 87%)",
+          "hsl(199 88% 95%)"
+        ]
+      },
+      "wa-wall": {
+        "role": "chat-wall",
+        "displayName": "Wall Beige",
+        "canonical": "#efeae2",
+        "tonalRamp": [
+          "hsl(37 27% 15%)",
+          "hsl(37 27% 25%)",
+          "hsl(37 27% 35%)",
+          "hsl(37 27% 45%)",
+          "hsl(37 27% 60%)",
+          "hsl(37 27% 75%)",
+          "hsl(37 27% 87%)",
+          "hsl(37 27% 95%)"
+        ]
+      },
+      "wa-wall-dark": {
+        "role": "chat-wall",
+        "displayName": "Wall Night",
+        "canonical": "#0b141a",
+        "tonalRamp": [
+          "hsl(203 41% 15%)",
+          "hsl(203 41% 25%)",
+          "hsl(203 41% 35%)",
+          "hsl(203 41% 45%)",
+          "hsl(203 41% 60%)",
+          "hsl(203 41% 75%)",
+          "hsl(203 41% 87%)",
+          "hsl(203 41% 95%)"
+        ]
+      },
+      "wa-in": {
+        "role": "chat-wall",
+        "displayName": "Incoming White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "hsl(0 0% 15%)",
+          "hsl(0 0% 25%)",
+          "hsl(0 0% 35%)",
+          "hsl(0 0% 45%)",
+          "hsl(0 0% 60%)",
+          "hsl(0 0% 75%)",
+          "hsl(0 0% 87%)",
+          "hsl(0 0% 95%)"
+        ]
+      },
+      "wa-out": {
+        "role": "chat-wall",
+        "displayName": "Outgoing Mint",
+        "canonical": "#d9fdd3",
+        "tonalRamp": [
+          "hsl(111 91% 15%)",
+          "hsl(111 91% 25%)",
+          "hsl(111 91% 35%)",
+          "hsl(111 91% 45%)",
+          "hsl(111 91% 60%)",
+          "hsl(111 91% 75%)",
+          "hsl(111 91% 87%)",
+          "hsl(111 91% 95%)"
+        ]
+      },
+      "wa-out-dark": {
+        "role": "chat-wall",
+        "displayName": "Outgoing Deep Green",
+        "canonical": "#005c4b",
+        "tonalRamp": [
+          "hsl(169 100% 15%)",
+          "hsl(169 100% 25%)",
+          "hsl(169 100% 35%)",
+          "hsl(169 100% 45%)",
+          "hsl(169 100% 60%)",
+          "hsl(169 100% 75%)",
+          "hsl(169 100% 87%)",
+          "hsl(169 100% 95%)"
+        ]
+      },
+      "wa-meta": {
+        "role": "chat-wall",
+        "displayName": "Bubble Meta",
+        "canonical": "#667781",
+        "tonalRamp": [
+          "hsl(202 12% 15%)",
+          "hsl(202 12% 25%)",
+          "hsl(202 12% 35%)",
+          "hsl(202 12% 45%)",
+          "hsl(202 12% 60%)",
+          "hsl(202 12% 75%)",
+          "hsl(202 12% 87%)",
+          "hsl(202 12% 95%)"
+        ]
+      },
+      "wa-quote": {
+        "role": "chat-wall",
+        "displayName": "Quote Green",
+        "canonical": "#06cf9c",
+        "tonalRamp": [
+          "hsl(165 94% 15%)",
+          "hsl(165 94% 25%)",
+          "hsl(165 94% 35%)",
+          "hsl(165 94% 45%)",
+          "hsl(165 94% 60%)",
+          "hsl(165 94% 75%)",
+          "hsl(165 94% 87%)",
+          "hsl(165 94% 95%)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Greeting and \"Fila zerada\" title on the empty-chat home only."
+      },
+      "list-title": {
+        "displayName": "List Title",
+        "purpose": "\"Conversas\" title atop the conversation list (22px bold)."
+      },
+      "panel-title": {
+        "displayName": "Panel Title",
+        "purpose": "Back-arrow title of a sub-view in the list column (19px)."
+      },
+      "row-name": {
+        "displayName": "Row Name",
+        "purpose": "Contact name in a conversation row (17px)."
+      },
+      "header-name": {
+        "displayName": "Header Name",
+        "purpose": "Contact name in the chat header (16px)."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Composer, search, nav labels, menu items, Detalhes rows, Lu draft (15px)."
+      },
+      "bubble": {
+        "displayName": "Bubble",
+        "purpose": "Message text inside bubbles (14.2px / 19px)."
+      },
+      "body-sm": {
+        "displayName": "Body Small",
+        "purpose": "Message previews, buttons, chips (14px)."
+      },
+      "secondary": {
+        "displayName": "Secondary",
+        "purpose": "Phone under header name, Lu status lines, quick-reply descriptions (13px)."
+      },
+      "time": {
+        "displayName": "Time",
+        "purpose": "Row timestamps and unread counts (12px, tabular)."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Status chips, tags, task badges, bubble timestamps (11px)."
+      }
+    },
+    "shadows": [
+      {
+        "name": "wa-menu",
+        "value": "0 2px 5px 0 rgba(11,20,26,.26), 0 2px 10px 0 rgba(11,20,26,.16)",
+        "purpose": "Floating layers only: dropdown menus, popovers, select lists, dialogs, composer quick-reply list."
+      },
+      {
+        "name": "wa-bubble",
+        "value": "0 1px 0.5px rgba(11,20,26,.13)",
+        "purpose": "Message bubbles and chips that sit on the chat wall."
+      }
+    ],
+    "motion": [
+      {
+        "name": "color-transition",
+        "value": "color, background-color 200ms",
+        "purpose": "Global hover transition on buttons, links and fields."
+      },
+      {
+        "name": "nav-transition",
+        "value": "background-color 150ms; label fade 200ms ease-in-out",
+        "purpose": "Sidebar item hover and label show/hide on collapse."
+      },
+      {
+        "name": "floating-enter",
+        "value": "fade + zoom-in-95 + 2px slide from trigger side",
+        "purpose": "Menus, popovers, select lists, dialogs, tooltips."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      },
+      {
+        "name": "2xl",
+        "value": "1400px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main action: send, save, confirm. Pill, WhatsApp green.",
+      "html": "<button class=\"ds-btn-primary\">Enviar</button>",
+      "css": ".ds-btn-primary{font-family:\"Segoe UI\",\"Helvetica Neue\",Helvetica,\"Lucida Grande\",Arial,Ubuntu,Cantarell,\"Fira Sans\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:8px 20px;border:none;border-radius:9999px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-size:14px;font-weight:500;cursor:pointer;transition:background-color .2s}.ds-btn-primary:hover{background:hsl(var(--primary) / .9)}.ds-btn-primary:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--background)),0 0 0 4px hsl(var(--ring))}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "WhatsApp's secondary button: panel fill, grey outline, green label.",
+      "html": "<button class=\"ds-btn-outline\">Editar antes</button>",
+      "css": ".ds-btn-outline{font-family:\"Segoe UI\",\"Helvetica Neue\",Helvetica,\"Lucida Grande\",Arial,Ubuntu,Cantarell,\"Fira Sans\",sans-serif;display:inline-flex;align-items:center;height:40px;padding:8px 20px;border:1px solid hsl(var(--input));border-radius:9999px;background:hsl(var(--card));color:hsl(var(--primary));font-size:14px;font-weight:500;cursor:pointer;transition:background-color .2s}.ds-btn-outline:hover{background:hsl(var(--accent))}.ds-btn-outline:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--background)),0 0 0 4px hsl(var(--ring))}"
+    },
+    {
+      "name": "Ghost Icon Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Header and composer icons: 40px circle, icon slate, hover wash.",
+      "html": "<button class=\"ds-btn-ghost\" aria-label=\"Pesquisar\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg></button>",
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border:none;border-radius:9999px;background:transparent;color:hsl(var(--icon));cursor:pointer;transition:background-color .2s,color .2s}.ds-btn-ghost:hover{background:hsl(var(--accent));color:hsl(var(--foreground))}.ds-btn-ghost:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring))}"
+    },
+    {
+      "name": "Filter Chips",
+      "kind": "chip",
+      "refersTo": "chip-filter",
+      "description": "Queue filters: grey pills, active one in mint with a green count.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip ds-chip-active\" aria-pressed=\"true\">Não lidas <span class=\"ds-chip-count\">4</span></button><button class=\"ds-chip\">Aguardando</button><button class=\"ds-chip\">Lu</button></div>",
+      "css": ".ds-chips{display:flex;flex-wrap:wrap;gap:8px;font-family:\"Segoe UI\",\"Helvetica Neue\",Helvetica,\"Lucida Grande\",Arial,Ubuntu,Cantarell,\"Fira Sans\",sans-serif}.ds-chip{display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:none;border-radius:9999px;background:hsl(var(--secondary));color:hsl(var(--muted-foreground));font-size:14px;cursor:pointer;transition:background-color .2s,color .2s}.ds-chip:hover{background:hsl(var(--accent));color:hsl(var(--foreground))}.ds-chip-active,.ds-chip-active:hover{background:hsl(var(--primary-subtle));color:hsl(var(--primary-subtle-foreground));font-weight:500}.ds-chip-count{display:flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:9999px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-size:10px;font-weight:700}.ds-chip:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring))}"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "Pill search atop the conversation list; filled grey, no border.",
+      "html": "<label class=\"ds-search\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><input placeholder=\"Pesquisar ou começar uma nova conversa\"></label>",
+      "css": ".ds-search{position:relative;display:block;font-family:\"Segoe UI\",\"Helvetica Neue\",Helvetica,\"Lucida Grande\",Arial,Ubuntu,Cantarell,\"Fira Sans\",sans-serif}.ds-search svg{position:absolute;left:18px;top:11px;color:hsl(var(--icon))}.ds-search input{width:100%;height:40px;padding:0 16px 0 48px;border:0;border-radius:9999px;background:hsl(var(--secondary));color:hsl(var(--foreground));font-size:15px;outline:none}.ds-search input::placeholder{color:hsl(var(--muted-foreground))}.ds-search input:focus-visible{box-shadow:0 0 0 2px hsl(var(--primary))}"
+    },
+    {
+      "name": "Form Field",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Standard text field and select trigger: panel fill, grey outline, 8px corners.",
+      "html": "<input class=\"ds-input\" placeholder=\"Nome do contato\">",
+      "css": ".ds-input{font-family:\"Segoe UI\",\"Helvetica Neue\",Helvetica,\"Lucida Grande\",Arial,Ubuntu,Cantarell,\"Fira Sans\",sans-serif;height:40px;width:100%;padding:8px 12px;border:1px solid hsl(var(--input));border-radius:8px;background:hsl(var(--card));color:hsl(var(--foreground));font-size:14px;outline:none;transition:box-shadow .2s}.ds-input::placeholder{color:hsl(var(--muted-foreground))}.ds-input:focus-visible{box-shadow:0 0 0 2px hsl(var(--background)),0 0 0 4px hsl(var(--ring))}.ds-input:disabled{opacity:.5}"
+    },
+    {
+      "name": "Sidebar Nav",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Labeled sidebar: 44px items, slate icons, selected grey, green unread pill.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-active\" aria-current=\"page\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M7.9 20A9 9 0 1 0 4 16.1L2 22Z\"/></svg><span>Conversas</span><b class=\"ds-nav-badge\">12</b></a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M16 2v4M8 2v4M3 10h18\"/></svg><span>Agenda</span></a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;gap:2px;width:248px;padding:12px 10px;background:hsl(var(--sidebar-background));font-family:\"Segoe UI\",\"Helvetica Neue\",Helvetica,\"Lucida Grande\",Arial,Ubuntu,Cantarell,\"Fira Sans\",sans-serif}.ds-nav-item{display:flex;align-items:center;gap:14px;min-height:44px;padding:0 12px;border-radius:8px;color:hsl(var(--foreground));font-size:15px;text-decoration:none;transition:background-color .15s}.ds-nav-item svg{color:hsl(var(--icon))}.ds-nav-item:hover{background:hsl(var(--sidebar-accent))}.ds-nav-item:hover svg,.ds-nav-active svg{color:hsl(var(--foreground))}.ds-nav-active,.ds-nav-active:hover{background:hsl(var(--secondary));font-weight:500}.ds-nav-badge{margin-left:auto;display:flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:9999px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-size:12px;font-weight:600}.ds-nav-item:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring))}"
+    },
+    {
+      "name": "Conversation Row",
+      "kind": "custom",
+      "refersTo": "list-row",
+      "description": "WhatsApp chat-list row: 49px avatar, 17px name, preview, status chip, unread pill.",
+      "html": "<button class=\"ds-row\"><span class=\"ds-row-avatar\">MC</span><span class=\"ds-row-body\"><span class=\"ds-row-top\"><span class=\"ds-row-name\">Maria Clara</span><span class=\"ds-row-time\">10:42</span></span><span class=\"ds-row-bottom\"><span class=\"ds-row-chip\">Lu</span><span class=\"ds-row-preview\">Vocês têm fita LED para cozinha?</span><span class=\"ds-row-unread\">2</span></span></span></button>",
+      "css": ".ds-row{display:flex;align-items:center;gap:12px;width:100%;padding:0 12px;border:none;background:hsl(var(--card));text-align:left;font-family:\"Segoe UI\",\"Helvetica Neue\",Helvetica,\"Lucida Grande\",Arial,Ubuntu,Cantarell,\"Fira Sans\",sans-serif;cursor:pointer;transition:background-color .2s}.ds-row:hover{background:hsl(var(--accent))}.ds-row:focus-visible{outline:none;box-shadow:inset 0 0 0 2px hsl(var(--ring))}.ds-row-avatar{flex:none;display:flex;align-items:center;justify-content:center;width:49px;height:49px;border-radius:9999px;background:hsl(var(--avatar));color:hsl(var(--avatar-foreground));font-size:18px}.ds-row-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;padding:12px 0;border-bottom:1px solid hsl(var(--border))}.ds-row-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}.ds-row-name{font-size:17px;line-height:21px;color:hsl(var(--foreground))}.ds-row-time{font-size:12px;color:hsl(var(--primary));font-weight:500;font-variant-numeric:tabular-nums}.ds-row-bottom{display:flex;align-items:center;gap:6px;min-width:0}.ds-row-chip{flex:none;height:18px;padding:0 6px;border-radius:9999px;background:hsl(var(--primary-subtle));color:hsl(var(--primary-subtle-foreground));font-size:11px;font-weight:500;line-height:18px}.ds-row-preview{flex:1;min-width:0;font-size:14px;color:hsl(var(--muted-foreground));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ds-row-unread{flex:none;min-width:20px;height:20px;padding:0 6px;border-radius:9999px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center}"
+    },
+    {
+      "name": "Chat Bubbles",
+      "kind": "custom",
+      "refersTo": "bubble-in",
+      "description": "Fixed WhatsApp wall and bubbles with tails, Bubble Lift shadow and a reply quote.",
+      "html": "<div class=\"ds-wall\"><div class=\"ds-bubble ds-in\">Oi! Vocês entregam em Campinas?<span class=\"ds-meta\">10:40</span></div><div class=\"ds-bubble ds-out\"><span class=\"ds-quote\"><b>Maria Clara</b>Vocês entregam em Campinas?</span>Entregamos sim, em até 2 dias úteis.<span class=\"ds-meta\">10:41 <svg width=\"16\" height=\"11\" viewBox=\"0 0 16 11\" fill=\"none\" stroke=\"#53bdeb\" stroke-width=\"1.5\"><path d=\"M1 6l3 3 6-7M6 9l1 1 6-7\"/></svg></span></div></div>",
+      "css": ".ds-wall{--wa-in:#fff;--wa-out:#d9fdd3;--wa-text:#111b21;--wa-meta:#667781;--wa-quote:#06cf9c;display:flex;flex-direction:column;gap:8px;padding:16px 24px;background:#efeae2;font-family:\"Segoe UI\",\"Helvetica Neue\",Helvetica,\"Lucida Grande\",Arial,Ubuntu,Cantarell,\"Fira Sans\",sans-serif}.ds-bubble{position:relative;max-width:65%;padding:6px 8px 8px 9px;border-radius:8px;color:var(--wa-text);font-size:14.2px;line-height:19px;box-shadow:0 1px .5px rgba(11,20,26,.13)}.ds-in{align-self:flex-start;background:var(--wa-in);border-top-left-radius:0}.ds-in::before{content:'';position:absolute;top:0;left:-8px;width:8px;height:13px;background:var(--wa-in);clip-path:polygon(0 0,100% 0,100% 100%)}.ds-out{align-self:flex-end;background:var(--wa-out);border-top-right-radius:0}.ds-out::before{content:'';position:absolute;top:0;right:-8px;width:8px;height:13px;background:var(--wa-out);clip-path:polygon(0 0,100% 0,0 100%)}.ds-meta{display:inline-flex;align-items:center;gap:4px;float:right;margin:6px 0 -4px 12px;font-size:11px;line-height:1;color:var(--wa-meta)}.ds-quote{display:block;margin-bottom:4px;padding:6px 10px;border-left:4px solid var(--wa-quote);border-radius:6px;background:rgba(0,0,0,.05);font-size:12px;color:var(--wa-meta)}.ds-quote b{display:block;color:var(--wa-quote);font-weight:600}"
+    },
+    {
+      "name": "Lu Suggestion Card",
+      "kind": "card",
+      "refersTo": "lu-suggestion",
+      "description": "Lu's draft reply above the composer, dressed as a WhatsApp panel.",
+      "html": "<div class=\"ds-tray\"><div class=\"ds-lu\"><div class=\"ds-lu-head\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z\"/></svg>Lu sugere</div><p>Entregamos sim! Para Campinas o prazo é de até 2 dias úteis.</p><div class=\"ds-lu-actions\"><button class=\"ds-lu-send\">Enviar</button><button class=\"ds-lu-alt\">Editar antes</button><button class=\"ds-lu-alt\">Mais curta</button></div></div></div>",
+      "css": ".ds-tray{padding:10px 16px 0;background:hsl(var(--muted));font-family:\"Segoe UI\",\"Helvetica Neue\",Helvetica,\"Lucida Grande\",Arial,Ubuntu,Cantarell,\"Fira Sans\",sans-serif}.ds-lu{display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:8px;background:hsl(var(--card))}.ds-lu-head{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:hsl(var(--primary))}.ds-lu p{margin:0;font-size:15px;line-height:21px;color:hsl(var(--foreground))}.ds-lu-actions{display:flex;flex-wrap:wrap;gap:8px}.ds-lu-send,.ds-lu-alt{height:32px;padding:0 14px;border-radius:9999px;font-size:13px;font-weight:500;cursor:pointer;transition:background-color .2s}.ds-lu-send{padding:0 16px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground))}.ds-lu-send:hover{background:hsl(var(--primary) / .9)}.ds-lu-alt{border:1px solid hsl(var(--input));background:hsl(var(--card));color:hsl(var(--primary))}.ds-lu-alt:hover{background:hsl(var(--accent))}.ds-lu-send:focus-visible,.ds-lu-alt:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring))}"
+    }
+  ],
+  "narrative": {
+    "northStar": "WhatsApp Web, Extended",
+    "overview": "The operator's workspace is WhatsApp Web itself, with more panels. An attendant who spends the whole day in WhatsApp should open this app and feel no seam: the same greys, the same green, the same Segoe UI stack, the same flat panels split by hairline dividers, the same beige chat wall and bubble tails. Everything this product adds (Lu's suggestions, the Detalhes panel, CRM blocks, filters, attendant tags) is dressed as if WhatsApp had shipped it: a flat panel, a 60px grey bar on top, pill chips, green only where WhatsApp would put green.\n\nDensity is WhatsApp's density: 60px bars, 72px conversation rows with a 49px avatar, 44px nav items, 15px body text. The system has exactly one palette, rendered in light and dark; there are no user-selectable palettes. Depth is tonal, not shadowed: panels sit side by side on the backdrop, and only layers that genuinely float (menus, popovers, dialogs) take WhatsApp's menu shadow. The look refuses the generic SaaS dashboard: no gradient cards, no decorative accent colors, no heavy card chrome.",
+    "keyCharacteristics": [
+      "One palette, light and dark, taken from WhatsApp Web's own tones.",
+      "WhatsApp green as the only accent, darkened in light mode for AA with white text.",
+      "Flat panels divided by 1px lines; shadow only on floating layers.",
+      "Pill-shaped buttons, chips, search fields and badges.",
+      "The chat wall is fixed WhatsApp: wallpaper, bubble colors and tails do not follow any theme choice beyond light/dark.",
+      "WhatsApp's own type ramp, from 22px list titles down to 11px chip labels."
+    ],
+    "rules": [
+      {
+        "name": "The One Palette Rule",
+        "body": "There is one palette in two modes. Do not reintroduce palette switching or a second accent hue; every surface resolves through the tokens above.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fixed Wall Rule",
+        "body": "The chat wall and its bubbles use the `wa-*` values and nothing else. Theme tokens never recolor a bubble, and bubble colors never leak out of the wall.",
+        "section": "colors"
+      },
+      {
+        "name": "The Where-WhatsApp-Puts-Green Rule",
+        "body": "Green marks action, unread, and \"on\" states (active chip, Lu active). Headings, icons at rest, and decoration stay neutral.",
+        "section": "colors"
+      },
+      {
+        "name": "The WhatsApp Ramp Rule",
+        "body": "New text uses one of the steps above. Half-pixel variants outside the ramp (12.5, 13.5, 14.5, 11.5px) are drift, not steps.",
+        "section": "typography"
+      },
+      {
+        "name": "The Weight-Not-Face Rule",
+        "body": "Emphasis is a weight change (500 for selected and names that need it, 600 to 700 for counts and titles). No second family, no uppercase labels outside the chat wall's date divider.",
+        "section": "typography"
+      },
+      {
+        "name": "The Only-Floaters-Cast Rule",
+        "body": "A shadow means the element floats above the workspace. Panels, cards, rows, bars and buttons at rest have no shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do build every new surface from the surface model: `background` behind, `card` for the panel, `muted` for its 60px top bar, `accent` for hover, `secondary` for selected and filled.",
+      "Do use pills for buttons, chips, badges and search, and 8px corners for cards, fields and bubbles.",
+      "Do separate panels and rows with 1px `border` dividers; keep panels flat.",
+      "Do reserve the WhatsApp Menu shadow for menus, popovers, select lists and dialogs, and Bubble Lift for things on the chat wall.",
+      "Do keep type on the WhatsApp ramp (22 / 19 / 17 / 16 / 15 / 14.2 / 14 / 13 / 12 / 11px) in the Segoe UI stack.",
+      "Do keep white text on light `primary` and dark text on dark `primary`, as the tokens define.",
+      "Do migrate the remaining screens (Visão Geral KPI cards, Kanban, Contatos, Canais, Configurações, Onboarding) onto these tokens next; their current literal colors are legacy, not reference."
+    ],
+    "donts": [
+      "Don't reintroduce selectable palettes, a violet or second accent, or gradient cards; there is one WhatsApp palette in light and dark.",
+      "Don't recolor the chat wall or bubbles from theme tokens, or use `wa-*` values outside the wall.",
+      "Don't put shadows on panels, rows, cards or buttons at rest.",
+      "Don't use a 4px left accent bar anywhere except reply quotes (in a bubble or above the composer).",
+      "Don't copy the look of screens not yet migrated; they still carry the retired world's literal colors.",
+      "Don't add a second font family, uppercase labels, or small labels above headings.",
+      "Don't use emoji as icons in UI chrome; use the line icon set in `icon` color."
+    ]
+  }
+}
