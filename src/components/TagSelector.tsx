@@ -152,7 +152,7 @@ export const TagSelector: React.FC<TagSelectorProps> = ({
                   <button
                     key={tag.key}
                     onClick={() => onToggleTag(tag.key)}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-primary/50 transition-colors text-left group"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-accent transition-colors text-left group"
                   >
                     <div className="flex items-center gap-2">
                       <div
