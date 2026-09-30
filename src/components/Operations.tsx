@@ -1,19 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  RefreshCw,
-  Zap,
-  LayoutList,
-  MessageSquare,
-  Users,
-  TrendingUp,
-  Clock,
-  Loader2,
-} from 'lucide-react';
-import { PageContainer, PageHeader, SectionBlock } from '@/components/layout';
-import { KPICard } from '@/components/ui/cards/KPICard';
+import { RefreshCw, MessageSquare, Users, TrendingUp, Clock, Loader2 } from 'lucide-react';
+import { PageContainer, PageHeader } from '@/components/layout';
+import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
+import { KPIStrip } from '@/components/operations/KPIStrip';
 import { ImmediateActions, type ActionItem } from '@/components/operations/ImmediateActions';
 import { OperationalSummary } from '@/components/operations/OperationalSummary';
+import { Button } from '@/components/ui/button';
 import { api } from '@/services/api';
+import { localDateString } from '@/lib/localDate';
 import { type StatMetric } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -35,11 +29,14 @@ const Operations: React.FC = () => {
   const [kpis, setKpis] = useState<OperationsKPI>(EMPTY_KPIS);
   const [actions, setActions] = useState<ActionItem[]>([]);
   const [loadingKpis, setLoadingKpis] = useState(true);
+  const [kpiError, setKpiError] = useState(false);
   const [loadingActions, setLoadingActions] = useState(true);
+  const [actionsError, setActionsError] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const loadKpis = useCallback(async () => {
     setLoadingKpis(true);
+    setKpiError(false);
     try {
       const metrics = await api.fetchDashboardMetrics(1);
       const find = (keyword: string) => metrics.find(m => m.label.toLowerCase().includes(keyword)) ?? null;
@@ -50,7 +47,8 @@ const Operations: React.FC = () => {
         tempoResposta: find('resposta') ?? find('tempo'),
       });
     } catch {
-      /* silent — empty states handle absence */
+      // A failed query must show as unknown ('—'), never as zero.
+      setKpiError(true);
     } finally {
       setLoadingKpis(false);
     }
@@ -58,8 +56,9 @@ const Operations: React.FC = () => {
 
   const loadActions = useCallback(async () => {
     setLoadingActions(true);
+    setActionsError(false);
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = localDateString();
 
       const [waitingRes, overdueRes] = await Promise.all([
         supabase
@@ -73,6 +72,14 @@ const Operations: React.FC = () => {
           .or('status.is.null,status.not.in.(cancelled,completed)'),
       ]);
 
+      // supabase-js reports query errors in the result instead of throwing —
+      // a failed count must not read as "0 pendências".
+      if (waitingRes.error || overdueRes.error) {
+        setActions([]);
+        setActionsError(true);
+        return;
+      }
+
       const items: ActionItem[] = [];
 
       const waitingCount = waitingRes.count ?? 0;
@@ -80,9 +87,10 @@ const Operations: React.FC = () => {
         items.push({
           id:          'waiting-conversations',
           type:        'conversation',
-          label:       `${waitingCount} conversa${waitingCount > 1 ? 's' : ''} aguardando atendimento`,
-          description: 'Conversas em modo humano sem resposta recente',
+          label:       `${waitingCount} conversa${waitingCount > 1 ? 's' : ''} em atendimento humano`,
+          description: 'A Lu não responde nessas conversas; a equipe precisa acompanhar',
           urgency:     waitingCount >= 5 ? 'high' : 'medium',
+          href:        '/chat',
           meta:        waitingCount.toString(),
         });
       }
@@ -95,6 +103,7 @@ const Operations: React.FC = () => {
           label:       `${overdueCount} agendamento${overdueCount > 1 ? 's' : ''} vencido${overdueCount > 1 ? 's' : ''}`,
           description: 'Compromissos com data passada sem registro de conclusão',
           urgency:     'medium',
+          href:        '/scheduling',
           meta:        overdueCount.toString(),
         });
       }
@@ -102,6 +111,7 @@ const Operations: React.FC = () => {
       setActions(items);
     } catch {
       setActions([]);
+      setActionsError(true);
     } finally {
       setLoadingActions(false);
     }
@@ -119,97 +129,51 @@ const Operations: React.FC = () => {
   const isLoading = loadingKpis || loadingActions;
 
   const refreshAction = (
-    <button
-      onClick={handleRefresh}
-      disabled={isLoading}
-      className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-all duration-150"
-    >
+    <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
       {isLoading
-        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        : <RefreshCw className="w-3.5 h-3.5" />
+        ? <Loader2 className="animate-spin" aria-hidden="true" />
+        : <RefreshCw aria-hidden="true" />
       }
-      Atualizar
-    </button>
+      {isLoading ? 'Atualizando…' : 'Atualizar'}
+    </Button>
   );
 
-  const kpiValue = (metric: StatMetric | null, fallback = '—') =>
-    metric?.value ?? fallback;
+  const kpiValue = (metric: StatMetric | null) => metric?.value ?? '—';
+
+  const today = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
     <PageContainer>
       <PageHeader
         title="Visão Geral"
-        description="Centro de operações do atendimento em tempo real."
+        description={today.charAt(0).toUpperCase() + today.slice(1)}
         actions={refreshAction}
       />
 
-      {/* KPIs */}
-      <SectionBlock
-        title="Indicadores do Dia"
-        icon={TrendingUp}
-        description="Métricas acumuladas desde o início do dia"
-      >
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KPICard
-            label="Atendimentos"
-            value={kpiValue(kpis.atendimentos)}
-            trend={kpis.atendimentos?.trend}
-            trendUp={kpis.atendimentos?.trendUp}
-            subLabel="vs. ontem"
-            icon={MessageSquare}
-            color="cyan"
+      <div className="flex flex-col gap-3">
+        <section aria-labelledby="kpi-title" className="flex flex-col gap-2">
+          <h2 id="kpi-title" className="text-sm text-muted-foreground">
+            Hoje, desde 00:00{kpiError && <span className="text-danger"> · não foi possível carregar os números</span>}
+          </h2>
+          <KPIStrip
             loading={loadingKpis}
+            failed={kpiError}
+            items={[
+              { label: 'Atendimentos', value: kpiValue(kpis.atendimentos), hint: 'conversas com mensagem hoje', icon: MessageSquare, trend: kpis.atendimentos?.trend, trendUp: kpis.atendimentos?.trendUp },
+              { label: 'Novos leads', value: kpiValue(kpis.leads), hint: 'primeira mensagem de um contato', icon: Users, trend: kpis.leads?.trend, trendUp: kpis.leads?.trendUp },
+              { label: 'Conversões', value: kpiValue(kpis.conversoes), hint: 'negócios ganhos + agendamentos', icon: TrendingUp, trend: kpis.conversoes?.trend, trendUp: kpis.conversoes?.trendUp },
+              { label: 'Resposta da Lu', value: kpiValue(kpis.tempoResposta), hint: 'tempo médio de resposta', icon: Clock, trend: kpis.tempoResposta?.trend, trendUp: kpis.tempoResposta?.trendUp },
+            ]}
           />
-          <KPICard
-            label="Novos Leads"
-            value={kpiValue(kpis.leads)}
-            trend={kpis.leads?.trend}
-            trendUp={kpis.leads?.trendUp}
-            subLabel="vs. ontem"
-            icon={Users}
-            color="violet"
-            loading={loadingKpis}
-          />
-          <KPICard
-            label="Conversões"
-            value={kpiValue(kpis.conversoes)}
-            trend={kpis.conversoes?.trend}
-            trendUp={kpis.conversoes?.trendUp}
-            subLabel="negócios ganhos + agendamentos"
-            icon={TrendingUp}
-            color="emerald"
-            loading={loadingKpis}
-          />
-          <KPICard
-            label="Tempo Médio IA"
-            value={kpiValue(kpis.tempoResposta)}
-            trend={kpis.tempoResposta?.trend}
-            trendUp={kpis.tempoResposta?.trendUp}
-            subLabel="tempo de resposta da Lu"
-            icon={Clock}
-            color="amber"
-            loading={loadingKpis}
-          />
-        </div>
-      </SectionBlock>
+          <p className="text-xs text-muted-foreground">As setas comparam com ontem.</p>
+        </section>
 
-      {/* Ações Imediatas */}
-      <SectionBlock
-        title="Ações Imediatas"
-        icon={Zap}
-        description="Atividades que exigem intervenção agora"
-      >
-        <ImmediateActions items={actions} loading={loadingActions} />
-      </SectionBlock>
+        <Panel title="Precisa de você">
+          <ImmediateActions items={actions} loading={loadingActions} error={actionsError} />
+        </Panel>
 
-      {/* Resumo Operacional */}
-      <SectionBlock
-        title="Resumo Operacional"
-        icon={LayoutList}
-        description="Conversas recentes e próximos agendamentos"
-      >
         <OperationalSummary key={refreshKey} />
-      </SectionBlock>
+      </div>
     </PageContainer>
   );
 };

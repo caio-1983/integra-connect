@@ -214,6 +214,15 @@ export const api = {
           .gte('sent_at', periodStartStr)
       ]);
 
+      // supabase-js returns errors instead of throwing; a failed count must
+      // surface as "unknown", not as 0.
+      const failed = [
+        messagesPeriodResult, messagesPrevResult, newLeadsPeriodResult, newLeadsPrevResult,
+        wonDealsPeriodResult, wonDealsPrevResult, appointmentsPeriodResult, appointmentsPrevResult,
+        avgResponseResult,
+      ].find(r => r.error);
+      if (failed) throw failed.error;
+
       const atendimentosPeriod = messagesPeriodResult.count || 0;
       const atendimentosPrev = messagesPrevResult.count || 0;
       const newLeadsPeriod = newLeadsPeriodResult.count || 0;
@@ -256,12 +265,12 @@ export const api = {
       ];
     } catch (error) {
       console.error('[API] Error fetching dashboard metrics:', error);
-      // Return fallback metrics
+      // Unknown, not zero: '—' value and '-' trend (the KPI card hides it).
       return [
-        { label: 'Atendimentos', value: '0', trend: '0%', trendUp: true },
-        { label: 'Conversões', value: '0', trend: '0%', trendUp: true },
-        { label: 'Tempo Médio', value: '0s', trend: '-', trendUp: true },
-        { label: 'Novos Leads', value: '0', trend: '0%', trendUp: true }
+        { label: 'Atendimentos', value: '—', trend: '-', trendUp: true },
+        { label: 'Conversões', value: '—', trend: '-', trendUp: true },
+        { label: 'Tempo Médio', value: '—', trend: '-', trendUp: true },
+        { label: 'Novos Leads', value: '—', trend: '-', trendUp: true }
       ];
     }
   },
