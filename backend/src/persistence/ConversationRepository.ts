@@ -10,6 +10,9 @@ import { configService } from '../config/ConfigService.js';
 // inbound-media bucket.
 const MEDIA_BUCKET = 'audio-messages';
 
+/** Postgres unique_violation — a concurrent insert of the same row won. */
+const UNIQUE_VIOLATION = '23505';
+
 /** One `meta_ad_catalog` row as the Marketing API lookup produces it. */
 export interface MetaAdCatalogRow {
   ad_id: string;
@@ -163,6 +166,16 @@ class ConversationRepository {
       .select('id')
       .single();
 
+    // Same race as findOrCreateConversation, on contacts_channel_external_id_unique.
+    if (error?.code === UNIQUE_VIOLATION) {
+      const { data: winner } = await supabase
+        .from('contacts')
+        .select('id, profile_picture_checked_at')
+        .eq('channel', channel)
+        .eq('external_id', externalId)
+        .maybeSingle();
+      if (winner) return { contactId: winner.id, avatarCheckedAt: winner.profile_picture_checked_at ?? null };
+    }
     if (error || !data) throw new Error(`[repo] failed to create contact: ${error?.message}`);
     return { contactId: data.id, avatarCheckedAt: null };
   }
@@ -251,6 +264,14 @@ class ConversationRepository {
       .select('id')
       .single();
 
+    // Lost the race to a simultaneous message from the same contact (e.g. the
+    // WhatsApp Business greeting echo 1 s after the customer's first message):
+    // conversations_one_active_per_contact_instance rejected the duplicate, so
+    // adopt the thread the other message just created.
+    if (error?.code === UNIQUE_VIOLATION) {
+      const winnerId = await this.findActiveConversationForInstance(contactId, instance);
+      if (winnerId) return { conversationId: winnerId, created: false };
+    }
     if (error || !data) throw new Error(`[repo] failed to create conversation: ${error?.message}`);
     return { conversationId: data.id, created: true };
   }
