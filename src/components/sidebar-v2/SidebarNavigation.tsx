@@ -32,10 +32,17 @@ export const SidebarNavigation: React.FC = () => {
       items: section.items.filter((item) => !MANAGER_ONLY_ITEMS.has(item.id) || canManageUsers),
     }));
 
+  // Subpáginas (/campanhas/configurar) marcam o item pai; vence o href mais
+  // longo para /settings/channels ficar em Conexões e não em Configurações.
+  const activeHref = visibleSections
+    .flatMap((section) => section.items.map((item) => item.href))
+    .filter((href) => currentPath === href || currentPath.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0];
+
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden">
       {visibleSections.map((section) => (
-        <SidebarSection key={section.id} section={section} currentPath={currentPath} badges={badges} />
+        <SidebarSection key={section.id} section={section} activeHref={activeHref} badges={badges} />
       ))}
     </div>
   );
