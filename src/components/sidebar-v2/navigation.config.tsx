@@ -79,6 +79,7 @@ export const sidebarNavigation: SidebarSectionConfig[] = [
       { id: 'pipeline',   label: 'Vendas',      href: '/pipeline',   icon: Briefcase     },
       { id: 'scheduling', label: 'Agenda',       href: '/scheduling', icon: CalendarDays  },
       { id: 'dashboard',  label: 'Resultados',  href: '/dashboard',  icon: TrendingUp    },
+      { id: 'campaigns',  label: 'Campanhas',   href: '/campanhas',  icon: Megaphone     },
     ],
   },
   {
@@ -109,7 +110,6 @@ export const sidebarNavigation: SidebarSectionConfig[] = [
       { id: 'settings', label: 'Configurações', href: '/settings', icon: SettingsIcon },
       { id: 'team', label: 'Usuários', href: '/team', icon: UsersRound },
       { id: 'channels', label: 'Conexões', href: '/settings/channels', icon: Radio },
-      { id: 'campaigns', label: 'Campanhas', href: '/settings/campanhas', icon: Megaphone },
       { id: 'webchat-widget', label: 'Chat do Site', href: '/settings/webchat-widget', icon: Globe },
     ],
   },

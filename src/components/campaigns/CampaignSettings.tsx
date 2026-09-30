@@ -39,7 +39,7 @@ const MATCH_TYPES = Object.keys(CAMPAIGN_MATCH_TYPE_LABEL) as CampaignMatchType[
  * by product decision. A campaign here is a NAME for a group of tracking signals,
  * nothing more.
  */
-export const CampaignSettings: React.FC = () => {
+export const CampaignSettings: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [mappings, setMappings] = useState<CampaignMapping[]>([]);
   const [unmapped, setUnmapped] = useState<UnmappedSignal[]>([]);
@@ -136,12 +136,17 @@ export const CampaignSettings: React.FC = () => {
     }
   };
 
+  // Inside the Campanhas tabs the shell already provides page chrome.
+  const Shell = embedded ? React.Fragment : PageContainer;
+
   return (
-    <PageContainer>
-      <PageHeader
-        title="Campanhas e origem dos leads"
-        description="Dê nome às campanhas e diga quais sinais de rastreamento pertencem a cada uma. O mapeamento vale para todo o histórico — corrigir uma regra aqui corrige os relatórios já existentes."
-      />
+    <Shell>
+      {!embedded && (
+        <PageHeader
+          title="Campanhas e origem dos leads"
+          description="Dê nome às campanhas e diga quais sinais de rastreamento pertencem a cada uma. O mapeamento vale para todo o histórico — corrigir uma regra aqui corrige os relatórios já existentes."
+        />
+      )}
 
       {loading ? (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -399,7 +404,7 @@ export const CampaignSettings: React.FC = () => {
           </SectionBlock>
         </>
       )}
-    </PageContainer>
+    </Shell>
   );
 };
 

@@ -44,7 +44,7 @@ export const ResultsCampaigns: React.FC = () => {
         description={`Comparado com o período anterior. Ordenado pela maior queda de receita — a primeira linha é onde o faturamento caiu mais.`}
         action={
           <Link
-            to="/settings/campanhas"
+            to="/campanhas/configurar"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
           >
             <Settings2 className="w-3.5 h-3.5" />
@@ -139,7 +139,7 @@ export const ResultsCampaigns: React.FC = () => {
             <strong className="text-foreground">{unmapped.leads} lead(s)</strong> deste período chegaram
             com sinais de rastreamento que ainda não pertencem a nenhuma campanha, e por isso aparecem
             como “Não mapeado”.{' '}
-            <Link to="/settings/campanhas" className="text-primary hover:underline">
+            <Link to="/campanhas/configurar" className="text-primary hover:underline">
               Mapeie esses sinais
             </Link>{' '}
             — o histórico é reatribuído na hora, sem reprocessar nada.

@@ -120,7 +120,7 @@ export const ResultsOrigin: React.FC = () => {
             </strong>{' '}
             chegaram sem nenhum sinal de origem. Anúncios da Meta são capturados sozinhos; para o site é
             preciso usar links com token, e contatos orgânicos precisam ser marcados na conversa.{' '}
-            <Link to="/settings/campanhas" className="text-primary hover:underline">
+            <Link to="/campanhas/configurar" className="text-primary hover:underline">
               Ver como rastrear cada origem
             </Link>
             .

@@ -20,6 +20,8 @@ import CRMTasks from './components/crm/CRMTasks';
 import ChannelManagement from './components/ChannelManagement';
 import WebchatWidgetSettings from './components/WebchatWidgetSettings';
 import CampaignSettings from './components/campaigns/CampaignSettings';
+import CampaignsLayout from './components/campaigns/CampaignsLayout';
+import CampaignScoreboard from './components/campaigns/CampaignScoreboard';
 import ResultsLayout from './components/results/ResultsLayout';
 import ResultsOverview from './components/results/ResultsOverview';
 import ResultsCampaigns from './components/results/ResultsCampaigns';
@@ -113,7 +115,11 @@ const App: React.FC = () => {
                 <Route path="/team" element={<Team />} />
                 {/* Campanhas e mapeamento de origem — quem define a atribuição
                     define o que os relatórios dizem, então é admin/gestor. */}
-                <Route path="/settings/campanhas" element={<CampaignSettings />} />
+                <Route path="/campanhas" element={<CampaignsLayout />}>
+                  <Route index element={<CampaignScoreboard />} />
+                  <Route path="configurar" element={<CampaignSettings embedded />} />
+                </Route>
+                <Route path="/settings/campanhas" element={<Navigate to="/campanhas/configurar" replace />} />
               </Route>
               <Route path="/settings" element={<Settings />} />
               {/* CRM — Sprint 007 (gated: Fase 2) */}
