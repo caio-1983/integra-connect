@@ -109,7 +109,7 @@ const ChatHome: React.FC<ChatHomeProps> = ({ conversations, sdrName, onOpenConve
   );
 
   return (
-    <div className="relative flex-1 min-w-0 bg-muted border-l border-border">
+    <div className="chat-wall flex-1 min-w-0 border-l border-border">
       <div className="absolute inset-0 overflow-y-auto custom-scrollbar flex">
         <div className="m-auto w-full max-w-[560px] px-6 py-10 flex flex-col gap-5 text-foreground">
           {next ? (
