@@ -1,1108 +1,438 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, AlignLeft, X, Loader2, LayoutGrid, List, Columns, User, UserCircle, Bot, Pencil, CheckCircle2, SquareCheck } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronLeft, ChevronRight, Plus, Loader2, CloudOff, Bot } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from './Button';
 import { Appointment, Contact, ScheduledTask } from '../types';
 import { api } from '../services/api';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 import { PageContainer, PageHeader } from '@/components/layout';
-import { appointmentTypeLabel } from '@/lib/appointmentTypes';
-
-type ViewMode = 'month' | 'week' | 'day';
-
-const typeLabel = appointmentTypeLabel;
-
-// One color per user. Assigned by position in the team list (not by hash) so
-// two people never share a color while the team fits the palette.
-const USER_COLORS = [
-  { chip: 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-100', header: 'bg-cyan-50', dot: 'bg-cyan-500' },
-  { chip: 'bg-violet-50 text-violet-700 border-violet-200 hover:bg-violet-100', header: 'bg-violet-50', dot: 'bg-violet-500' },
-  { chip: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100', header: 'bg-emerald-50', dot: 'bg-emerald-500' },
-  { chip: 'bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100', header: 'bg-orange-50', dot: 'bg-orange-500' },
-  { chip: 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100', header: 'bg-rose-50', dot: 'bg-rose-500' },
-  { chip: 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100', header: 'bg-blue-50', dot: 'bg-blue-500' },
-  { chip: 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100', header: 'bg-amber-50', dot: 'bg-amber-500' },
-  { chip: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 hover:bg-fuchsia-100', header: 'bg-fuchsia-50', dot: 'bg-fuchsia-500' },
-  { chip: 'bg-lime-50 text-lime-800 border-lime-200 hover:bg-lime-100', header: 'bg-lime-50', dot: 'bg-lime-500' },
-  { chip: 'bg-teal-50 text-teal-700 border-teal-200 hover:bg-teal-100', header: 'bg-teal-50', dot: 'bg-teal-500' },
-];
-const NO_USER_COLOR = { chip: 'bg-muted text-muted-foreground border-border hover:bg-muted/80', header: 'bg-muted', dot: 'bg-muted-foreground' };
+import { cn } from '@/lib/utils';
+import {
+  type ViewMode, NO_PERSON_COLOR, PERSON_COLORS, addDays, capitalize, fromYmd, hhmm, startOfWeek, toMinutes, ymd,
+} from './scheduling/calendarUtils';
+import { MiniMonth } from './scheduling/MiniMonth';
+import { MonthView } from './scheduling/MonthView';
+import { TimeGridView } from './scheduling/TimeGridView';
+import { AppointmentFormDialog, type AppointmentFormValues } from './scheduling/AppointmentFormDialog';
+import { EventDetailsDialog, type CalendarItem } from './scheduling/EventDetailsDialog';
 
 type TeamUser = { user_id: string; name: string };
 
+const VIEWS: { value: ViewMode; label: string; key: string }[] = [
+  { value: 'month', label: 'Mês', key: 'M' },
+  { value: 'week', label: 'Semana', key: 'S' },
+  { value: 'day', label: 'Dia', key: 'D' },
+];
+
+const blankForm = (date: string, time = '09:00'): AppointmentFormValues => ({
+  title: '', date, time, duration: 60, type: 'meeting', description: '', contactId: '', attendees: '',
+});
+
+/** Unowned items filter under this key. */
+const NO_OWNER = '';
+
 const Scheduling: React.FC = () => {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [cursor, setCursor] = useState(() => new Date());
+  // Phones open on the day: seven columns don't fit.
+  const [view, setView] = useState<ViewMode>(() => (typeof window !== 'undefined' && window.innerWidth < 640 ? 'day' : 'month'));
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   // Tasks with a due date show as all-day items next to the appointments.
-  const [scheduledTasks, setScheduledTasks] = useState<ScheduledTask[]>([]);
+  const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [teamUsers, setTeamUsers] = useState<TeamUser[]>([]);
+  const [team, setTeam] = useState<TeamUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
 
-  // Modals state
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [detail, setDetail] = useState<CalendarItem | null>(null);
+  const [form, setForm] = useState<{ open: boolean; mode: 'create' | 'edit'; initial: AppointmentFormValues; id?: string }>(
+    { open: false, mode: 'create', initial: blankForm(ymd(new Date())) },
+  );
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
-
-  // Form State
-  const [formData, setFormData] = useState({
-    title: '',
-    time: '09:00',
-    type: 'demo',
-    description: '',
-    duration: 60
-  });
-
-  // Edit Form State
-  const [editFormData, setEditFormData] = useState({
-    title: '',
-    date: '',
-    time: '09:00',
-    type: 'demo',
-    description: '',
-    duration: 60,
-    attendees: ''
-  });
-  const [editContactId, setEditContactId] = useState<string | null>(null);
+  const loadAppointments = useCallback(() => api.fetchAppointments().then(setAppointments), []);
+  const loadTasks = useCallback(() => api.fetchScheduledTasks().then(setTasks), []);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [appointmentsData, contactsData, tasksData] = await Promise.all([
-          api.fetchAppointments(),
-          api.fetchContacts(),
-          api.fetchScheduledTasks(),
-        ]);
-        setAppointments(appointmentsData);
-        setContacts(contactsData);
-        setScheduledTasks(tasksData);
-      } catch (error) {
-        console.error("Erro ao carregar dados", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
+    Promise.all([loadAppointments(), loadTasks(), api.fetchContacts().then(setContacts)])
+      .catch((error) => { console.error('Erro ao carregar agenda', error); setFailed(true); })
+      .finally(() => setLoading(false));
 
     supabase
       .from('team_members')
-      .select('user_id, name')
+      .select('*')
       .not('user_id', 'is', null)
       .order('name', { ascending: true })
-      .then(({ data }) => setTeamUsers((data ?? []) as TeamUser[]));
+      // `hidden` = maintenance account, not listed (see api.fetchTeam).
+      .then(({ data }) => setTeam((data ?? []).filter(m => !(m as { hidden?: boolean }).hidden).map(m => ({ user_id: m.user_id, name: m.name })) as TeamUser[]));
 
-    // Setup realtime subscription
     const channel = supabase
       .channel('appointments-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'appointments'
-        },
-        () => {
-          console.log('Appointment changed, refetching...');
-          loadData();
-        }
-      )
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-        api.fetchScheduledTasks().then(setScheduledTasks);
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => { loadAppointments(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => { loadTasks(); })
       .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [loadAppointments, loadTasks]);
 
-    return () => {
-      supabase.removeChannel(channel);
+  // --- People: colour by position in the team list, then anyone else who owns something.
+  const people = useMemo(() => {
+    const ids = team.map(u => u.user_id);
+    for (const a of appointments) if (a.user_id && !ids.includes(a.user_id)) ids.push(a.user_id);
+    for (const t of tasks) if (t.assigneeUserId && !ids.includes(t.assigneeUserId)) ids.push(t.assigneeUserId);
+    return ids;
+  }, [team, appointments, tasks]);
+
+  const colorOf = useCallback((userId?: string) => {
+    const i = userId ? people.indexOf(userId) : -1;
+    return i < 0 ? NO_PERSON_COLOR : PERSON_COLORS[i % PERSON_COLORS.length];
+  }, [people]);
+
+  const nameOf = useCallback((userId?: string) =>
+    team.find(u => u.user_id === userId)?.name ?? (userId ? 'Usuário' : 'Sem responsável'), [team]);
+
+  const legend = useMemo(() => {
+    const present = new Set([...appointments.map(a => a.user_id ?? NO_OWNER), ...tasks.map(t => t.assigneeUserId ?? NO_OWNER)]);
+    const ids = people.filter(id => present.has(id));
+    return present.has(NO_OWNER) ? [...ids, NO_OWNER] : ids;
+  }, [people, appointments, tasks]);
+
+  const togglePerson = (id: string) => setHidden(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  // --- Index by date, after the people filter.
+  const { appsByDate, tasksByDate } = useMemo(() => {
+    const appsByDate = new Map<string, Appointment[]>();
+    for (const a of appointments) {
+      if (hidden.has(a.user_id ?? NO_OWNER)) continue;
+      (appsByDate.get(a.date) ?? appsByDate.set(a.date, []).get(a.date)!).push(a);
+    }
+    appsByDate.forEach(list => list.sort((x, y) => toMinutes(x.time) - toMinutes(y.time)));
+    const tasksByDate = new Map<string, ScheduledTask[]>();
+    for (const t of tasks) {
+      if (hidden.has(t.assigneeUserId ?? NO_OWNER)) continue;
+      (tasksByDate.get(t.dueDate) ?? tasksByDate.set(t.dueDate, []).get(t.dueDate)!).push(t);
+    }
+    return { appsByDate, tasksByDate };
+  }, [appointments, tasks, hidden]);
+
+  const appsOn = useCallback((d: string) => appsByDate.get(d) ?? [], [appsByDate]);
+  const tasksOn = useCallback((d: string) => tasksByDate.get(d) ?? [], [tasksByDate]);
+  const busyDays = useMemo(() => new Set([...appsByDate.keys(), ...tasksByDate.keys()]), [appsByDate, tasksByDate]);
+
+  const today = ymd(new Date());
+  const weekStart = startOfWeek(new Date());
+  const counts = useMemo(() => {
+    const week = new Set(Array.from({ length: 7 }, (_, i) => ymd(addDays(weekStart, i))));
+    let t = 0, w = 0;
+    for (const a of appointments) { if (a.date === today) t++; if (week.has(a.date)) w++; }
+    return { today: t, week: w };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointments, today]);
+
+  const upcoming = useMemo(() => {
+    const now = new Date();
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    return appointments
+      .filter(a => a.status !== 'completed' && !hidden.has(a.user_id ?? NO_OWNER))
+      .filter(a => a.date > today || (a.date === today && toMinutes(a.time) + (a.duration || 60) > nowMin))
+      .sort((a, b) => a.date.localeCompare(b.date) || toMinutes(a.time) - toMinutes(b.time))
+      .slice(0, 5);
+  }, [appointments, hidden, today]);
+
+  // --- Navigation
+  const shift = useCallback((dir: number) => setCursor(c => {
+    if (view === 'month') return new Date(c.getFullYear(), c.getMonth() + dir, 1);
+    return addDays(c, dir * (view === 'week' ? 7 : 1));
+  }), [view]);
+
+  const openDay = (d: Date) => { setCursor(d); setView('day'); };
+
+  const openCreate = useCallback((date: string, time?: string) =>
+    setForm({ open: true, mode: 'create', initial: blankForm(date, time) }), []);
+
+  const title = useMemo(() => {
+    if (view === 'month') return capitalize(cursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }));
+    if (view === 'day') return capitalize(cursor.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+    const s = startOfWeek(cursor), e = addDays(s, 6);
+    const m = (d: Date) => d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '');
+    return s.getMonth() === e.getMonth()
+      ? `${s.getDate()} – ${e.getDate()} de ${m(e)} de ${e.getFullYear()}`
+      : `${s.getDate()} ${m(s)} – ${e.getDate()} ${m(e)} de ${e.getFullYear()}`;
+  }, [view, cursor]);
+
+  // Keyboard: T hoje, M/S/D views, ←/→ navegar, N novo — like any calendar app.
+  const dialogOpen = form.open || !!detail;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (dialogOpen || e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = e.target as HTMLElement;
+      if (el.closest('input, textarea, select, [contenteditable="true"]')) return;
+      const k = e.key.toLowerCase();
+      if (k === 't') setCursor(new Date());
+      else if (k === 'm') setView('month');
+      else if (k === 's') setView('week');
+      else if (k === 'd') setView('day');
+      else if (k === 'n') { e.preventDefault(); openCreate(ymd(view === 'month' ? new Date() : cursor)); }
+      else if (e.key === 'ArrowLeft') shift(-1);
+      else if (e.key === 'ArrowRight') shift(1);
     };
-  }, []);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [dialogOpen, shift, openCreate, view, cursor]);
 
-  // Navigation Logic
-  const navigateDate = (direction: number) => {
-    const newDate = new Date(currentDate);
-    if (viewMode === 'month') {
-        newDate.setMonth(newDate.getMonth() + direction);
-    } else if (viewMode === 'week') {
-        newDate.setDate(newDate.getDate() + (direction * 7));
-    } else {
-        newDate.setDate(newDate.getDate() + direction);
-    }
-    setCurrentDate(newDate);
-  };
-
-  const goToToday = () => setCurrentDate(new Date());
-
-  // Date Formatters
-  const getMonthLabel = () => currentDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
-  const getDayLabel = () => currentDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const getWeekLabel = () => {
-     const start = getStartOfWeek(currentDate);
-     const end = new Date(start);
-     end.setDate(end.getDate() + 6);
-     return `${start.getDate()} ${start.toLocaleString('pt-BR', { month: 'short' })} - ${end.getDate()} ${end.toLocaleString('pt-BR', { month: 'short' })}`;
-  };
-
-  // Helper: Get Start of Week (Sunday)
-  const getStartOfWeek = (date: Date) => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day;
-    return new Date(d.setDate(diff));
-  };
-
-  // Helper: Get Days in Month
-  const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
-
-  // Helper: Format Date YYYY-MM-DD
-  const formatDateStr = (date: Date) => date.toISOString().split('T')[0];
-
-  const handleDateClick = (day: number) => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    setSelectedDate(dateStr);
-    setShowCreateModal(true);
-  };
-
-  const handleSlotClick = (dateStr: string, time?: string) => {
-      setSelectedDate(dateStr);
-      if(time) setFormData(prev => ({ ...prev, time }));
-      setShowCreateModal(true);
-  };
-
-  const handleAppointmentClick = (app: Appointment, e: React.MouseEvent) => {
-      e.stopPropagation();
-      setSelectedAppointment(app);
-  };
-
-  // Helper: Calculate end time
-  const calculateEndTime = (startTime: string, durationMinutes: number): string => {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes + durationMinutes;
-    const endHours = Math.floor(totalMinutes / 60) % 24;
-    const endMinutes = totalMinutes % 60;
-    return `${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedDate) return;
-
-    setIsSaving(true);
+  // --- Mutations (realtime refetches too; reloading here keeps it instant)
+  const submitForm = async (v: AppointmentFormValues) => {
+    const payload = {
+      title: v.title.trim(),
+      description: v.description,
+      date: v.date,
+      time: v.time,
+      duration: v.duration,
+      type: v.type,
+      attendees: v.attendees.split(',').map(s => s.trim()).filter(Boolean),
+      contact_id: v.contactId || undefined,
+    };
     try {
-      const attendeesInput = (document.querySelector('[name="attendees"]') as HTMLInputElement)?.value || '';
-      const attendeesArray = attendeesInput.split(',').map(a => a.trim()).filter(Boolean);
-
-      await api.createAppointment({
-        title: formData.title,
-        description: formData.description,
-        date: selectedDate,
-        time: formData.time,
-        duration: formData.duration,
-        type: formData.type as 'demo' | 'meeting' | 'support' | 'followup',
-        attendees: attendeesArray,
-        contact_id: selectedContactId || undefined
-      });
-
-      toast.success('Agendamento criado com sucesso!');
-      setShowCreateModal(false);
-      setFormData({ title: '', time: '09:00', type: 'demo', description: '', duration: 60 });
-      setSelectedDate(null);
-      setSelectedContactId(null);
+      if (form.mode === 'edit' && form.id) {
+        await api.updateAppointment(form.id, payload);
+        toast.success('Agendamento atualizado');
+      } else {
+        await api.createAppointment(payload);
+        toast.success('Agendamento criado');
+      }
+      setForm(f => ({ ...f, open: false }));
+      setCursor(fromYmd(v.date));
+      await loadAppointments();
     } catch (error) {
-      console.error('Error creating appointment:', error);
-      toast.error('Erro ao criar agendamento');
-    } finally {
-      setIsSaving(false);
+      console.error('Error saving appointment:', error);
+      toast.error('Não foi possível salvar o agendamento');
     }
   };
 
-  const handleDeleteAppointment = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este agendamento?')) {
-      return;
-    }
-
-    try {
-      await api.deleteAppointment(id);
-      toast.success('Agendamento excluído com sucesso!');
-      setSelectedAppointment(null);
-    } catch (error) {
-      console.error('Error deleting appointment:', error);
-      toast.error('Erro ao excluir agendamento');
-    }
+  const editAppointment = (a: Appointment) => {
+    setDetail(null);
+    setForm({
+      open: true, mode: 'edit', id: a.id,
+      initial: {
+        title: a.title, date: a.date, time: hhmm(a.time), duration: a.duration || 60, type: a.type,
+        description: a.description ?? '', contactId: a.contact_id ?? '', attendees: a.attendees?.join(', ') ?? '',
+      },
+    });
   };
 
-  const handleToggleCompleted = async (appointment: Appointment) => {
-    const completed = appointment.status !== 'completed';
+  const toggleCompleted = async (a: Appointment) => {
+    const completed = a.status !== 'completed';
     try {
-      await api.setAppointmentCompleted(appointment.id, completed);
-      toast.success(completed ? 'Agendamento marcado como realizado' : 'Agendamento reaberto');
-      setSelectedAppointment(null);
+      await api.setAppointmentCompleted(a.id, completed);
+      toast.success(completed ? 'Marcado como realizado' : 'Agendamento reaberto');
+      setDetail(null);
+      await loadAppointments();
     } catch (error) {
       console.error('Error updating appointment status:', error);
-      toast.error('Erro ao atualizar agendamento');
+      toast.error('Não foi possível atualizar o agendamento');
     }
   };
 
-  const handleEditClick = (appointment: Appointment) => {
-    setEditFormData({
-      title: appointment.title,
-      date: appointment.date,
-      time: appointment.time,
-      type: appointment.type,
-      description: appointment.description || '',
-      duration: appointment.duration,
-      attendees: appointment.attendees?.join(', ') || ''
-    });
-    setEditContactId(appointment.contact_id || null);
-    setShowEditModal(true);
-    setSelectedAppointment(null);
-  };
-
-  const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedAppointment) return;
-
-    setIsSaving(true);
+  const deleteAppointment = async (a: Appointment) => {
     try {
-      const attendeesArray = editFormData.attendees
-        .split(',')
-        .map(a => a.trim())
-        .filter(Boolean);
-
-      await api.updateAppointment(selectedAppointment.id, {
-        title: editFormData.title,
-        date: editFormData.date,
-        time: editFormData.time,
-        type: editFormData.type as 'demo' | 'meeting' | 'support' | 'followup',
-        description: editFormData.description,
-        duration: editFormData.duration,
-        attendees: attendeesArray,
-        contact_id: editContactId || undefined
-      });
-
-      toast.success('Agendamento atualizado com sucesso!');
-      setShowEditModal(false);
-      setSelectedAppointment(null);
+      await api.deleteAppointment(a.id);
+      toast.success('Agendamento excluído');
+      setDetail(null);
+      await loadAppointments();
     } catch (error) {
-      console.error('Error updating appointment:', error);
-      toast.error('Erro ao atualizar agendamento');
-    } finally {
-      setIsSaving(false);
+      console.error('Error deleting appointment:', error);
+      toast.error('Não foi possível excluir o agendamento');
     }
   };
 
-  // Team order first, then any appointment owner not in the team list.
-  const userOrder = useMemo(() => {
-    const ids = teamUsers.map(u => u.user_id);
-    for (const a of appointments) {
-      if (a.user_id && !ids.includes(a.user_id)) ids.push(a.user_id);
+  const toggleTask = async (t: ScheduledTask) => {
+    try {
+      await api.setTaskStatus(t.id, t.status === 'done' ? 'pending' : 'done');
+      toast.success(t.status === 'done' ? 'Tarefa reaberta' : 'Tarefa concluída');
+      setDetail(null);
+      await loadTasks();
+    } catch (error) {
+      console.error('Error updating task:', error);
+      toast.error('Não foi possível atualizar a tarefa');
     }
-    for (const t of scheduledTasks) {
-      if (t.assigneeUserId && !ids.includes(t.assigneeUserId)) ids.push(t.assigneeUserId);
-    }
-    return ids;
-  }, [teamUsers, appointments, scheduledTasks]);
-
-  const tasksOn = (dateStr: string) => scheduledTasks.filter(t => t.dueDate === dateStr);
-
-  // A task is all-day: a chip with a checkbox icon, in its assignee's color.
-  const renderTaskChip = (t: ScheduledTask, size: 'sm' | 'md') => (
-    <div
-      key={`task-${t.id}`}
-      onClick={(e) => e.stopPropagation()}
-      title={`Tarefa · ${t.title} · ${t.contactName}${t.assigneeName ? ` · ${t.assigneeName}` : ''}`}
-      className={`${size === 'sm' ? 'text-[10px] px-2 py-1' : 'text-xs px-2.5 py-1.5'} rounded border border-dashed truncate font-medium flex items-center gap-1 cursor-default ${getUserColor(t.assigneeUserId).chip} ${t.status === 'done' ? 'opacity-50 line-through' : ''}`}
-    >
-      <SquareCheck className={size === 'sm' ? 'w-2.5 h-2.5 flex-shrink-0' : 'w-3.5 h-3.5 flex-shrink-0'} />
-      <span className="truncate">{t.title} · {t.contactName}</span>
-    </div>
-  );
-
-  const getUserColor = (userId?: string) => {
-    if (!userId) return NO_USER_COLOR;
-    const idx = userOrder.indexOf(userId);
-    return idx < 0 ? NO_USER_COLOR : USER_COLORS[idx % USER_COLORS.length];
   };
 
-  const getUserName = (userId?: string) =>
-    teamUsers.find(u => u.user_id === userId)?.name ?? (userId ? 'Usuário' : 'Sem responsável');
-
-  const legendUsers = useMemo(() => {
-    const present = new Set([...appointments.map(a => a.user_id ?? ''), ...scheduledTasks.map(t => t.assigneeUserId ?? '')]);
-    return userOrder.filter(id => present.has(id));
-  }, [userOrder, appointments, scheduledTasks]);
-  const hasUnowned = appointments.some(a => !a.user_id) || scheduledTasks.some(t => !t.assigneeUserId);
-
-  // --- RENDERERS ---
-
-  // Célula do mês mostra no máximo 2 agendamentos; o resto vira "+N mais" → visão Dia.
-  const MONTH_CELL_MAX_CHIPS = 2;
-
-  const renderMonthView = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const days = daysInMonth(year, month);
-    const firstDay = firstDayOfMonth(year, month);
-    // Só as semanas que o mês ocupa (4–6); as linhas dividem a altura disponível
-    // e só rolam quando a tela é baixa demais para o mínimo de cada linha.
-    const weeks = Math.ceil((firstDay + days) / 7);
-
-    return (
-        <div
-            className="grid grid-cols-7 flex-1 min-h-0 overflow-y-auto custom-scrollbar"
-            style={{ gridTemplateRows: `repeat(${weeks}, minmax(116px, 1fr))` }}
-        >
-            {Array.from({ length: firstDay }).map((_, index) => (
-                <div key={`empty-${index}`} className="border-b border-r border-border/50 bg-background" />
-            ))}
-            {Array.from({ length: days }).map((_, index) => {
-                const day = index + 1;
-                const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const dayAppointments = appointments.filter(a => a.date === dateStr);
-                const dayTasks = tasksOn(dateStr);
-                const total = dayAppointments.length + dayTasks.length;
-                // Tasks are all-day, so they come first; together they share the cell's chip limit.
-                const shownTasks = dayTasks.slice(0, MONTH_CELL_MAX_CHIPS);
-                const shownApps = total > MONTH_CELL_MAX_CHIPS
-                  ? dayAppointments.slice(0, Math.max(0, MONTH_CELL_MAX_CHIPS - shownTasks.length))
-                  : dayAppointments;
-                const hidden = total - shownTasks.length - shownApps.length;
-                const isToday = formatDateStr(new Date()) === dateStr;
-
-                return (
-                    <div
-                        key={day}
-                        onClick={() => handleDateClick(day)}
-                        className={`border-b border-r border-border/50 p-2 min-h-0 flex flex-col overflow-hidden cursor-pointer transition-colors hover:bg-muted/50 group relative ${isToday ? 'bg-cyan-50' : ''}`}
-                    >
-                        <span className={`text-sm font-medium w-7 h-7 shrink-0 flex items-center justify-center rounded-full mb-1 ${isToday ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/40' : 'text-muted-foreground group-hover:text-foreground'}`}>
-                            {day}
-                        </span>
-                        <div className="space-y-1 flex-1 min-h-0">
-                            {shownTasks.map(t => renderTaskChip(t, 'sm'))}
-                            {shownApps.map(app => (
-                                <div
-                                    key={app.id}
-                                    className={`text-[10px] px-2 py-1 rounded border truncate font-medium cursor-pointer relative ${getUserColor(app.user_id).chip} ${app.status === 'completed' ? 'opacity-50 line-through' : ''}`}
-                                    onClick={(e) => handleAppointmentClick(app, e)}
-                                >
-                                    {app.metadata?.source === 'nina_ai' && (
-                                      <Bot className="w-2.5 h-2.5 inline-block mr-0.5 text-cyan-600" />
-                                    )}
-                                    <span className="uppercase font-bold opacity-75 mr-1">{typeLabel(app.type)}</span>
-                                    {app.time} - {app.title}
-                                </div>
-                            ))}
-                            {hidden > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setCurrentDate(new Date(year, month, day));
-                                        setViewMode('day');
-                                    }}
-                                    className="w-full text-left text-[10px] font-semibold px-2 text-muted-foreground hover:text-foreground hover:underline"
-                                >
-                                    +{hidden} mais
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                );
-            })}
-             {/* Fill remaining cells to keep grid structure */}
-             {Array.from({ length: weeks * 7 - (days + firstDay) }).map((_, index) => (
-                <div key={`remaining-${index}`} className="border-b border-r border-border/50 bg-background" />
-            ))}
-        </div>
-    );
+  const upcomingLabel = (a: Appointment) => {
+    if (a.date === today) return 'Hoje';
+    if (a.date === ymd(addDays(new Date(), 1))) return 'Amanhã';
+    return capitalize(fromYmd(a.date).toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, ''));
   };
 
-  const renderWeekView = () => {
-    const startOfWeek = getStartOfWeek(currentDate);
-    const weekDays = Array.from({ length: 7 }).map((_, i) => {
-        const d = new Date(startOfWeek);
-        d.setDate(d.getDate() + i);
-        return d;
-    });
-    const hours = Array.from({ length: 14 }).map((_, i) => i + 6); // 06:00 to 19:00
-
-    return (
-        <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar bg-card">
-            {/* Header Row */}
-            <div className="grid grid-cols-8 border-b border-border sticky top-0 bg-card z-10">
-                <div className="p-4 text-xs font-medium text-muted-foreground border-r border-border">GMT-3</div>
-                {weekDays.map((day, i) => {
-                     const isToday = formatDateStr(new Date()) === formatDateStr(day);
-                     return (
-                        <div key={i} className={`p-2 text-center border-r border-border/50 ${isToday ? 'bg-cyan-50' : ''}`}>
-                            <div className={`text-xs uppercase font-semibold ${isToday ? 'text-cyan-600' : 'text-muted-foreground'}`}>
-                                {day.toLocaleDateString('pt-BR', { weekday: 'short' })}
-                            </div>
-                            <div className={`text-xl font-bold ${isToday ? 'text-cyan-500' : 'text-foreground'}`}>
-                                {day.getDate()}
-                            </div>
-                        </div>
-                     )
-                })}
-            </div>
-
-            {/* Tarefas do dia (sem horário) */}
-            {weekDays.some(day => tasksOn(formatDateStr(day)).length > 0) && (
-                <div className="grid grid-cols-8 border-b border-border">
-                    <div className="p-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground text-right border-r border-border">Tarefas</div>
-                    {weekDays.map((day, i) => (
-                        <div key={i} className="p-1 border-r border-border/50 space-y-1 min-w-0">
-                            {tasksOn(formatDateStr(day)).map(t => renderTaskChip(t, 'sm'))}
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* Time Grid */}
-            <div className="flex-1">
-                {hours.map(hour => {
-                    const timeStr = `${String(hour).padStart(2, '0')}:00`;
-                    return (
-                        <div key={hour} className="grid grid-cols-8 min-h-[80px]">
-                            {/* Time Column */}
-                            <div className="border-r border-b border-border/50 p-2 text-xs text-muted-foreground text-right sticky left-0 bg-card">
-                                {timeStr}
-                            </div>
-                            {/* Days Columns */}
-                            {weekDays.map((day, i) => {
-                                const dateStr = formatDateStr(day);
-                                const isToday = formatDateStr(new Date()) === dateStr;
-                                const apps = appointments.filter(a => {
-                                    const appHour = parseInt(a.time.split(':')[0]);
-                                    return a.date === dateStr && appHour === hour;
-                                });
-
-                                return (
-                                    <div
-                                        key={i}
-                                        onClick={() => handleSlotClick(dateStr, timeStr)}
-                                        className={`border-r border-b border-border/50 relative p-1 transition-colors hover:bg-muted/50 group cursor-pointer ${isToday ? 'bg-cyan-50' : ''}`}
-                                    >
-                                        {/* Add Button on Hover */}
-                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
-                                            <Plus className="w-4 h-4 text-muted-foreground/30" />
-                                        </div>
-
-                                        {apps.map(app => (
-                                            <div
-                                                key={app.id}
-                                                className={`mb-1 p-2 rounded text-xs border cursor-pointer hover:brightness-110 relative z-10 shadow-sm ${getUserColor(app.user_id).chip} ${app.status === 'completed' ? 'opacity-50 line-through' : ''}`}
-                                                onClick={(e) => handleAppointmentClick(app, e)}
-                                                style={{ minHeight: `${Math.max(40, (app.duration / 60) * 80)}px` }}
-                                            >
-                                                <div className="font-bold truncate flex items-center gap-1">
-                                                    {app.metadata?.source === 'nina_ai' && (
-                                                      <Bot className="w-3 h-3 text-cyan-600 flex-shrink-0" />
-                                                    )}
-                                                    {app.title}
-                                                </div>
-                                                <div className="text-[10px] opacity-80">{app.time} - {calculateEndTime(app.time, app.duration)}</div>
-                                                <div className="text-[9px] opacity-75 uppercase tracking-wider font-bold mt-0.5">{typeLabel(app.type)}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )
-                })}
-            </div>
-        </div>
-    );
-  };
-
-  const renderDayView = () => {
-    const hours = Array.from({ length: 14 }).map((_, i) => i + 6); // 06:00 to 19:00
-    const dateStr = formatDateStr(currentDate);
-
-    return (
-        <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar bg-card">
-             <div className="p-4 border-b border-border bg-card sticky top-0 z-10">
-                <h3 className="text-xl font-bold text-foreground capitalize">{currentDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
-                {tasksOn(dateStr).length > 0 && (
-                    <div className="mt-3 flex flex-col gap-1.5">
-                        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Tarefas do dia</span>
-                        {tasksOn(dateStr).map(t => renderTaskChip(t, 'md'))}
-                    </div>
-                )}
-             </div>
-
-             <div className="flex-1 p-4">
-                 {hours.map(hour => {
-                    const timeStr = `${String(hour).padStart(2, '0')}:00`;
-                    const apps = appointments.filter(a => {
-                        const appHour = parseInt(a.time.split(':')[0]);
-                        return a.date === dateStr && appHour === hour;
-                    });
-
-                    return (
-                        <div key={hour} className="flex border-b border-border/50 min-h-[100px] group hover:bg-muted/50 transition-colors">
-                            <div className="w-20 py-4 pr-6 text-right text-sm font-medium text-muted-foreground border-r border-border/50">
-                                {timeStr}
-                            </div>
-                            <div
-                                className="flex-1 p-2 relative cursor-pointer"
-                                onClick={() => handleSlotClick(dateStr, timeStr)}
-                            >
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-10 pointer-events-none">
-                                    <Plus className="w-6 h-6 text-muted-foreground/30" />
-                                </div>
-                                {apps.map(app => (
-                                    <div
-                                        key={app.id}
-                                        className={`mb-2 p-3 rounded-lg border flex justify-between items-center shadow-md relative z-10 cursor-pointer hover:brightness-110 ${getUserColor(app.user_id).chip} ${app.status === 'completed' ? 'opacity-50 line-through' : ''}`}
-                                        onClick={(e) => handleAppointmentClick(app, e)}
-                                        style={{ minHeight: `${Math.max(60, (app.duration / 60) * 100)}px` }}
-                                    >
-                                        <div>
-                                            <div className="font-bold text-sm flex items-center gap-1.5">
-                                                {app.metadata?.source === 'nina_ai' && (
-                                                  <Bot className="w-3.5 h-3.5 text-cyan-600 flex-shrink-0" />
-                                                )}
-                                                {app.title}
-                                            </div>
-                                            <div className="text-xs opacity-80 mt-1">{app.description || 'Sem descrição'}</div>
-                                        </div>
-                                        <div className="text-right">
-                                             <div className="font-mono text-sm">{app.time} - {calculateEndTime(app.time, app.duration)}</div>
-                                             <div className="text-[10px] opacity-75 uppercase tracking-wider font-bold mt-1">{typeLabel(app.type)} • {app.duration}min</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )
-                 })}
-             </div>
-        </div>
-    );
+  const viewProps = {
+    appsOn, tasksOn, colorOf,
+    onOpenDay: openDay,
+    onOpenAppointment: (app: Appointment) => setDetail({ kind: 'appointment', app }),
+    onOpenTask: (task: ScheduledTask) => setDetail({ kind: 'task', task }),
   };
 
   return (
-    <PageContainer scrollable={false}>
+    <PageContainer scrollable={false} className="gap-5">
       <PageHeader
-        title="Agendamentos"
-        description="Gerencie demos, reuniões e suporte técnico."
-        actions={
-          <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
-            {/* View Switcher */}
-            <div className="flex bg-muted p-1 rounded-lg border border-border">
-              <button
-                onClick={() => setViewMode('month')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'month' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" /> Mês
-              </button>
-              <button
-                onClick={() => setViewMode('week')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'week' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <Columns className="w-3.5 h-3.5" /> Semana
-              </button>
-              <button
-                onClick={() => setViewMode('day')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-2 transition-all ${viewMode === 'day' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                <List className="w-3.5 h-3.5" /> Dia
-              </button>
-            </div>
-
-            {/* Date Nav */}
-            <div className="flex items-center bg-muted border border-border rounded-lg p-1">
-              <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors">
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <div className="flex flex-col items-center justify-center w-48 px-2 cursor-pointer" onClick={goToToday} title="Ir para hoje">
-                <span className="text-sm font-bold text-foreground capitalize">
-                  {viewMode === 'month' ? getMonthLabel() : viewMode === 'week' ? getWeekLabel() : getDayLabel()}
-                </span>
-                {viewMode === 'week' && <span className="text-[10px] text-muted-foreground">{currentDate.getFullYear()}</span>}
-              </div>
-              <button onClick={() => navigateDate(1)} className="p-2 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors">
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-
-            <Button onClick={() => { setSelectedDate(new Date().toISOString().split('T')[0]); setShowCreateModal(true); }}>
-              <Plus className="w-4 h-4 mr-2" />
-              Agendar
-            </Button>
-          </div>
-        }
+        title="Agenda"
+        description={loading ? 'Carregando…' : `${counts.today} ${counts.today === 1 ? 'agendamento' : 'agendamentos'} hoje · ${counts.week} nesta semana`}
       />
 
-      {(legendUsers.length > 0 || hasUnowned) && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3 text-xs text-muted-foreground">
-          {legendUsers.map(id => (
-            <span key={id} className="flex items-center gap-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full ${getUserColor(id).dot}`} />
-              {getUserName(id)}
-            </span>
-          ))}
-          {hasUnowned && (
-            <span className="flex items-center gap-1.5">
-              <span className={`w-2.5 h-2.5 rounded-full ${NO_USER_COLOR.dot}`} />
-              Sem responsável
-            </span>
-          )}
-        </div>
-      )}
+      <div className="flex-1 min-h-0 flex gap-3">
+        {/* Side rail */}
+        <aside className="hidden lg:flex w-[272px] flex-shrink-0 flex-col gap-3 min-h-0 overflow-y-auto">
+          <Button onClick={() => openCreate(ymd(view === 'month' ? new Date() : cursor))} size="lg" className="self-start flex-shrink-0 px-6 shadow-wa-bubble" title="Novo agendamento (N)">
+            <Plus className="w-5 h-5 mr-2" aria-hidden="true" /> Agendar
+          </Button>
 
-      {/* Main Calendar Area */}
-      <div className="flex-1 min-h-0 bg-card border border-border rounded-xl overflow-hidden shadow-2xl flex flex-col relative">
-        {loading ? (
-             <div className="flex-1 flex items-center justify-center">
-                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
-             </div>
-        ) : (
-            <>
-                {viewMode === 'month' && (
-                    <>
-                        <div className="grid grid-cols-7 border-b border-border bg-card">
-                            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
-                                <div key={day} className="py-3 text-center text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                                    {day}
-                                </div>
-                            ))}
-                        </div>
-                        {renderMonthView()}
-                    </>
-                )}
-                {viewMode === 'week' && renderWeekView()}
-                {viewMode === 'day' && renderDayView()}
-            </>
-        )}
-      </div>
+          <div className="rounded-lg bg-card border border-border p-3">
+            <MiniMonth selected={cursor} busy={busyDays} onSelect={(d) => { setCursor(d); if (view === 'month') setView('day'); }} />
+          </div>
 
-      {/* Create Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-                <div className="p-6 border-b border-border flex justify-between items-center">
-                    <h3 className="text-lg font-bold text-foreground">Novo Agendamento</h3>
-                    <button onClick={() => setShowCreateModal(false)} className="text-muted-foreground hover:text-foreground transition-colors">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                    <div className="space-y-2">
-                         <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Data Selecionada</label>
-                         <div className="flex items-center gap-2 text-foreground font-medium bg-background p-3 rounded-lg border border-border">
-                            <CalendarIcon className="w-4 h-4 text-cyan-500" />
-                            {selectedDate?.split('-').reverse().join('/')}
-                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                             <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Horário</label>
-                             <div className="relative">
-                                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <input
-                                    type="time"
-                                    className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none"
-                                    value={formData.time}
-                                    onChange={e => setFormData({...formData, time: e.target.value})}
-                                />
-                             </div>
-                        </div>
-                        <div className="space-y-2">
-                             <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Duração</label>
-                             <select
-                                className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
-                                value={formData.duration}
-                                onChange={e => setFormData({...formData, duration: parseInt(e.target.value)})}
-                             >
-                                <option value="15">15 min</option>
-                                <option value="30">30 min</option>
-                                <option value="45">45 min</option>
-                                <option value="60">1 hora</option>
-                                <option value="90">1h 30min</option>
-                                <option value="120">2 horas</option>
-                             </select>
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                         <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Tipo</label>
-                         <select
-                            className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
-                            value={formData.type}
-                            onChange={e => setFormData({...formData, type: e.target.value})}
-                         >
-                            <option value="demo">Demo</option>
-                            <option value="meeting">Reunião</option>
-                            <option value="support">Suporte</option>
-                            <option value="followup">Follow-up</option>
-                         </select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Título do Evento</label>
-                        <input
-                            required
-                            type="text"
-                            className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground"
-                            placeholder="Ex: Apresentação para Cliente X"
-                            value={formData.title}
-                            onChange={(e) => setFormData({...formData, title: e.target.value})}
-                        />
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Descrição</label>
-                        <div className="relative">
-                            <AlignLeft className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                            <textarea
-                                className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-3 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground resize-none h-24"
-                                placeholder="Detalhes adicionais..."
-                                value={formData.description}
-                                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Contato Vinculado</label>
-                        <div className="relative">
-                            <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <select
-                                value={selectedContactId || ''}
-                                onChange={(e) => setSelectedContactId(e.target.value || null)}
-                                className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
-                            >
-                                <option value="">Selecionar contato (opcional)</option>
-                                {contacts.map(contact => (
-                                    <option key={contact.id} value={contact.id}>
-                                        {contact.name || contact.phone} - {contact.phone}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                        <p className="text-xs text-muted-foreground">Vincule um contato existente ao evento</p>
-                    </div>
-
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Participantes Adicionais</label>
-                        <div className="relative">
-                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <input
-                                type="text"
-                                name="attendees"
-                                className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground"
-                                placeholder="Ex: João Silva, Maria Santos"
-                            />
-                        </div>
-                        <p className="text-xs text-muted-foreground">Separe os nomes por vírgula</p>
-                    </div>
-
-                    <div className="pt-4 flex gap-3">
-                        <Button type="button" variant="ghost" onClick={() => setShowCreateModal(false)} className="flex-1">Cancelar</Button>
-                        <Button type="submit" disabled={isSaving} className="flex-1">
-                            {isSaving ? 'Salvando...' : 'Salvar'}
-                        </Button>
-                    </div>
-                </form>
+          {legend.length > 0 && (
+            <div className="rounded-lg bg-card border border-border py-3">
+              <h2 className="px-4 pb-1 text-sm text-primary">Pessoas</h2>
+              <ul>
+                {legend.map(id => {
+                  const on = !hidden.has(id);
+                  const c = colorOf(id || undefined);
+                  return (
+                    <li key={id || 'none'}>
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={on}
+                        onClick={() => togglePerson(id)}
+                        className="w-full flex items-center gap-3 px-4 h-9 text-left text-sm hover:bg-accent transition-colors"
+                      >
+                        <span className={cn('w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border-2 transition-colors', on ? cn(c.dot, 'border-transparent') : 'border-icon/50')}>
+                          {on && <svg viewBox="0 0 12 12" className="w-3 h-3 text-white" aria-hidden="true"><path d="M2.5 6.2 5 8.5l4.5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+                        </span>
+                        <span className={cn('truncate', on ? 'text-foreground' : 'text-muted-foreground')}>{nameOf(id || undefined)}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-        </div>
-      )}
+          )}
 
-      {/* Appointment Details Modal */}
-      {selectedAppointment && (
-         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-             <div className="bg-card border border-border rounded-xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
-                 {/* Header */}
-                 <div className={`p-6 border-b border-border relative overflow-hidden shrink-0 ${getUserColor(selectedAppointment.user_id).header}`}>
-                     <div className="absolute top-0 right-0 p-4 opacity-5">
-                         <CalendarIcon className="w-32 h-32" />
-                     </div>
-                     <div className="relative z-10">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="flex items-center gap-2">
-                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${getUserColor(selectedAppointment.user_id).chip}`}>
-                                    {typeLabel(selectedAppointment.type)}
-                                </span>
-                                {selectedAppointment.status === 'completed' && (
-                                    <span className="px-2 py-1 rounded text-[10px] font-bold uppercase border bg-emerald-50 text-emerald-700 border-emerald-200 flex items-center gap-1">
-                                        <CheckCircle2 className="w-3 h-3" />
-                                        Realizado
-                                    </span>
-                                )}
-                                {selectedAppointment.metadata?.source === 'nina_ai' && (
-                                    <span className="px-2 py-1 rounded text-[10px] font-bold uppercase border bg-cyan-50 text-cyan-700 border-cyan-200 flex items-center gap-1">
-                                        <Bot className="w-3 h-3" />
-                                        Criado por IA
-                                    </span>
-                                )}
-                            </div>
-                            <button onClick={() => setSelectedAppointment(null)} className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-                        <h3 className="text-2xl font-bold text-foreground mb-2">{selectedAppointment.title}</h3>
-                         <div className="flex items-center gap-4 text-sm text-foreground">
-                            <div className="flex items-center gap-1.5">
-                                <Clock className="w-4 h-4 text-cyan-500" />
-                                {selectedAppointment.time} - {calculateEndTime(selectedAppointment.time, selectedAppointment.duration)} ({selectedAppointment.duration}min)
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                                <CalendarIcon className="w-4 h-4 text-cyan-500" />
-                                {selectedAppointment.date.split('-').reverse().join('/')}
-                            </div>
-                        </div>
-                     </div>
-                 </div>
+          <div className="rounded-lg bg-card border border-border py-3">
+            <h2 className="px-4 pb-1 text-sm text-primary">Próximos</h2>
+            {upcoming.length === 0 ? (
+              <p className="px-4 py-2 text-sm text-muted-foreground">Nada marcado daqui para frente.</p>
+            ) : (
+              <ul>
+                {upcoming.map(a => (
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      onClick={() => setDetail({ kind: 'appointment', app: a })}
+                      className="w-full flex items-start gap-3 px-4 py-2 text-left hover:bg-accent transition-colors"
+                    >
+                      <span className={cn('w-2 h-2 mt-1.5 rounded-full flex-shrink-0', colorOf(a.user_id).dot)} aria-hidden="true" />
+                      <span className="min-w-0">
+                        <span className="block text-sm text-foreground truncate">
+                          {a.title}
+                          {a.metadata?.source === 'nina_ai' && <Bot className="inline w-3 h-3 ml-1 -mt-0.5 text-icon" aria-label="Criado pela Lu" />}
+                        </span>
+                        <span className="block text-xs text-muted-foreground tabular-nums">{upcomingLabel(a)} · {hhmm(a.time)}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </aside>
 
-                 {/* Body */}
-                 <div className="p-6 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
-                     <div className="space-y-2">
-                         <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Agendado por</h4>
-                         <div className="flex items-center gap-2 text-sm text-foreground">
-                             <span className={`w-2.5 h-2.5 rounded-full ${getUserColor(selectedAppointment.user_id).dot}`} />
-                             {getUserName(selectedAppointment.user_id)}
-                         </div>
-                     </div>
-
-                     {selectedAppointment.description && (
-                         <div className="space-y-2">
-                             <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Descrição</h4>
-                             <p className="text-sm text-foreground leading-relaxed bg-muted p-3 rounded-lg border border-border">
-                                 {selectedAppointment.description}
-                             </p>
-                         </div>
-                     )}
-
-                     {selectedAppointment.contact_id && (
-                         <div className="space-y-2">
-                             <h4 className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Contato Vinculado</h4>
-                             <div className="flex items-center gap-2 bg-muted px-3 py-2 rounded-lg border border-border">
-                                 <UserCircle className="w-5 h-5 text-cyan-500" />
-                                 <div className="flex-1">
-                                     <span className="text-sm text-foreground font-medium">
-                                         {selectedAppointment.contact?.name || 'Contato'}
-                                     </span>
-                                     <span className="text-xs text-muted-foreground ml-2">
-                                         {selectedAppointment.contact?.phone_number}
-                                     </span>
-                                 </div>
-                             </div>
-                         </div>
-                     )}
-
-                     <div className="space-y-3">
-                          <Button
-                            type="button"
-                            variant={selectedAppointment.status === 'completed' ? 'outline' : 'primary'}
-                            onClick={() => handleToggleCompleted(selectedAppointment)}
-                            className="w-full"
-                          >
-                              <CheckCircle2 className="w-4 h-4 mr-1" />
-                              {selectedAppointment.status === 'completed' ? 'Reabrir (não realizado)' : 'Marcar como realizado'}
-                          </Button>
-                          <div className="flex gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => handleDeleteAppointment(selectedAppointment.id)}
-                                className="flex-1 border-destructive text-destructive hover:bg-destructive/10"
-                              >
-                                  Excluir
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  handleEditClick(selectedAppointment);
-                                }}
-                                className="flex-1"
-                              >
-                                  <Pencil className="w-4 h-4 mr-1" />
-                                  Editar
-                              </Button>
-                          </div>
-                      </div>
-                 </div>
-             </div>
-         </div>
-      )}
-
-      {/* Edit Appointment Modal */}
-      {showEditModal && selectedAppointment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-card border border-border rounded-xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-border bg-card">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-cyan-50 rounded-lg">
-                  <Pencil className="w-5 h-5 text-cyan-600" />
-                </div>
-                <h2 className="text-lg font-bold text-foreground">Editar Agendamento</h2>
-              </div>
-              <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setSelectedAppointment(null);
-                }}
-                className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <X className="w-5 h-5" />
+        {/* Calendar */}
+        <section aria-label="Calendário" className="flex-1 min-w-0 min-h-0 rounded-lg bg-card border border-border overflow-hidden flex flex-col">
+          <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-border bg-muted">
+            <Button variant="outline" size="sm" onClick={() => setCursor(new Date())} title="Hoje (T)">Hoje</Button>
+            <div className="flex">
+              <button type="button" onClick={() => shift(-1)} aria-label="Anterior" title="Anterior (←)" className="w-9 h-9 rounded-full flex items-center justify-center text-icon hover:bg-accent">
+                <ChevronLeft className="w-5 h-5" aria-hidden="true" />
+              </button>
+              <button type="button" onClick={() => shift(1)} aria-label="Próximo" title="Próximo (→)" className="w-9 h-9 rounded-full flex items-center justify-center text-icon hover:bg-accent">
+                <ChevronRight className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
+            <h2 className="text-lg text-foreground truncate min-w-0 flex-1" aria-live="polite">
+              {view === 'day' ? (
+                <>
+                  <span className="sm:hidden">{capitalize(cursor.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, ''))}</span>
+                  <span className="hidden sm:inline">{title}</span>
+                </>
+              ) : title}
+            </h2>
 
-            {/* Form */}
-            <form onSubmit={handleEditSubmit} className="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Data</label>
-                  <div className="relative">
-                    <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="date"
-                      required
-                      className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none"
-                      value={editFormData.date}
-                      onChange={e => setEditFormData({...editFormData, date: e.target.value})}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Horário</label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <input
-                      type="time"
-                      className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none"
-                      value={editFormData.time}
-                      onChange={e => setEditFormData({...editFormData, time: e.target.value})}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Duração</label>
-                  <select
-                    className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
-                    value={editFormData.duration}
-                    onChange={e => setEditFormData({...editFormData, duration: parseInt(e.target.value)})}
-                  >
-                    <option value="15">15 min</option>
-                    <option value="30">30 min</option>
-                    <option value="45">45 min</option>
-                    <option value="60">1 hora</option>
-                    <option value="90">1h 30min</option>
-                    <option value="120">2 horas</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Tipo</label>
-                  <select
-                    className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
-                    value={editFormData.type}
-                    onChange={e => setEditFormData({...editFormData, type: e.target.value})}
-                  >
-                    <option value="demo">Demo</option>
-                    <option value="meeting">Reunião</option>
-                    <option value="support">Suporte</option>
-                    <option value="followup">Follow-up</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Título do Evento</label>
-                <input
-                  required
-                  type="text"
-                  className="w-full bg-background border border-border rounded-lg p-3 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground"
-                  placeholder="Ex: Apresentação para Cliente X"
-                  value={editFormData.title}
-                  onChange={(e) => setEditFormData({...editFormData, title: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Descrição</label>
-                <div className="relative">
-                  <AlignLeft className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-                  <textarea
-                    className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-3 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground resize-none h-24"
-                    placeholder="Detalhes adicionais..."
-                    value={editFormData.description}
-                    onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Contato Vinculado</label>
-                <div className="relative">
-                  <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <select
-                    value={editContactId || ''}
-                    onChange={(e) => setEditContactId(e.target.value || null)}
-                    className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none appearance-none"
-                  >
-                    <option value="">Selecionar contato (opcional)</option>
-                    {contacts.map(contact => (
-                      <option key={contact.id} value={contact.id}>
-                        {contact.name || contact.phone} - {contact.phone}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Participantes Adicionais</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    className="w-full bg-background border border-border rounded-lg pl-10 pr-3 py-2.5 text-sm text-foreground focus:ring-1 focus:ring-ring/50 outline-none placeholder:text-muted-foreground"
-                    placeholder="Ex: João Silva, Maria Santos"
-                    value={editFormData.attendees}
-                    onChange={(e) => setEditFormData({...editFormData, attendees: e.target.value})}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">Separe os nomes por vírgula</p>
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <Button
+            <div role="radiogroup" aria-label="Visualização" className="flex p-0.5 rounded-full bg-secondary">
+              {VIEWS.map(v => (
+                <button
+                  key={v.value}
                   type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setSelectedAppointment(null);
-                  }}
-                  className="flex-1"
+                  role="radio"
+                  aria-checked={view === v.value}
+                  onClick={() => setView(v.value)}
+                  title={`${v.label} (${v.key})`}
+                  className={cn(
+                    'px-3 sm:px-4 h-8 rounded-full text-sm transition-colors',
+                    view === v.value ? 'bg-card text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                  )}
                 >
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={isSaving} className="flex-1">
-                  {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-                </Button>
-              </div>
-            </form>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+            <Button size="sm" onClick={() => openCreate(ymd(view === 'month' ? new Date() : cursor))} className="lg:hidden" aria-label="Novo agendamento">
+              <Plus className="w-4 h-4 sm:mr-1" aria-hidden="true" /><span className="hidden sm:inline">Agendar</span>
+            </Button>
           </div>
-        </div>
-      )}
+
+          {loading ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" aria-hidden="true" />
+              <span className="text-sm text-muted-foreground">Carregando agenda…</span>
+            </div>
+          ) : failed ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-2 px-6 text-center">
+              <CloudOff className="w-10 h-10 text-icon/40" aria-hidden="true" />
+              <p className="text-base text-foreground">Não foi possível carregar a agenda</p>
+              <p className="text-sm text-muted-foreground">Recarregue a página para tentar de novo.</p>
+            </div>
+          ) : view === 'month' ? (
+            <MonthView anchor={cursor} onCreate={(date) => openCreate(date)} {...viewProps} />
+          ) : (
+            <TimeGridView
+              days={view === 'day' ? [cursor] : Array.from({ length: 7 }, (_, i) => addDays(startOfWeek(cursor), i))}
+              onCreate={openCreate}
+              {...viewProps}
+            />
+          )}
+        </section>
+      </div>
+
+      <AppointmentFormDialog
+        open={form.open}
+        onOpenChange={(open) => setForm(f => ({ ...f, open }))}
+        mode={form.mode}
+        initial={form.initial}
+        contacts={contacts}
+        onSubmit={submitForm}
+      />
+
+      <EventDetailsDialog
+        item={detail}
+        onClose={() => setDetail(null)}
+        colorOf={colorOf}
+        nameOf={nameOf}
+        onEdit={editAppointment}
+        onToggleCompleted={toggleCompleted}
+        onDelete={deleteAppointment}
+        onToggleTask={toggleTask}
+      />
     </PageContainer>
   );
 };
