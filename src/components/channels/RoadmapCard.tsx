@@ -1,33 +1,33 @@
 import React from 'react';
-import { Mail, MessageCircle as SmsIcon, Users } from 'lucide-react';
+import { Mail, MessageSquareText, Users } from 'lucide-react';
+import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
+import { CHANNEL_CONFIG, COMING_SOON_CHANNELS } from '@/lib/channelConfig';
 
-const UPCOMING = [
+const LATER = [
   { icon: Mail, label: 'E-mail' },
-  { icon: SmsIcon, label: 'SMS' },
+  { icon: MessageSquareText, label: 'SMS' },
   { icon: Users, label: 'Microsoft Teams' },
 ];
 
 /**
- * Non-interactive roadmap card — reinforces that the channel architecture
- * (registry + BaseChannelProvider) is designed to grow. No actions here.
+ * Channels that exist in the provider registry but have no real integration
+ * yet, plus the roadmap. One quiet list instead of a dead card per channel —
+ * nothing here is clickable.
  */
 export const RoadmapCard: React.FC = () => {
+  const items = [
+    ...COMING_SOON_CHANNELS.map((c) => ({ icon: CHANNEL_CONFIG[c].icon, label: CHANNEL_CONFIG[c].label })),
+    ...LATER,
+  ];
   return (
-    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-5 flex flex-col gap-4">
-      <div>
-        <h3 className="font-semibold text-foreground text-sm">Em desenvolvimento</h3>
-        <p className="text-[11px] text-muted-foreground mt-0.5">Próximos conectores do roadmap</p>
-      </div>
-      <div className="space-y-2">
-        {UPCOMING.map(({ icon: Icon, label }) => (
-          <div key={label} className="flex items-center gap-2.5 text-xs text-muted-foreground">
-            <div className="w-7 h-7 rounded-lg border border-border bg-background flex items-center justify-center">
-              <Icon className="w-3.5 h-3.5" />
-            </div>
-            {label}
-          </div>
+    <Panel title="Em breve" description="Canais que ainda não têm integração. Não precisam de configuração.">
+      <ul className="px-6 pb-5 pt-1 flex flex-wrap gap-2">
+        {items.map(({ icon: Icon, label }) => (
+          <li key={label} className="flex items-center gap-2 px-3 h-8 rounded-full bg-secondary text-sm text-muted-foreground">
+            <Icon className="w-4 h-4 text-icon" aria-hidden="true" /> {label}
+          </li>
         ))}
-      </div>
-    </div>
+      </ul>
+    </Panel>
   );
 };

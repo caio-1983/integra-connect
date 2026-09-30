@@ -171,7 +171,7 @@ export const EvolutionConnectSheet: React.FC<EvolutionConnectSheetProps> = ({ op
               {pairingCode && (
                 <p className="text-xs text-foreground">Ou use o código de pareamento: <span className="font-mono font-semibold">{pairingCode}</span></p>
               )}
-              <div className="flex items-center gap-1.5 text-xs text-amber-600">
+              <div className="flex items-center gap-1.5 text-xs text-warning">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" /> Aguardando leitura…
               </div>
             </div>
@@ -179,7 +179,7 @@ export const EvolutionConnectSheet: React.FC<EvolutionConnectSheetProps> = ({ op
 
           {phase === 'connected' && (
             <div className="flex flex-col items-center gap-2 py-8 text-center">
-              <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+              <CheckCircle2 className="w-10 h-10 text-success" />
               <p className="text-sm font-semibold text-foreground">WhatsApp conectado</p>
               <p className="text-xs text-muted-foreground">As mensagens agora chegam ao Workspace em tempo real.</p>
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="mt-2">Fechar</Button>
@@ -188,7 +188,7 @@ export const EvolutionConnectSheet: React.FC<EvolutionConnectSheetProps> = ({ op
 
           {phase === 'error' && (
             <div className="space-y-3">
-              <p className="text-xs text-red-600 break-words">{errorMsg}</p>
+              <p className="text-xs text-danger break-words">{errorMsg}</p>
               <Button variant="primary" size="sm" onClick={retry} className="w-full">Tentar novamente</Button>
             </div>
           )}

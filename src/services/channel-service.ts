@@ -1,4 +1,4 @@
-import type { ChannelAccountStatus, ChannelInboundEvent, ChannelType, WebchatWidgetConfig } from '@/types';
+import type { ChannelAccountStatus, ChannelInboundEvent, ChannelType } from '@/types';
 import { MOCK_PEOPLE } from '@/lib/mockData';
 
 /**
@@ -11,7 +11,6 @@ import { MOCK_PEOPLE } from '@/lib/mockData';
  */
 
 const SETTINGS_STORAGE_KEY = 'ic_channel_settings_v1';
-const WEBCHAT_WIDGET_STORAGE_KEY = 'ic_webchat_widget_config_v1';
 const INBOUND_EVENT_NAME = 'integra:channel-inbound';
 
 type ChannelSettingsStore = Partial<Record<ChannelType, ChannelAccountStatus>>;
@@ -53,24 +52,6 @@ export function updateChannelStatus(
   const next: ChannelAccountStatus = { ...(store[channel] ?? fallback), ...partial };
   store[channel] = next;
   writeJSON(SETTINGS_STORAGE_KEY, store);
-  return next;
-}
-
-// ---------------------------------------------------------------------------
-// Webchat widget configuration (Entrega 4/5 — Chat do Site page)
-// ---------------------------------------------------------------------------
-
-export function getWebchatWidgetConfig(fallback: WebchatWidgetConfig): WebchatWidgetConfig {
-  const stored = readJSON<Partial<WebchatWidgetConfig>>(WEBCHAT_WIDGET_STORAGE_KEY);
-  return stored ? { ...fallback, ...stored } : fallback;
-}
-
-export function updateWebchatWidgetConfig(
-  partial: Partial<WebchatWidgetConfig>,
-  fallback: WebchatWidgetConfig
-): WebchatWidgetConfig {
-  const next = { ...getWebchatWidgetConfig(fallback), ...partial };
-  writeJSON(WEBCHAT_WIDGET_STORAGE_KEY, next);
   return next;
 }
 

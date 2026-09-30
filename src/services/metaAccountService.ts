@@ -20,6 +20,9 @@ export interface MetaAccountsResult {
   webhookUrl: string | null;
   verifyTokenConfigured: boolean;
   signatureCheckEnabled: boolean;
+  /** The backend didn't answer — nothing above is known, so the UI must not
+   *  present it as "not configured". */
+  unreachable?: boolean;
 }
 
 const EMPTY: MetaAccountsResult = {
@@ -30,16 +33,15 @@ const EMPTY: MetaAccountsResult = {
 };
 
 export async function fetchMetaAccounts(): Promise<MetaAccountsResult> {
-  const base = backendBaseUrl();
   // The channels page must render even with no backend configured (mock-only
-  // harness, or a deploy where the gateway URL isn't set yet).
-  if (!base) return EMPTY;
-
+  // harness, or a deploy where the gateway URL isn't set yet) — backendBaseUrl()
+  // throws in that case, so it lives inside the try.
   try {
+    const base = backendBaseUrl();
     const response = await fetch(`${base}/v1/meta/accounts`, { headers: backendAuthOnlyHeaders() });
-    if (!response.ok) return EMPTY;
+    if (!response.ok) return { ...EMPTY, unreachable: true };
     return (await response.json()) as MetaAccountsResult;
   } catch {
-    return EMPTY;
+    return { ...EMPTY, unreachable: true };
   }
 }

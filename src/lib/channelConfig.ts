@@ -15,31 +15,31 @@ export const CHANNEL_CONFIG: Record<ChannelType, { icon: LucideIcon; label: stri
   whatsapp: {
     icon: MessageCircle,
     label: 'WhatsApp',
-    color: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+    color: 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-950 dark:border-emerald-900',
     brandHex: '#25D366',
   },
   instagram: {
     icon: Instagram,
     label: 'Instagram Direct',
-    color: 'text-pink-600 bg-pink-50 border-pink-200',
+    color: 'text-pink-600 bg-pink-50 border-pink-200 dark:text-pink-400 dark:bg-pink-950 dark:border-pink-900',
     brandHex: '#E1306C',
   },
   facebook: {
     icon: Facebook,
     label: 'Facebook Messenger',
-    color: 'text-blue-600 bg-blue-50 border-blue-200',
+    color: 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950 dark:border-blue-900',
     brandHex: '#0866FF',
   },
   telegram: {
     icon: Send,
     label: 'Telegram',
-    color: 'text-sky-600 bg-sky-50 border-sky-200',
+    color: 'text-sky-600 bg-sky-50 border-sky-200 dark:text-sky-400 dark:bg-sky-950 dark:border-sky-900',
     brandHex: '#26A5E4',
   },
   webchat: {
     icon: Globe,
     label: 'Webchat',
-    color: 'text-violet-600 bg-violet-50 border-violet-200',
+    color: 'text-violet-600 bg-violet-50 border-violet-200 dark:text-violet-400 dark:bg-violet-950 dark:border-violet-900',
     brandHex: '#7C3AED',
   },
 };
@@ -55,7 +55,6 @@ export const CHANNEL_ORDER: ChannelType[] = ['whatsapp', 'instagram', 'facebook'
 /**
  * Channels with no working backend. Instagram and Facebook left this list once
  * the Meta connector landed (backend/src/channels/meta) — they are configured
- * server-side rather than paired from the UI, so MetaSection handles them
- * instead of the generic ChannelSection.
+ * server-side rather than paired from the UI, so MetaSection handles them.
  */
 export const COMING_SOON_CHANNELS: ChannelType[] = ['telegram', 'webchat'];

@@ -12,6 +12,9 @@ export function useWhatsappInstances() {
   const [instances, setInstances] = useState<WhatsappInstanceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | undefined>();
+  // Last attempt failed (backend down/unreachable). The previous list is kept,
+  // but callers must not read an empty list as "no numbers connected".
+  const [error, setError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const refresh = useCallback(async () => {
@@ -19,8 +22,10 @@ export function useWhatsappInstances() {
       const list = await listWhatsappInstances();
       setInstances(list);
       setLastFetchedAt(new Date());
+      setError(null);
     } catch (error) {
       console.error('[whatsapp] falha ao listar instâncias', error);
+      setError(error instanceof Error ? error.message : String(error));
     } finally {
       setLoading(false);
     }
@@ -34,5 +39,5 @@ export function useWhatsappInstances() {
     };
   }, [refresh]);
 
-  return { instances, loading, lastFetchedAt, refresh };
+  return { instances, loading, lastFetchedAt, error, refresh };
 }
