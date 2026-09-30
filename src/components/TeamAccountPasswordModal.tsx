@@ -1,6 +1,7 @@
 import React from 'react';
-import { Copy, KeyRound, X } from 'lucide-react';
+import { Copy } from 'lucide-react';
 import { Button } from './Button';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
 interface TeamAccountPasswordModalProps {
@@ -19,46 +20,41 @@ const TeamAccountPasswordModal: React.FC<TeamAccountPasswordModalProps> = ({
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(temporaryPassword);
-      toast.success('Senha copiada para a área de transferência');
+      toast.success('Senha copiada');
     } catch {
-      toast.error('Não foi possível copiar automaticamente. Copie manualmente.');
+      toast.error('Não foi possível copiar automaticamente. Selecione a senha e copie.');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-card border border-border rounded-xl shadow-xl max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="p-6 border-b border-border flex justify-between items-center">
-          <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <KeyRound className="w-5 h-5" />
-            {title}
-          </h3>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
-            <X className="w-5 h-5" />
-          </button>
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      {/* The password is shown only once: a stray click outside must not lose it. */}
+      <DialogContent className="max-w-md p-0 gap-0 overflow-hidden" onInteractOutside={(e) => e.preventDefault()}>
+        <div className="px-6 pt-6 pb-2">
+          <DialogTitle className="text-xl font-normal text-foreground">{title}</DialogTitle>
+          <DialogDescription className="mt-2 text-sm text-muted-foreground">
+            Mande esta senha temporária para <strong className="font-medium text-foreground">{email}</strong> por
+            um canal seguro, como WhatsApp ou telefone. Ela só aparece agora, e a pessoa vai trocá-la no primeiro login.
+          </DialogDescription>
         </div>
-        <div className="p-6 space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Compartilhe esta senha temporária com <strong className="text-foreground">{email}</strong> por
-            um canal seguro (WhatsApp, telefone). Ela só é exibida uma vez e o usuário será obrigado a
-            trocá-la no primeiro login.
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 bg-background border border-border rounded-lg p-3 text-sm font-mono text-foreground select-all break-all">
-              {temporaryPassword}
-            </code>
-            <Button type="button" variant="outline" onClick={handleCopy} title="Copiar senha">
-              <Copy className="w-4 h-4" />
-            </Button>
-          </div>
-          <div className="pt-2">
-            <Button type="button" onClick={onClose} className="w-full">
-              Entendi, já copiei
-            </Button>
+        <div className="px-6 py-4">
+          <div className="flex items-center gap-2 rounded-lg bg-secondary pl-4 pr-1.5 py-1.5">
+            <code className="flex-1 min-w-0 text-[17px] font-mono text-foreground select-all break-all">{temporaryPassword}</code>
+            <button
+              type="button"
+              onClick={handleCopy}
+              aria-label="Copiar senha"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-icon hover:bg-accent flex-shrink-0"
+            >
+              <Copy className="w-5 h-5" />
+            </button>
           </div>
         </div>
-      </div>
-    </div>
+        <div className="px-6 py-4 flex justify-end border-t border-border">
+          <Button type="button" onClick={onClose}>Já copiei</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
