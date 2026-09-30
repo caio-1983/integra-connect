@@ -1,6 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
-  type PaletteId,
   type ThemeConfig,
   type ThemeMode,
   applyThemeToDocument,
@@ -9,7 +8,6 @@ import {
 } from '@/services/themeConfigService';
 
 interface ThemeContextValue extends ThemeConfig {
-  setPalette: (palette: PaletteId) => void;
   setMode: (mode: ThemeMode) => void;
   toggleMode: () => void;
 }
@@ -17,7 +15,7 @@ interface ThemeContextValue extends ThemeConfig {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 /**
- * Owns the appearance state (palette + light/dark). Reads the saved config on
+ * Owns the appearance state (light/dark). Reads the saved config on
  * mount and, on every change, applies it to <html> and persists it. An inline
  * script in index.html applies the same saved config before first paint so
  * there's no flash before this provider mounts.
@@ -30,7 +28,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     saveThemeConfig(config);
   }, [config]);
 
-  const setPalette = useCallback((palette: PaletteId) => setConfig((c) => ({ ...c, palette })), []);
   const setMode = useCallback((mode: ThemeMode) => setConfig((c) => ({ ...c, mode })), []);
   const toggleMode = useCallback(
     () => setConfig((c) => ({ ...c, mode: c.mode === 'dark' ? 'light' : 'dark' })),
@@ -38,7 +35,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   return (
-    <ThemeContext.Provider value={{ ...config, setPalette, setMode, toggleMode }}>
+    <ThemeContext.Provider value={{ ...config, setMode, toggleMode }}>
       {children}
     </ThemeContext.Provider>
   );

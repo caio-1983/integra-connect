@@ -1,77 +1,30 @@
 import React from 'react';
-import { Shield, RotateCcw, Lock, Settings as SettingsIcon } from 'lucide-react';
 import { PageContainer, PageHeader } from '@/components/layout';
-import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
 import { QuickRepliesSettings } from '@/components/settings/QuickRepliesSettings';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
-import { Button } from './Button';
-import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
-import { useOutletContext } from 'react-router-dom';
-
-interface OutletContext {
-  showOnboarding: boolean;
-  setShowOnboarding: (show: boolean) => void;
-}
+import { ROLE_LABEL } from '@/components/team/teamLabels';
 
 const Settings: React.FC = () => {
-  const { companyName, isAdmin } = useCompanySettings();
-  const { resetWizard } = useOnboardingStatus();
-  const { setShowOnboarding } = useOutletContext<OutletContext>();
-
-  const handleReopenOnboarding = () => {
-    resetWizard();
-    setShowOnboarding(true);
-  };
+  const { companyName, role } = useCompanySettings();
 
   return (
-    <PageContainer className="max-w-5xl mx-auto">
+    <PageContainer>
+      {/* Same centred reading column as Contatos and Conexões; the header aligns with it. */}
+      <div className="w-full max-w-4xl mx-auto flex flex-col gap-3">
       <PageHeader
         title="Configurações"
-        description={
-          <>
-            Central de controle da sua instância {companyName}.
-            {!isAdmin && <span className="ml-2 text-amber-600">(Somente leitura)</span>}
-          </>
-        }
-        actions={
-          <div className="flex gap-2 items-center">
-            {isAdmin && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReopenOnboarding}
-                className="text-muted-foreground hover:text-foreground gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Refazer Onboarding
-              </Button>
-            )}
-            <span className="px-3 py-1 bg-primary/10 border border-primary/20 text-primary text-xs rounded-full font-mono flex items-center">
-              {isAdmin ? (
-                <>
-                  <Shield className="w-3 h-3 mr-1" /> Admin
-                </>
-              ) : (
-                <>
-                  <Lock className="w-3 h-3 mr-1" /> Somente Leitura
-                </>
-              )}
-            </span>
-          </div>
-        }
+        description={companyName}
+        className="mb-3"
+        actions={role && (
+          <span className="px-3 h-7 rounded-full bg-card border border-border text-muted-foreground text-xs font-medium flex items-center">
+            {ROLE_LABEL[role]}
+          </span>
+        )}
       />
-
-      <div className="space-y-10">
         <QuickRepliesSettings />
 
         <AppearanceSettings />
-
-        <EmptyState
-          icon={SettingsIcon}
-          title="Mais configurações em construção"
-          description="As configurações de agente, integrações e documentação estão sendo reconstruídas para a nova arquitetura. Em breve estarão disponíveis aqui."
-        />
       </div>
     </PageContainer>
   );

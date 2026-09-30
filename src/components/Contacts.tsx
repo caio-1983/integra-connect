@@ -1,197 +1,194 @@
-import React, { useEffect, useState } from 'react';
-import { Search, Filter, MoreHorizontal, UserPlus, MessageSquare, Loader2, Mail, Phone, Users } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Search, Loader2, Users, MessageSquare, CloudOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from './Button';
 import { api } from '../services/api';
-import { PageContainer, PageHeader, Toolbar } from '@/components/layout';
+import { PageContainer, PageHeader } from '@/components/layout';
 import { Contact } from '../types';
-import { contactDisplayName } from '@/lib/utils';
+import { cn, contactDisplayName, formatPhone } from '@/lib/utils';
+import { ContactAvatar } from '@/components/workspace/ContactAvatar';
+
+type ContactFilter = 'all' | 'lead';
+
+function formatLastContact(iso: string): string {
+  if (!iso) return '';
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const today = new Date();
+  const yesterday = new Date(); yesterday.setDate(today.getDate() - 1);
+  if (date.toDateString() === today.toDateString()) return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  if (date.toDateString() === yesterday.toDateString()) return 'Ontem';
+  return date.toLocaleDateString('pt-BR');
+}
+
+/** Section letter, WhatsApp-style: A–Z by display name, "#" for numbers/symbols. */
+function sectionOf(name: string): string {
+  const first = name.normalize('NFD').replace(/[̀-ͯ]/g, '').charAt(0).toUpperCase();
+  return /[A-Z]/.test(first) ? first : '#';
+}
 
 const Contacts: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filter, setFilter] = useState<ContactFilter>('all');
   const navigate = useNavigate();
 
   useEffect(() => {
-    const loadContacts = async () => {
-      try {
-        const data = await api.fetchContacts();
-        setContacts(data);
-      } catch (error) {
-        console.error('Erro ao carregar contatos', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadContacts();
+    api.fetchContacts()
+      .then(setContacts)
+      .catch((error) => { console.error('Erro ao carregar contatos', error); setFailed(true); })
+      .finally(() => setLoading(false));
   }, []);
 
-  const filteredContacts = contacts.filter(c => {
-    const term = searchTerm.toLowerCase();
-    return (
-      (c.name?.toLowerCase() || '').includes(term) ||
-      (c.phone || '').includes(term) ||
-      (c.email?.toLowerCase() || '').includes(term)
-    );
-  });
+  const leadCount = useMemo(() => contacts.filter(c => c.status === 'lead').length, [contacts]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'customer': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-      case 'lead':     return 'bg-cyan-50 text-cyan-700 border-cyan-200';
-      case 'contact':  return 'bg-muted text-muted-foreground border-border';
-      case 'churned':  return 'bg-muted text-muted-foreground border-border';
-      default:         return 'bg-muted text-muted-foreground border-border';
+  // Alphabetical sections, like WhatsApp's contact list.
+  const sections = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    const digits = term.replace(/\D/g, '');
+    const visible = contacts.filter(c => {
+      if (filter === 'lead' && c.status !== 'lead') return false;
+      if (!term) return true;
+      return (
+        (c.name?.toLowerCase() || '').includes(term) ||
+        (!!digits && (c.phone || '').includes(digits)) ||
+        (c.email?.toLowerCase() || '').includes(term)
+      );
+    });
+    const named = visible
+      .map(c => ({ contact: c, label: contactDisplayName(c.name, c.phone) }))
+      .sort((a, b) => {
+        const sa = sectionOf(a.label), sb = sectionOf(b.label);
+        if (sa !== sb) return sa === '#' ? 1 : sb === '#' ? -1 : sa.localeCompare(sb);
+        return a.label.localeCompare(b.label, 'pt-BR');
+      });
+    const groups: Array<{ letter: string; items: typeof named }> = [];
+    for (const item of named) {
+      const letter = sectionOf(item.label);
+      const last = groups[groups.length - 1];
+      if (last?.letter === letter) last.items.push(item); else groups.push({ letter, items: [item] });
     }
-  };
+    return { groups, total: visible.length };
+  }, [contacts, searchTerm, filter]);
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'customer': return 'Cliente Ativo';
-      case 'lead':     return 'Lead Qualificado';
-      case 'churned':  return 'Churned';
-      default:         return 'Contato';
-    }
-  };
-
-  const handleStartConversation = (contact: Contact) => {
+  const openConversation = (contact: Contact) => {
     navigate(`/chat?contact=${encodeURIComponent(contact.phone)}`);
   };
 
+  const chip = (value: ContactFilter, label: string, count?: number) => (
+    <button
+      type="button"
+      aria-pressed={filter === value}
+      onClick={() => setFilter(value)}
+      className={cn(
+        'flex flex-shrink-0 items-center gap-1.5 px-3 h-8 rounded-full text-sm whitespace-nowrap transition-colors',
+        filter === value
+          ? 'bg-primary-subtle text-primary-subtle-foreground font-medium'
+          : 'bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground',
+      )}
+    >
+      {label}
+      {count !== undefined && count > 0 && (
+        <span className={cn('text-[11px] font-semibold min-w-4 h-4 px-1 flex items-center justify-center rounded-full tabular-nums',
+          filter === value ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground')}>
+          {count > 999 ? '999+' : count}
+        </span>
+      )}
+    </button>
+  );
+
   return (
     <PageContainer>
+      {/* Reading column centred in the page; the header aligns with the list. */}
+      <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
       <PageHeader
         title="Contatos"
-        description="Gerencie sua base de leads e clientes com inteligência."
-        actions={
-          <Button
-            className="opacity-50 cursor-not-allowed"
-            disabled
-            title="Em breve: Adicionar contato"
-          >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Novo Contato
-          </Button>
-        }
+        description={loading ? 'Carregando…' : `${contacts.length.toLocaleString('pt-BR')} contatos · ${leadCount.toLocaleString('pt-BR')} leads`}
       />
 
-      <Toolbar>
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Buscar por nome, email ou telefone"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-background border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-ring/50 placeholder:text-muted-foreground transition-all"
-          />
-        </div>
-        <Button
-          variant="outline"
-          className="w-full sm:w-auto cursor-not-allowed opacity-50"
-          disabled
-          title="Em breve: Filtros avançados"
-        >
-          <Filter className="w-4 h-4 mr-2" />
-          Filtros Avançados
-        </Button>
-      </Toolbar>
-
-      {/* Table */}
-      <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden min-h-[400px]">
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-80">
-            <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
-            <span className="text-sm text-muted-foreground animate-pulse">Carregando base de dados...</span>
+      <div className="w-full rounded-lg bg-card border border-border overflow-hidden flex flex-col min-h-[400px]">
+        <div className="px-3 pt-3 pb-2 flex flex-col gap-2 border-b border-border">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-icon pointer-events-none" aria-hidden="true" />
+            <input
+              type="text"
+              aria-label="Pesquisar contatos"
+              placeholder="Pesquisar nome, telefone ou e-mail"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-4 h-10 bg-secondary border-0 rounded-full text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
+            />
           </div>
-        ) : filteredContacts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-80 text-muted-foreground">
-            <Users className="w-12 h-12 mb-4 opacity-30" />
-            <p className="text-lg font-medium text-foreground">Nenhum contato encontrado</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {searchTerm ? 'Tente buscar por outro termo' : 'Os contatos aparecerão aqui'}
+          <div className="flex items-center gap-2">
+            {chip('all', 'Todos')}
+            {chip('lead', 'Leads', leadCount)}
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-80 gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+            <span className="text-sm text-muted-foreground">Carregando contatos…</span>
+          </div>
+        ) : failed ? (
+          <div className="flex flex-col items-center justify-center h-80 gap-2 px-6 text-center">
+            <CloudOff className="w-10 h-10 text-icon/40" aria-hidden="true" />
+            <p className="text-base text-foreground">Não foi possível carregar os contatos</p>
+            <p className="text-sm text-muted-foreground">Recarregue a página para tentar de novo.</p>
+          </div>
+        ) : sections.total === 0 ? (
+          <div className="flex flex-col items-center justify-center h-80 gap-2 px-6 text-center">
+            <Users className="w-10 h-10 text-icon/40" aria-hidden="true" />
+            <p className="text-base text-foreground">Nenhum contato encontrado</p>
+            <p className="text-sm text-muted-foreground">
+              {searchTerm || filter !== 'all'
+                ? 'Tente outro termo ou troque o filtro.'
+                : 'Os contatos aparecem aqui quando alguém manda mensagem ou é importado.'}
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-muted text-muted-foreground border-b border-border font-medium text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-6 py-4">Nome / Telefone</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Canais</th>
-                  <th className="px-6 py-4">Última Interação</th>
-                  <th className="px-6 py-4 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {filteredContacts.map((contact) => (
-                  <tr key={contact.id} className="hover:bg-muted/40 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center text-sm font-bold text-primary">
-                          {(contact.name || contact.phone || '?').substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
-                            {contactDisplayName(contact.name, contact.phone)}
+          <div role="list" aria-label="Contatos">
+            {sections.groups.map(({ letter, items }) => (
+              <section key={letter} aria-label={letter}>
+                <h3 className="px-6 pt-5 pb-2 text-base text-primary">{letter}</h3>
+                {items.map(({ contact, label }) => {
+                  const last = formatLastContact(contact.lastContact);
+                  return (
+                    <button
+                      key={contact.id}
+                      type="button"
+                      role="listitem"
+                      onClick={() => openConversation(contact)}
+                      title="Abrir conversa"
+                      className="group w-full flex items-center gap-3 pl-3 pr-4 text-left hover:bg-accent transition-colors focus-visible:ring-inset focus-visible:ring-offset-0"
+                    >
+                      <ContactAvatar src={contact.avatar} name={label} className="w-[49px] h-[49px] text-lg flex-shrink-0" />
+                      <div className="flex-1 min-w-0 py-3 border-b border-border flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="text-[17px] leading-[21px] text-foreground truncate">{label}</span>
+                            {contact.status === 'lead' && (
+                              <span className="flex-shrink-0 px-1.5 h-[18px] rounded-full text-[11px] font-medium flex items-center bg-primary-subtle text-primary-subtle-foreground">
+                                Lead
+                              </span>
+                            )}
                           </div>
-                          <div className="text-xs text-muted-foreground">{contact.phone}</div>
+                          <p className="mt-0.5 text-sm text-muted-foreground truncate tabular-nums">
+                            {formatPhone(contact.phone)}{contact.email ? ` · ${contact.email}` : ''}
+                          </p>
                         </div>
+                        {last && <span className="flex-shrink-0 text-xs text-muted-foreground tabular-nums">{last}</span>}
+                        <MessageSquare className="w-5 h-5 flex-shrink-0 text-icon opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity" aria-hidden="true" />
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${getStatusColor(contact.status)}`}>
-                        {getStatusLabel(contact.status)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1">
-                        {contact.email && (
-                          <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                            <Mail className="w-3.5 h-3.5" />
-                            {contact.email}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 text-muted-foreground text-xs">
-                          <Phone className="w-3.5 h-3.5" />
-                          {contact.phone}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-muted-foreground">{contact.lastContact ? new Date(contact.lastContact).toLocaleDateString('pt-BR') : '—'}</span>
-                      <div className="text-[10px] text-muted-foreground/60">via WhatsApp</div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          className="h-8 w-8 p-0 rounded-lg shadow-none"
-                          title="Iniciar Conversa"
-                          onClick={() => handleStartConversation(contact)}
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 rounded-lg cursor-not-allowed opacity-50"
-                          disabled
-                          title="Em breve: Mais opções"
-                        >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </button>
+                  );
+                })}
+              </section>
+            ))}
           </div>
         )}
+      </div>
       </div>
     </PageContainer>
   );

@@ -408,7 +408,8 @@ export const api = {
       email: c.email || '',
       status: leadContactIds.has(c.id) ? ('lead' as const) : ('contact' as const),
       // Raw ISO (or '') — the UI formats it; imported contacts may have no activity yet.
-      lastContact: c.last_activity ?? ''
+      lastContact: c.last_activity ?? '',
+      avatar: c.profile_picture_url || undefined,
     }));
   },
 

@@ -83,6 +83,8 @@ export interface Contact {
   email: string;
   status: 'contact' | 'lead' | 'customer' | 'churned';
   lastContact: string;
+  /** WhatsApp profile photo (contacts.profile_picture_url), when known. */
+  avatar?: string;
 }
 
 export interface StatMetric {
