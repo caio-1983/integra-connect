@@ -435,7 +435,10 @@ export const api = {
       return [];
     }
 
-    return data.map(m => ({
+    // Maintenance accounts (team_members.hidden) keep their access but are left
+    // out of every people list. Filtered here rather than in the query so this
+    // keeps working before the column's migration is applied.
+    return data.filter(m => !(m as { hidden?: boolean }).hidden).map(m => ({
       id: m.id,
       name: m.name,
       email: m.email,
