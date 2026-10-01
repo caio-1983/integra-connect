@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.js';
-import { requestManualReply, requestManualMediaReply, requestMessageEdit, startConversation } from '../conversation/ConversationService.js';
+import { requestManualReply, requestManualMediaReply, requestManualPixReply, requestMessageEdit, startConversation } from '../conversation/ConversationService.js';
 import { evolutionConnectionService } from '../channels/evolution/EvolutionConnectionService.js';
 import { summarizeConversation } from '../conversation/ConversationSummaryService.js';
 import { getConversationInsight } from '../conversation/ConversationInsightService.js';
@@ -86,6 +86,19 @@ const editBodyJsonSchema = {
   properties: {
     content: { type: 'string', minLength: 1, description: 'Novo texto da mensagem.' },
     operatorId: { ...OPERATOR_ID_DOC, description: 'ID do operador que está editando. Só a própria mensagem pode ser editada. Auto-declarado: use apenas para atribuição, nunca para autorização.' },
+  },
+} as const;
+
+// No key in the body on purpose: the Pix key is read server-side from
+// Configurações, so the request can only ever send the registered one.
+const pixBodySchema = z.object({
+  operatorId: z.string().uuid().optional(),
+}).optional();
+
+const pixBodyJsonSchema = {
+  type: 'object',
+  properties: {
+    operatorId: OPERATOR_ID_DOC,
   },
 } as const;
 
@@ -326,6 +339,32 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     } catch (error) {
       request.log.error(error);
       return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao enviar anexo.' });
+    }
+  });
+
+  app.post('/v1/conversations/:conversationId/reply-pix', {
+    preHandler: authMiddleware,
+    validatorCompiler: noopValidator,
+    schema: {
+      tags: ['conversations'],
+      summary: 'Send the company\'s registered Pix key as a card with a "Copiar chave Pix" button',
+      security: [{ bearerAuth: [] }],
+      params: conversationParamsJsonSchema,
+      body: pixBodyJsonSchema,
+    },
+  }, async (request, reply) => {
+    const paramsResult = paramsSchema.safeParse(request.params);
+    if (!paramsResult.success) return reply.code(400).send({ error: 'conversationId obrigatório' });
+
+    const bodyResult = pixBodySchema.safeParse(request.body ?? undefined);
+    if (!bodyResult.success) return reply.code(400).send({ error: 'operatorId inválido' });
+
+    try {
+      await requestManualPixReply(paramsResult.data.conversationId, bodyResult.data?.operatorId);
+      return reply.code(202).send({ accepted: true });
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao enviar a chave Pix.' });
     }
   });
 }

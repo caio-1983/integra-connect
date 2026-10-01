@@ -153,6 +153,26 @@ export class EvolutionClient {
   }
 
   /**
+   * POST /message/sendButtons/{instance} — an interactive (native flow) message.
+   * v2 only. Verified against the v2.3.7 source:
+   *  - `title` becomes the bold first line of the body, `description` the rest,
+   *    `footer` the small grey line, and `thumbnailUrl` an image header that
+   *    Evolution downloads itself (so it must be a public URL);
+   *  - a `{ type: 'copy', displayText, copyCode }` button is a `cta_copy`;
+   *  - a `{ type: 'pix', currency, name, keyType, key }` button must be the only
+   *    one, and turns the whole message into WhatsApp's own Pix card
+   *    (`payment_info`), which ignores title/description/footer/thumbnail.
+   */
+  async sendButtons(instanceName: string, body: Record<string, unknown>): Promise<SendTextResult> {
+    const adapter = await this.getAdapter();
+    if (adapter.major !== 2) {
+      throw new Error('Enviar cartões interativos (Pix) requer Evolution API v2.');
+    }
+    const response = await this.request<unknown>('POST', `/message/sendButtons/${encodeURIComponent(instanceName)}`, body);
+    return adapter.parseSendResult(response);
+  }
+
+  /**
    * POST /chat/updateMessage/{instance} — edits the text of a message we sent.
    * v2 only. Verified against the v2.3.7 source:
    *  - body is `{ number, key: { id, remoteJid, fromMe }, text }`;

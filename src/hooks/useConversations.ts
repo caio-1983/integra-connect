@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { api, MAX_PINNED_CONVERSATIONS } from '@/services/api';
-import { sendConversationReply, sendConversationMediaReply, editConversationMessage } from '@/services/whatsappConnectionService';
+import { sendConversationReply, sendConversationMediaReply, sendConversationPix, editConversationMessage } from '@/services/whatsappConnectionService';
 import {
   UIConversation,
   UIMessage,
@@ -580,6 +580,18 @@ export function useConversations() {
     }
   }, []);
 
+  // No optimistic bubble: the card's stored text is built server-side from the
+  // registered key, and the realtime INSERT lands about a second later anyway.
+  const sendPixMessage = useCallback(async (conversationId: string) => {
+    try {
+      await sendConversationPix(conversationId, await currentOperatorId());
+    } catch (err) {
+      console.error('[useConversations] Error sending Pix:', err);
+      toast.error(err instanceof Error ? err.message : 'Erro ao enviar a chave Pix');
+      throw err;
+    }
+  }, []);
+
   /** Replaces a message's text in place (and the queue preview, when it is the
    *  last one). Shared by the optimistic edit, its rollback and realtime. */
   const patchMessageContent = useCallback((conversationId: string, messageId: string, content: string, editedAt: string | null) => {
@@ -821,6 +833,7 @@ export function useConversations() {
     realtimeConnected,
     sendMessage,
     sendMediaMessage,
+    sendPixMessage,
     editMessage,
     updateStatus,
     markAsRead,

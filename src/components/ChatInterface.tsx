@@ -28,7 +28,7 @@ import type { QueueFilter } from './workspace';
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, sendMediaMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, setPinned, assignConversation, appendLocalMessage, setConversationTags, loadTaggedConversations, refetch, hasMore, loadingMore, loadMore } = useConversations();
+  const { conversations, loading, sendMessage, sendMediaMessage, sendPixMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, setPinned, assignConversation, appendLocalMessage, setConversationTags, loadTaggedConversations, refetch, hasMore, loadingMore, loadMore } = useConversations();
   const { sdrName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
   const { grantsByInstance } = useInstanceAccessGrants();
@@ -58,6 +58,7 @@ const ChatInterface: React.FC = () => {
     && msg.sentBy === user.id
     && msg.type === MessageType.TEXT
     && !msg.mediaUrl
+    && !msg.pix
     && !!msg.whatsappMessageId
     && (msg.channel ?? 'whatsapp') === 'whatsapp'
     && !!msg.sentAt
@@ -207,6 +208,11 @@ const ChatInterface: React.FC = () => {
     await sendMediaMessage(activeChat.id, file, caption || undefined);
   };
 
+  const handleSendPix = async () => {
+    if (!activeChat) return;
+    await sendPixMessage(activeChat.id);
+  };
+
 
   const handleSimulateCustomerMessage = async (content: string) => {
     if (!activeChat) return;
@@ -327,6 +333,7 @@ const ChatInterface: React.FC = () => {
             onChange={setInputText}
             onSend={handleSendMessage}
             onAttach={handleSendMedia}
+            onSendPix={handleSendPix}
             isNinaActive={activeChat.status === 'nina'}
             sdrName={sdrName}
             replyingTo={replyingTo && {

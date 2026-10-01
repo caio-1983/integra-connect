@@ -1,4 +1,5 @@
 import type { MessageDeliveryStatus } from '../types/messageStatus.js';
+import type { PixMessageMeta } from './pix.js';
 
 /** Channel event names + payloads, all carried over the Sprint 010 EventBus (Ajuste 6). */
 
@@ -86,6 +87,8 @@ export interface InboundMessageReceivedPayload {
   isGroup?: boolean;
   /** Provider id of the message the customer quoted ("responder"), if any. */
   quotedProviderMessageId?: string;
+  /** A Pix card (e.g. a supplier sending theirs) — `text` holds its plain form. */
+  pix?: PixMessageMeta;
 }
 
 /**
@@ -109,6 +112,8 @@ export interface OutboundEchoReceivedPayload {
   media?: InboundMedia;
   isGroup?: boolean;
   quotedProviderMessageId?: string;
+  /** The WhatsApp Business app's own Pix card, sent from the phone. */
+  pix?: PixMessageMeta;
 }
 
 export interface OutboundMessageRequestedPayload {

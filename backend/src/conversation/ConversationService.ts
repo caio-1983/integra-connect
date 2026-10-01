@@ -3,7 +3,8 @@ import { logger } from '../logger/Logger.js';
 import { configService } from '../config/ConfigService.js';
 import { conversationRepository } from '../persistence/ConversationRepository.js';
 import { getConnector } from '../channels/connectorRegistry.js';
-import { applySignature } from '../channels/outboundSignature.js';
+import { applySignature, signatureFooter } from '../channels/outboundSignature.js';
+import { pixMessageText } from '../channels/pix.js';
 import { ensureAdCataloged } from '../channels/meta/MetaAdsCatalog.js';
 import { runAgentChat } from '../runtime/AgentRuntime.js';
 import { contactAvatarService } from './ContactAvatarService.js';
@@ -54,6 +55,7 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
     // Attribute the sender in group threads (contactName is the group subject).
     sender: msg.isGroup ? { name: msg.senderName, phone: msg.senderParticipant } : undefined,
     quotedProviderMessageId: msg.quotedProviderMessageId,
+    pix: msg.pix,
   });
   if (!inserted) return; // duplicate delivery — already handled
 
@@ -214,7 +216,7 @@ export async function requestMessageEdit(
   if (message.fromType !== 'human' || message.sentBy !== operatorId) {
     throw new Error('Só é possível editar as suas próprias mensagens.');
   }
-  if (message.type !== 'text' || message.mediaUrl) {
+  if (message.type !== 'text' || message.mediaUrl || message.metadata.pix) {
     throw new Error('Só mensagens de texto podem ser editadas.');
   }
   if (!message.providerMessageId) {
@@ -300,6 +302,39 @@ export async function requestManualMediaReply(conversationId: string, media: Man
     mediaType: media.mimeType,
     dbType: kind,
     operatorId: media.operatorId,
+  });
+}
+
+/**
+ * "Chave Pix" from the composer: sends the company's registered Pix key as a
+ * card the customer copies with one tap, like the WhatsApp Business app does.
+ * The key is read here, from Configurações — never taken from the request — so
+ * what reaches the customer is always the registered key. Handled directly, like
+ * media, so a failure reaches the attendant instead of vanishing in the bus.
+ */
+export async function requestManualPixReply(conversationId: string, operatorId?: string): Promise<void> {
+  const info = await conversationRepository.getConversationChannelInfo(conversationId);
+  if (!info) {
+    throw new Error('Conversa sem instância associada (anterior a este recurso, ou contato não encontrado).');
+  }
+
+  const connector = getConnector(info.provider);
+  if (!connector?.sendPix) throw new Error('Este canal não envia Pix.');
+
+  const pix = await conversationRepository.getPixSettings();
+  if (!pix) throw new Error('Chave Pix não cadastrada. Cadastre em Configurações.');
+
+  const signature = operatorId ? await conversationRepository.getOperatorName(operatorId) : undefined;
+  const { providerMessageId, card } = await connector.sendPix(info.instance, info.to, pix, { footer: signatureFooter(signature) });
+
+  await conversationRepository.insertOutboundMessage({
+    conversationId,
+    channel: info.channel,
+    providerMessageId,
+    content: pixMessageText(card),
+    fromType: 'human',
+    operatorId,
+    metadata: { pix: card },
   });
 }
 
@@ -392,6 +427,8 @@ async function onOutboundEcho(event: AppEvent): Promise<void> {
       fromType: 'human',
       tsSec: echo.tsSec,
       quotedProviderMessageId: echo.quotedProviderMessageId,
+      // The Pix card the Business app sends from the phone.
+      metadata: echo.pix ? { pix: echo.pix } : undefined,
     });
   }
 

@@ -1,4 +1,5 @@
-import type { ChannelConnector, OutboundMediaPayload, SendTextOptions } from '../ChannelConnector.js';
+import type { ChannelConnector, OutboundMediaPayload, SendPixOptions, SendTextOptions } from '../ChannelConnector.js';
+import { pixCardStyle, pixHeaderImageUrl, pixKeyLine, type PixDetails } from '../pix.js';
 import { parseInbound, parseOutboundEcho, parseStatusUpdate } from './inboundParser.js';
 import { getEvolutionClient } from './evolutionClientInstance.js';
 import type { NormalizedInbound, NormalizedOutboundEcho } from './types.js';
@@ -84,5 +85,27 @@ export const evolutionChannelConnector: ChannelConnector = {
 
   async editText(instance: string, providerMessageId: string, text: string) {
     await getEvolutionClient().updateMessage(instance, providerMessageId, text);
+  },
+
+  async sendPix(instance: string, to: string, pix: PixDetails, options?: SendPixOptions) {
+    if (pixCardStyle() === 'native') {
+      const { providerMessageId } = await getEvolutionClient().sendButtons(instance, {
+        number: to,
+        title: 'Chave Pix',
+        buttons: [{ type: 'pix', currency: 'BRL', name: pix.merchant_name, keyType: pix.key_type, key: pix.key }],
+      });
+      return { providerMessageId, card: { ...pix, variant: 'native' as const } };
+    }
+
+    const headerUrl = pixHeaderImageUrl();
+    const { providerMessageId } = await getEvolutionClient().sendButtons(instance, {
+      number: to,
+      title: 'Chave Pix',
+      description: `${pix.merchant_name}\n${pixKeyLine(pix)}`,
+      ...(options?.footer ? { footer: options.footer } : {}),
+      ...(headerUrl ? { thumbnailUrl: headerUrl } : {}),
+      buttons: [{ type: 'copy', displayText: 'Copiar chave Pix', copyCode: pix.key }],
+    });
+    return { providerMessageId, card: { ...pix, variant: 'branded' as const, ...(headerUrl ? { header_url: headerUrl } : {}) } };
   },
 };

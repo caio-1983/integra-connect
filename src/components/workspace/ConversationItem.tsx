@@ -48,7 +48,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
   const lastMsg = conversation.messages[conversation.messages.length - 1];
   const lastMsgType = lastMsg?.type;
   const lastMsgPreview =
-    lastMsgType === MessageType.IMAGE || lastMsgType === MessageType.AUDIO ? messagePreview(lastMsg) :
+    lastMsg?.pix || lastMsgType === MessageType.IMAGE || lastMsgType === MessageType.AUDIO ? messagePreview(lastMsg) :
     stripMediaEmoji(conversation.lastMessage || '') || 'Sem mensagens';
   const PreviewIcon = previewIcon(lastMsg, conversation.lastMessage);
 

@@ -139,6 +139,21 @@ export async function sendConversationMediaReply(conversationId: string, media: 
   await handle<{ accepted: true }>(res);
 }
 
+/** Sends the company's registered Pix key as a card ("Copiar chave Pix"). The
+ * key is read server-side from Configurações — only the operator goes here. A
+ * refusal throws the backend's own reason (e.g. no key registered yet). */
+export async function sendConversationPix(conversationId: string, operatorId?: string): Promise<void> {
+  const res = await fetch(`${base()}/v1/conversations/${encodeURIComponent(conversationId)}/reply-pix`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ operatorId }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error || 'Erro ao enviar a chave Pix.');
+  }
+}
+
 export interface StartConversationResult { conversationId: string; contactId: string; created: boolean; }
 
 /** "Nova Conversa" — finds or creates the contact/conversation ahead of the first message. */

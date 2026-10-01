@@ -2,6 +2,7 @@
 export * from './channel';
 import type { ChannelType, ChannelIdentity, TimelineSource } from './channel';
 import { contactDisplayName } from '@/lib/utils';
+import { pixFromMetadata, type PixCardData } from '@/lib/pix';
 
 // ============= WhatsApp Instance Types (Sprint 012) =============
 export * from './whatsappInstance';
@@ -429,6 +430,9 @@ export interface UIMessage {
   replyToId?: string | null;
   /** When the text was last edited (messages.metadata.edited_at) — shows "Editada". */
   editedAt?: string | null;
+  /** Set when the message is a Pix card (messages.metadata.pix); `content` then
+   *  holds its plain-text form, for previews and search. */
+  pix?: PixCardData | null;
 }
 
 // ============= Utility Functions =============
@@ -492,6 +496,7 @@ export function transformDBToUIMessage(msg: DBMessage): UIMessage {
     senderPhone: (msg.metadata as { sender?: { phone?: string | null } } | null)?.sender?.phone ?? null,
     replyToId: msg.reply_to_id ?? null,
     editedAt: (msg.metadata as { edited_at?: string } | null)?.edited_at ?? null,
+    pix: pixFromMetadata(msg.metadata),
   };
 }
 

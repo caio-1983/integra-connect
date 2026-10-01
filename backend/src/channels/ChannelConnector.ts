@@ -1,4 +1,5 @@
 import type { ParsedChannelEvent } from './evolution/types.js';
+import type { PixDetails, PixMessageMeta } from './pix.js';
 
 /** Outbound media a human operator attaches to a reply. `base64` has no data:
  *  prefix. `mediatype` is the coarse WhatsApp kind; `mimetype` the exact type. */
@@ -38,4 +39,14 @@ export interface ChannelConnector {
   /** Replace the text of a message we already sent. Optional: a channel with no
    *  edit API (Messenger/Instagram) leaves it out and the caller refuses the edit. */
   editText?(instance: string, providerMessageId: string, text: string): Promise<void>;
+  /** Send the company's Pix key as a card the customer copies with one tap.
+   *  Returns the card actually sent, so the stored row matches what the customer
+   *  saw. Optional: a channel without interactive cards leaves it out. */
+  sendPix?(instance: string, to: string, pix: PixDetails, options?: SendPixOptions): Promise<{ providerMessageId?: string; card: PixMessageMeta }>;
+}
+
+export interface SendPixOptions {
+  /** Small line under the card — the attendant's name, since a card has no
+   *  room for the `*Nome*` signature a text reply carries. */
+  footer?: string;
 }

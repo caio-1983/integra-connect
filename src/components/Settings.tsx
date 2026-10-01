@@ -2,6 +2,7 @@ import React from 'react';
 import { PageContainer, PageHeader } from '@/components/layout';
 import { AppearanceSettings } from '@/components/settings/AppearanceSettings';
 import { QuickRepliesSettings } from '@/components/settings/QuickRepliesSettings';
+import { PixSettings } from '@/components/settings/PixSettings';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { ROLE_LABEL } from '@/components/team/teamLabels';
 
@@ -23,6 +24,8 @@ const Settings: React.FC = () => {
         )}
       />
         <QuickRepliesSettings />
+
+        <PixSettings />
 
         <AppearanceSettings />
       </div>

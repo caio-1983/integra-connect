@@ -188,6 +188,8 @@
   --wa-meta: #667781;
   --wa-wave: #b4bcc1;
   --wa-quote: #06cf9c;
+  /* Tappable text inside a bubble (a card's "Copiar chave Pix"). */
+  --wa-action: #008069;
 }
 .chat-wall::before {
   content: '';
@@ -207,6 +209,8 @@
   --wa-text: #e9edef;
   --wa-meta: #8696a0;
   --wa-wave: #6a7a84;
+  /* Lighter than the app's dark primary, which fades into the green outgoing bubble. */
+  --wa-action: #7ae3c3;
 }
 .dark .chat-wall::before {
   background-color: #141f26;

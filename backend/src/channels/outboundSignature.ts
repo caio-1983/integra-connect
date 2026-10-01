@@ -39,3 +39,10 @@ export function applySignature(text: string, signature: string | undefined, chan
   const label = channel === 'whatsapp' ? `*${name}*` : `${name}:`;
   return text.trim().length === 0 ? label : `${label}\n${text}`;
 }
+
+/** The same signature for a card, which has no text to prefix — it goes in the
+ *  card's footer line instead. Undefined when signing is off or there is no name. */
+export function signatureFooter(signature: string | undefined): string | undefined {
+  if (!signature || !isEnabled()) return undefined;
+  return signature.trim() || undefined;
+}

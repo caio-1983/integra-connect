@@ -1,5 +1,6 @@
 import type { ConversationMode, IncomingMessage, MessageDeliveryStatus } from '../types/index.js';
 import type { InboundAttribution, InboundMedia } from '../channels/channelEvents.js';
+import type { PixDetails, PixKeyType, PixMessageMeta } from '../channels/pix.js';
 import { getSupabase } from './supabaseClient.js';
 import { logger } from '../logger/Logger.js';
 import { configService } from '../config/ConfigService.js';
@@ -577,6 +578,20 @@ class ConversationRepository {
     return name;
   }
 
+  /** The company's Pix key from Configurações, or null when none is registered
+   *  yet. Read fresh on every send: it is one row, and a key changed in the
+   *  settings screen must never go out stale. */
+  async getPixSettings(): Promise<PixDetails | null> {
+    const { data, error } = await getSupabase()
+      .from('pix_settings')
+      .select('merchant_name, key_type, pix_key')
+      .eq('id', true)
+      .maybeSingle();
+    if (error) throw new Error(`[repo] failed to read pix settings: ${error.message}`);
+    if (!data?.pix_key || !data.merchant_name) return null;
+    return { merchant_name: data.merchant_name, key: data.pix_key, key_type: data.key_type as PixKeyType };
+  }
+
   /** Best-effort name lookup for phone numbers we already know as contacts —
    * used to enrich a WhatsApp group's participant list (people who've never
    * messaged us directly just show as a phone number). */
@@ -624,6 +639,8 @@ class ConversationRepository {
      *  can label each bubble (the conversation contactName is the group subject). */
     sender?: { name?: string; phone?: string };
     quotedProviderMessageId?: string;
+    /** A Pix card the other side sent — drawn as a card in the timeline. */
+    pix?: PixMessageMeta;
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
     const replyToId = await this.resolveReplyToId(input.conversationId, input);
@@ -649,7 +666,7 @@ class ConversationRepository {
       status: 'sent',
       sent_at: sentAt,
       reply_to_id: replyToId,
-      ...(sender ? { metadata: { sender } } : {}),
+      ...(sender || input.pix ? { metadata: { ...(sender ? { sender } : {}), ...(input.pix ? { pix: input.pix } : {}) } } : {}),
     });
 
     if (error) {
@@ -675,6 +692,8 @@ class ConversationRepository {
     replyToId?: string;
     /** Provider id of the quoted message (echo from the phone). */
     quotedProviderMessageId?: string;
+    /** `messages.metadata` — e.g. `{ pix }` for a Pix card. */
+    metadata?: Record<string, unknown>;
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
     const replyToId = await this.resolveReplyToId(input.conversationId, input);
@@ -689,6 +708,7 @@ class ConversationRepository {
       status: 'sent',
       sent_at: input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString(),
       reply_to_id: replyToId,
+      ...(input.metadata ? { metadata: input.metadata } : {}),
     });
 
     if (error) {
@@ -796,16 +816,20 @@ class ConversationRepository {
     fromType: 'nina' | 'human';
     operatorId?: string;
     replyToId?: string;
+    /** Only our pipeline knows it too: the echo of our branded Pix card reads
+     *  as plain body text, and the row must still render as the card. */
+    metadata?: Record<string, unknown>;
   }): Promise<void> {
-    if (!input.providerMessageId || !input.operatorId) return;
+    if (!input.providerMessageId || (!input.operatorId && !input.metadata)) return;
     const supabase = getSupabase();
     const { error } = await supabase
       .from('messages')
       .update({
-        sent_by: input.operatorId,
+        ...(input.operatorId ? { sent_by: input.operatorId } : {}),
         from_type: input.fromType,
         content: input.content,
         ...(input.replyToId ? { reply_to_id: input.replyToId } : {}),
+        ...(input.metadata ? { metadata: input.metadata } : {}),
       })
       // Scoped to the conversation: the same provider id also exists as the
       // inbound row when the recipient is another number on this platform.

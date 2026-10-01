@@ -9,6 +9,7 @@ import type { MessageDeliveryStatus } from '../../types/messageStatus.js';
 import type { InboundAttribution } from '../channelEvents.js';
 import { extractRefToken } from '../attributionToken.js';
 import { MEDIA_PLACEHOLDER } from '../mediaPlaceholder.js';
+import { pixKeyTypeFromWire, pixMessageText, type PixMessageMeta } from '../pix.js';
 import { logger } from '../../logger/Logger.js';
 
 /** Default mimetype per kind when Evolution omits it. */
@@ -88,6 +89,50 @@ function extractQuotedId(data: Record<string, any>, message: Record<string, any>
   return undefined;
 }
 
+/**
+ * The `interactiveMessage` node of a native-flow message, if this is one. Baileys
+ * sends those inside a view-once envelope (Evolution's sendButtons does, and so
+ * does the WhatsApp Business app), sometimes under an ephemeral one too — so up
+ * to a few wrappers are peeled off. Only interactive content is looked for: a
+ * view-once photo stays unhandled, as before.
+ */
+function unwrapInteractive(message: Record<string, any>): Record<string, any> | undefined {
+  let node: Record<string, any> | undefined = message;
+  for (let depth = 0; node && depth < 4; depth++) {
+    if (node.interactiveMessage) return node.interactiveMessage;
+    node = node.viewOnceMessage?.message ?? node.viewOnceMessageV2?.message ?? node.viewOnceMessageV2Extension?.message ?? node.ephemeralMessage?.message;
+  }
+  return undefined;
+}
+
+/**
+ * The Pix key on WhatsApp's own Pix card — the `payment_info` button the
+ * WhatsApp Business app sends from the phone. Its params are a JSON string;
+ * the key itself is in `payment_settings[].pix_static_code`.
+ */
+function extractPix(interactive: Record<string, any>): PixMessageMeta | undefined {
+  const buttons: unknown[] = interactive.nativeFlowMessage?.buttons ?? [];
+  for (const button of buttons as Array<Record<string, any>>) {
+    if (button?.name !== 'payment_info' || typeof button.buttonParamsJson !== 'string') continue;
+    let params: Record<string, any>;
+    try {
+      params = JSON.parse(button.buttonParamsJson);
+    } catch {
+      continue;
+    }
+    const settings: Array<Record<string, any>> = Array.isArray(params?.payment_settings) ? params.payment_settings : [];
+    const pix = settings.find((s) => s?.type === 'pix_static_code')?.pix_static_code;
+    if (!pix?.key) continue;
+    return {
+      merchant_name: String(pix.merchant_name ?? ''),
+      key: String(pix.key),
+      key_type: pixKeyTypeFromWire(pix.key_type),
+      variant: 'native',
+    };
+  }
+  return undefined;
+}
+
 /** One `messages.upsert` envelope, already normalized, plus the direction flag
  *  the two public parsers below discriminate on. */
 interface ParsedEnvelope {
@@ -139,10 +184,21 @@ function parseMessageEnvelope(rawBody: unknown): ParsedEnvelope | null {
   const caption: string | undefined =
     msg.imageMessage?.caption ?? msg.videoMessage?.caption ?? documentNode?.caption;
 
+  // Interactive cards: a Pix card becomes its plain-text form plus `pix` (the
+  // timeline draws the card from that); any other card keeps its body text —
+  // that includes the echo of our own branded Pix card, whose row the send
+  // pipeline then completes (patchOutboundAttribution).
+  const interactive = unwrapInteractive(msg);
+  const pix = interactive ? extractPix(interactive) : undefined;
+  const interactiveText: string | undefined = pix
+    ? pixMessageText(pix)
+    : (typeof interactive?.body?.text === 'string' ? interactive.body.text.trim() || undefined : undefined);
+
   const rawText: string | undefined =
     msg.conversation ??
     msg.extendedTextMessage?.text ??
     caption ??
+    interactiveText ??
     (mediaNode ? MEDIA_PLACEHOLDER[mediaNode.kind] : undefined);
 
   // Origin signals, resolved before the text is normalized. A Meta ad reply wins
@@ -161,8 +217,9 @@ function parseMessageEnvelope(rawBody: unknown): ParsedEnvelope | null {
     // Diagnostic: a message arrived but produced no text/media we handle — log
     // its type keys so an unrecognized WhatsApp message type (e.g. location,
     // contact card, poll) can be identified and added rather than silently dropped.
-    if (data.message && !fromMe) {
-      logger.info({ instance, messageTypes: Object.keys(data.message) }, '[evolution] inbound message dropped — no handled text/media');
+    // Echoes too: what the team sends from the phone was vanishing without a trace.
+    if (data.message) {
+      logger.info({ instance, fromMe, messageTypes: Object.keys(data.message) }, '[evolution] message dropped — no handled text/media');
     }
     return null;
   }
@@ -218,6 +275,7 @@ function parseMessageEnvelope(rawBody: unknown): ParsedEnvelope | null {
       senderName: isGroup ? (data.pushName ?? undefined) : undefined,
       attribution,
       quotedProviderMessageId: extractQuotedId(data, msg),
+      pix,
     },
   };
 }
@@ -249,9 +307,9 @@ export function parseOutboundEcho(rawBody: unknown): NormalizedOutboundEcho | nu
   const parsed = parseMessageEnvelope(rawBody);
   if (!parsed || !parsed.fromMe) return null;
 
-  const { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId } =
+  const { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId, pix } =
     parsed.message;
-  return { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId };
+  return { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId, pix };
 }
 
 // Evolution forwards Baileys' numeric WAMessageStatus ack levels in some

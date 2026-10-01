@@ -1,10 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Paperclip, Mic, SendHorizontal, X, Zap, Plus } from 'lucide-react';
+import { Paperclip, Mic, SendHorizontal, X, Zap, Plus, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { fetchQuickReplyImage, useQuickReplies, type QuickReply } from '@/hooks/useQuickReplies';
+import { usePixSettings } from '@/hooks/usePixSettings';
 import { EmojiPicker } from './EmojiPicker';
+import { PixBubblePreview, PixMark } from './PixCard';
 
 interface MessageComposerProps {
   value: string;
@@ -12,6 +16,8 @@ interface MessageComposerProps {
   onSend: () => void;
   /** Sends a picked file as a WhatsApp attachment (any composer text rides as caption). */
   onAttach?: (file: File) => void;
+  /** Sends the company's registered Pix key as a card. Rejects on failure (already toasted). */
+  onSendPix?: () => Promise<void>;
   isNinaActive: boolean;
   sdrName: string;
   /** Message being replied to — shown above the input until sent or cancelled. */
@@ -20,6 +26,9 @@ interface MessageComposerProps {
 }
 
 const RECORDING_MIME_CANDIDATES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+
+const ACCEPT_ANY_FILE = 'image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip';
+const ACCEPT_PHOTOS_VIDEOS = 'image/*,video/*';
 
 function pickRecordingMimeType(): string | undefined {
   if (typeof MediaRecorder === 'undefined') return undefined;
@@ -33,7 +42,7 @@ function formatDuration(totalSeconds: number): string {
 }
 
 const MessageComposer: React.FC<MessageComposerProps> = ({
-  value, onChange, onSend, onAttach, isNinaActive, sdrName, replyingTo, onCancelReply,
+  value, onChange, onSend, onAttach, onSendPix, isNinaActive, sdrName, replyingTo, onCancelReply,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -47,6 +56,10 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
   const discardRef = useRef(false);
 
   const { quickReplies } = useQuickReplies();
+  const { pixSettings } = usePixSettings();
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [pixConfirmOpen, setPixConfirmOpen] = useState(false);
+  const [sendingPix, setSendingPix] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
   const [dismissedSlash, setDismissedSlash] = useState<string | null>(null);
   const [quickRepliesOpen, setQuickRepliesOpen] = useState(false);
@@ -141,6 +154,28 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     const file = e.target.files?.[0];
     if (file && onAttach) onAttach(file);
     e.target.value = ''; // allow re-picking the same file
+  };
+
+  /** "Documento" and "Fotos e vídeos" share one input; only the picker filter differs. */
+  const pickFile = (accept: string) => {
+    setAttachMenuOpen(false);
+    const input = fileInputRef.current;
+    if (!input) return;
+    input.accept = accept;
+    input.click();
+  };
+
+  const confirmSendPix = async () => {
+    if (!onSendPix) return;
+    setSendingPix(true);
+    try {
+      await onSendPix();
+      setPixConfirmOpen(false);
+    } catch {
+      // Already toasted by the sender; the dialog stays open to retry.
+    } finally {
+      setSendingPix(false);
+    }
   };
 
   // Quick replies, WhatsApp Business style: a message that is just "/atalho"
@@ -249,6 +284,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
   const iconButton = 'w-10 h-10 flex items-center justify-center rounded-full text-icon hover:bg-accent transition-colors flex-shrink-0';
   const attachmentRow = 'mb-2 flex items-center gap-2 rounded-lg bg-card px-2 py-1.5';
   const removeButton = 'p-1 rounded-full text-icon hover:bg-accent flex-shrink-0';
+  const attachItem = 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14.5px] text-foreground text-left hover:bg-accent transition-colors';
 
   return (
     <div className="px-4 py-2.5 bg-muted flex-shrink-0">
@@ -314,18 +350,49 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
               ref={fileInputRef}
               type="file"
               className="hidden"
-              accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+              accept={ACCEPT_ANY_FILE}
               onChange={handleFileChange}
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              title="Anexar"
-              aria-label="Anexar arquivo"
-              className={iconButton}
-            >
-              <Plus className="w-6 h-6" />
-            </button>
+            <Popover open={attachMenuOpen} onOpenChange={setAttachMenuOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  title="Anexar"
+                  aria-label="Anexar"
+                  className={cn(iconButton, 'group data-[state=open]:bg-secondary')}
+                >
+                  <Plus className="w-6 h-6 transition-transform group-data-[state=open]:rotate-45" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-60 p-2 shadow-wa-menu">
+                <div className="flex flex-col">
+                  <button type="button" onClick={() => pickFile(ACCEPT_ANY_FILE)} className={attachItem}>
+                    <FileText className="w-5 h-5 text-[#7f66ff]" aria-hidden="true" />
+                    Documento
+                  </button>
+                  <button type="button" onClick={() => pickFile(ACCEPT_PHOTOS_VIDEOS)} className={attachItem}>
+                    <ImageIcon className="w-5 h-5 text-[#007bfc]" aria-hidden="true" />
+                    Fotos e vídeos
+                  </button>
+                  {onSendPix && (
+                    <button
+                      type="button"
+                      disabled={!pixSettings}
+                      onClick={() => { setAttachMenuOpen(false); setPixConfirmOpen(true); }}
+                      className={cn(attachItem, 'disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent')}
+                    >
+                      <PixMark className="w-5 h-5 text-[#32bcad]" />
+                      <span className="flex flex-col items-start">
+                        Chave Pix
+                        {!pixSettings && (
+                          <span className="text-[12px] text-muted-foreground">Cadastre em Configurações</span>
+                        )}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
             <Popover open={quickRepliesOpen} onOpenChange={setQuickRepliesOpen}>
               <PopoverTrigger asChild>
                 <button
@@ -455,6 +522,25 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
           </button>
         )}
       </div>
+
+      {pixSettings && (
+        <Dialog open={pixConfirmOpen} onOpenChange={(open) => { if (!sendingPix) setPixConfirmOpen(open); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Enviar chave Pix</DialogTitle>
+              <DialogDescription>O cliente recebe este cartão e copia a chave com um toque.</DialogDescription>
+            </DialogHeader>
+            <PixBubblePreview card={{ ...pixSettings, variant: 'branded' }} />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPixConfirmOpen(false)} disabled={sendingPix}>Cancelar</Button>
+              <Button onClick={confirmSendPix} disabled={sendingPix}>
+                {sendingPix && <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />}
+                Enviar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

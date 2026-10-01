@@ -1,8 +1,9 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Pencil, Sparkles, Camera, Mic, FileText, Video, type LucideIcon } from 'lucide-react';
+import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Pencil, Sparkles, Camera, Mic, FileText, Video, Diamond, type LucideIcon } from 'lucide-react';
 import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn, contactDisplayName } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
+import { PixCard } from './PixCard';
 
 const WAVE_BARS = 40;
 
@@ -67,6 +68,7 @@ const MEDIA_PREFIX: Array<[RegExp, LucideIcon]> = [
 
 /** Icon for a message preview (quote, reply bar, queue row), or null for plain text. */
 export function previewIcon(msg: UIMessage | undefined, fallbackText = ''): LucideIcon | null {
+  if (msg?.pix) return Diamond;
   if (msg?.type === MessageType.IMAGE) return Camera;
   if (msg?.type === MessageType.AUDIO) return Mic;
   const text = msg ? msg.content ?? '' : fallbackText;
@@ -152,6 +154,7 @@ export function imageCaption(msg: UIMessage): string {
 
 /** One-line preview of a message, as shown inside a quote or the reply bar. */
 export function messagePreview(msg: UIMessage): string {
+  if (msg.pix) return 'Chave Pix';
   switch (msg.type) {
     case MessageType.IMAGE: return imageCaption(msg) || 'Foto';
     case MessageType.AUDIO: return 'Áudio';
@@ -376,7 +379,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
         const canReply = !!onReply && !msg.id.startsWith('temp-');
         const caption = msg.type === MessageType.IMAGE ? imageCaption(msg) : '';
         const bareImage = msg.type === MessageType.IMAGE && !msg.replyToId && !caption;
-        const isText = msg.type !== MessageType.IMAGE && msg.type !== MessageType.AUDIO && !msg.mediaUrl;
+        const isText = !msg.pix && msg.type !== MessageType.IMAGE && msg.type !== MessageType.AUDIO && !msg.mediaUrl;
         const hoverAction = 'self-center p-1.5 rounded-full text-[var(--wa-meta)] hover:bg-black/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0';
         const replyButton = canReply && (
           <button
@@ -447,7 +450,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                 'relative rounded-lg text-[14.2px] leading-[19px] text-[var(--wa-text)] shadow-wa-bubble',
                 isOutgoing ? 'bg-[var(--wa-out)]' : 'bg-[var(--wa-in)]',
                 firstOfRun && (isOutgoing ? 'rounded-tr-none wa-tail-out' : 'rounded-tl-none wa-tail-in'),
-                msg.type === MessageType.IMAGE ? 'p-1' : 'px-2 pt-1.5 pb-2',
+                msg.type === MessageType.IMAGE || msg.pix ? 'p-1' : 'px-2 pt-1.5 pb-2',
               )}>
                 {!isOutgoing && isGroup && firstOfRun && (msg.senderName || msg.senderPhone) && (
                   <span className={cn('block mb-0.5 text-[12.8px] font-semibold', senderColorClass(msg.senderPhone || msg.senderName || ''))}>
@@ -477,7 +480,9 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                     )}
                   </button>
                 )}
-                {isText ? (
+                {msg.pix ? (
+                  <PixCard card={msg.pix} meta={meta} />
+                ) : isText ? (
                   <p className="whitespace-pre-wrap break-words">
                     {linkify(msg.content)}
                     {/* Spacer so the floating time never overlaps the last line ("Editada" widens it). */}
