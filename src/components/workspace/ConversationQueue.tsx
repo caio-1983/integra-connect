@@ -28,6 +28,7 @@ interface ConversationQueueProps {
   onMarkAsUnread?: (id: string) => void;
   onMarkAsRead?: (id: string) => void;
   onSetArchived?: (id: string, archived: boolean) => void;
+  onSetPinned?: (id: string, pinned: boolean) => void;
   /** Controlled filter — lets the chat home's shortcuts ("Aguardando", "Minhas") drive the list. */
   activeFilter?: QueueFilter;
   onFilterChange?: (filter: QueueFilter) => void;
@@ -110,7 +111,7 @@ function buildCounts(conversations: UIConversation[], userId: string | undefined
 
 const ConversationQueue: React.FC<ConversationQueueProps> = ({
   conversations, selectedId, onSelect, loading, sdrName, onNewConversation, teamMembers = [],
-  onMarkAsUnread, onMarkAsRead, onSetArchived,
+  onMarkAsUnread, onMarkAsRead, onSetArchived, onSetPinned,
   activeFilter: controlledFilter, onFilterChange, taskBadgeByContact,
   hasMore = false, loadingMore = false, onLoadMore,
 }) => {
@@ -162,7 +163,14 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
     : list.filter(c => c.instance === instanceFilter);
   const counts = buildCounts(byInstance(inbox), user?.id);
   const archivedCount = byInstance(archived).length;
-  const filtered = applyFilter(searchBase, showArchived ? 'all' : activeFilter, searchQuery, instanceFilter, user?.id);
+  const matches = applyFilter(searchBase, showArchived ? 'all' : activeFilter, searchQuery, instanceFilter, user?.id);
+  // WhatsApp: pinned conversations stay on top of the inbox, the most recently
+  // pinned first; the rest keep their recency order. Archived ones don't pin.
+  const isPinned = (c: UIConversation) => !!c.pinnedAt && !c.isArchived;
+  const filtered = showArchived ? matches : [
+    ...matches.filter(isPinned).sort((a, b) => b.pinnedAt!.localeCompare(a.pinnedAt!)),
+    ...matches.filter(c => !isPinned(c)),
+  ];
 
   return (
     <div className="w-[30%] min-w-[320px] max-w-[560px] border-r border-border flex flex-col bg-card flex-shrink-0">
@@ -272,6 +280,8 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
               onMarkAsUnread={onMarkAsUnread && (() => onMarkAsUnread(conv.id))}
               onMarkAsRead={onMarkAsRead && (() => onMarkAsRead(conv.id))}
               onToggleArchived={onSetArchived && (() => onSetArchived(conv.id, !conv.isArchived))}
+              isPinned={isPinned(conv)}
+              onTogglePinned={onSetPinned && !conv.isArchived ? () => onSetPinned(conv.id, !conv.pinnedAt) : undefined}
               showArchivedBadge={!showArchived}
               taskBadge={taskBadgeByContact?.get(conv.contactId)}
               campaign={campaignByContact.get(conv.contactId)}

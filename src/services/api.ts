@@ -85,6 +85,8 @@ const getDateString = (date: Date): string => {
 
 /** Conversations per page in the queue — more load as the list is scrolled. */
 const CONVERSATION_PAGE_SIZE = 50;
+/** Pins per attendant — the enforce_conversation_pin_limit trigger holds the same number. */
+export const MAX_PINNED_CONVERSATIONS = 5;
 /** Messages loaded per conversation (the most recent ones). */
 const MESSAGES_PER_CONVERSATION = 100;
 
@@ -1430,9 +1432,10 @@ export const api = {
   fetchConversations: async (): Promise<ConversationPage> => {
     // Archived ones are loaded in a separate query so they never push live
     // conversations out of the first page.
-    const [inbox, archived] = await Promise.all([
+    const [inbox, archived, pins] = await Promise.all([
       inboxQuery().limit(CONVERSATION_PAGE_SIZE),
       activeConversationsQuery().not('archived_at', 'is', null).limit(100),
+      (supabase as any).from('conversation_pins').select('conversation_id, pinned_at'),
     ]);
 
     const convError = inbox.error ?? archived.error;
@@ -1440,9 +1443,27 @@ export const api = {
       console.error('[API] Error fetching conversations:', convError);
       throw convError;
     }
+    // Pins are a convenience: failing to read them must not take the inbox down.
+    if (pins.error) console.error('[API] Error fetching conversation pins:', pins.error);
 
+    const pinnedAt = new Map<string, string>(
+      ((pins.data ?? []) as { conversation_id: string; pinned_at: string }[])
+        .map(p => [p.conversation_id, p.pinned_at]),
+    );
+    const rows = [...(inbox.data ?? []), ...(archived.data ?? [])];
+    // A pinned conversation stays on top however old it is, so it is loaded
+    // even when it falls beyond the first page.
+    const loaded = new Set(rows.map(r => r.id));
+    const missing = [...pinnedAt.keys()].filter(id => !loaded.has(id));
+    if (missing.length) {
+      const { data, error } = await activeConversationsQuery().in('id', missing);
+      if (error) console.error('[API] Error fetching pinned conversations:', error);
+      rows.push(...(data ?? []));
+    }
+
+    const conversations = await withRecentMessages(rows);
     return {
-      conversations: await withRecentMessages([...(inbox.data ?? []), ...(archived.data ?? [])]),
+      conversations: conversations.map(c => ({ ...c, pinnedAt: pinnedAt.get(c.id) ?? null })),
       nextCursor: pageCursor(inbox.data ?? []),
     };
   },
@@ -1568,6 +1589,22 @@ export const api = {
 
     if (error) {
       console.error('[API] Error updating conversation archive state:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Pin / unpin a conversation for the logged-in attendant only (RLS fills and
+   * checks user_id). Pinning past the limit fails with the trigger's message.
+   */
+  setConversationPinned: async (conversationId: string, pinned: boolean): Promise<void> => {
+    const pins = (supabase as any).from('conversation_pins');
+    const { error } = pinned
+      ? await pins.insert({ conversation_id: conversationId })
+      : await pins.delete().eq('conversation_id', conversationId);
+
+    if (error) {
+      console.error('[API] Error updating conversation pin:', error);
       throw error;
     }
   },

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { api } from '@/services/api';
+import { api, MAX_PINNED_CONVERSATIONS } from '@/services/api';
 import { sendConversationReply, sendConversationMediaReply, editConversationMessage } from '@/services/whatsappConnectionService';
 import {
   UIConversation,
@@ -681,6 +681,33 @@ export function useConversations() {
     }
   }, []);
 
+  // Pin / unpin for the logged-in attendant. Optimistic with rollback; the
+  // limit is checked here for a friendly message and again by the DB trigger.
+  const setPinned = useCallback(async (conversationId: string, pinned: boolean) => {
+    const pinnedCount = conversations.filter(c => c.pinnedAt && !c.isArchived).length;
+    if (pinned && pinnedCount >= MAX_PINNED_CONVERSATIONS) {
+      toast.error(`Você pode fixar até ${MAX_PINNED_CONVERSATIONS} conversas`);
+      return;
+    }
+    const previous = conversations.find(c => c.id === conversationId)?.pinnedAt ?? null;
+    setConversations(prev => prev.map(conv =>
+      conv.id === conversationId ? { ...conv, pinnedAt: pinned ? new Date().toISOString() : null } : conv
+    ));
+
+    try {
+      await api.setConversationPinned(conversationId, pinned);
+    } catch (err) {
+      console.error('[useConversations] Error updating pin:', err);
+      setConversations(prev => prev.map(conv =>
+        conv.id === conversationId ? { ...conv, pinnedAt: previous } : conv
+      ));
+      const atLimit = (err as { code?: string })?.code === '23514';
+      toast.error(atLimit
+        ? `Você pode fixar até ${MAX_PINNED_CONVERSATIONS} conversas`
+        : pinned ? 'Erro ao fixar conversa' : 'Erro ao desafixar conversa');
+    }
+  }, [conversations]);
+
   /**
    * Assign a conversation to a team member (and its contact's deals with it).
    *
@@ -747,6 +774,7 @@ export function useConversations() {
     markAsRead,
     markAsUnread,
     setArchived,
+    setPinned,
     assignConversation,
     appendLocalMessage,
     setConversationTags,

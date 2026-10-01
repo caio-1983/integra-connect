@@ -1,6 +1,6 @@
 import React from 'react';
 import { ContactAvatar } from '@/components/workspace/ContactAvatar';
-import { Bot, User, Pause, ChevronDown, MailX, MailOpen, Archive, ArchiveRestore, Clock, SquareCheck } from 'lucide-react';
+import { Bot, User, Pause, ChevronDown, MailX, MailOpen, Archive, ArchiveRestore, Clock, SquareCheck, Pin, PinOff } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -22,6 +22,9 @@ interface ConversationItemProps {
   onMarkAsUnread?: () => void;
   onMarkAsRead?: () => void;
   onToggleArchived?: () => void;
+  /** Pinned to the top by the logged-in attendant — pin icon on the row. */
+  isPinned?: boolean;
+  onTogglePinned?: () => void;
   /** Shows an "Arquivada" chip — used when archived rows appear in a search. */
   showArchivedBadge?: boolean;
   /** The logged-in attendant's most urgent pending task for this contact. */
@@ -36,7 +39,7 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
   paused: { icon: Pause, color: 'bg-warning-subtle text-warning' },
 };
 
-const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName, teamMembers = [], onMarkAsUnread, onMarkAsRead, onToggleArchived, showArchivedBadge, taskBadge, campaign }) => {
+const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName, teamMembers = [], onMarkAsUnread, onMarkAsRead, onToggleArchived, isPinned, onTogglePinned, showArchivedBadge, taskBadge, campaign }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel = conversation.status === 'nina' ? sdrName : conversation.status === 'human' ? 'Humano' : 'Pausado';
   const channelCfg = CHANNEL_CONFIG[conversation.primaryChannel];
@@ -115,6 +118,12 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
           )}
           {PreviewIcon && <PreviewIcon className="w-4 h-4 text-icon flex-shrink-0" aria-hidden="true" />}
           <span className="flex-1 min-w-0 text-sm text-muted-foreground truncate">{lastMsgPreview}</span>
+          {isPinned && (
+            <span title="Conversa fixada" className="flex-shrink-0">
+              <Pin className="w-4 h-4 text-icon rotate-45" aria-hidden="true" />
+              <span className="sr-only">Fixada</span>
+            </span>
+          )}
           {isUnread && (
             <span className="flex-shrink-0 bg-primary text-primary-foreground text-xs font-semibold px-1.5 h-5 min-w-5 flex items-center justify-center rounded-full tabular-nums" aria-label={`${conversation.unreadCount} mensagens não lidas`}>
               {conversation.unreadCount}
@@ -146,7 +155,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
     </button>
 
     {/* Menu da conversa (como o chevron do WhatsApp) — aparece no hover. */}
-    {(onMarkAsUnread || onMarkAsRead || onToggleArchived) && (
+    {(onMarkAsUnread || onMarkAsRead || onToggleArchived || onTogglePinned) && (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -166,6 +175,15 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
           ) : (
             <DropdownMenuItem className="gap-3" onSelect={() => onMarkAsUnread?.()}>
               <MailX className="h-[18px] w-[18px] text-icon" /> Marcar como não lida
+            </DropdownMenuItem>
+          )}
+          {onTogglePinned && (
+            <DropdownMenuItem className="gap-3" onSelect={() => onTogglePinned()}>
+              {isPinned ? (
+                <><PinOff className="h-[18px] w-[18px] text-icon" /> Desafixar conversa</>
+              ) : (
+                <><Pin className="h-[18px] w-[18px] text-icon" /> Fixar conversa</>
+              )}
             </DropdownMenuItem>
           )}
           {onToggleArchived && (

@@ -28,7 +28,7 @@ import type { QueueFilter } from './workspace';
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, sendMediaMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, assignConversation, appendLocalMessage, setConversationTags, refetch, hasMore, loadingMore, loadMore } = useConversations();
+  const { conversations, loading, sendMessage, sendMediaMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, setPinned, assignConversation, appendLocalMessage, setConversationTags, refetch, hasMore, loadingMore, loadMore } = useConversations();
   const { sdrName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
   const { grantsByInstance } = useInstanceAccessGrants();
@@ -243,6 +243,7 @@ const ChatInterface: React.FC = () => {
         onMarkAsUnread={handleMarkAsUnread}
         onMarkAsRead={markAsRead}
         onSetArchived={setArchived}
+        onSetPinned={setPinned}
         activeFilter={queueFilter}
         onFilterChange={setQueueFilter}
         taskBadgeByContact={badgeByContact}

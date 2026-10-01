@@ -380,6 +380,8 @@ export interface UIConversation {
   /** Archived conversations leave the main queue and live under "Arquivadas";
    *  a new inbound message unarchives them (DB trigger). */
   isArchived: boolean;
+  /** When the logged-in attendant pinned it to the top of their queue (pins are per person). */
+  pinnedAt?: string | null;
   assignedTeam: string | null;
   assignedUserId: string | null;
   assignedUserName: string | null;
