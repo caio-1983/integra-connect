@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 const ROLE_LABEL: Record<'admin' | 'manager' | 'agent', string> = {
   admin: 'Administrador',
@@ -87,6 +88,8 @@ export const SidebarFooter: React.FC = () => {
     <div className="flex flex-col gap-1.5">
       {/* Separador */}
       <div className="border-t border-sidebar-border" />
+
+      <NotificationBell />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

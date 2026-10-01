@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bot, CheckCircle2, Clock, MessageSquare, Pencil, Trash2, UserRound, Users, AlignLeft, Square, SquareCheck, Loader2 } from 'lucide-react';
+import { Bell, Bot, CheckCircle2, Clock, MessageSquare, Pencil, Trash2, UserRound, Users, AlignLeft, Square, SquareCheck, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/Button';
 import type { Appointment, ScheduledTask } from '@/types';
 import { cn, contactDisplayName, formatPhone } from '@/lib/utils';
 import { appointmentTypeLabel } from '@/lib/appointmentTypes';
 import { capitalize, durationLabel, endTime, fromYmd, hhmm, type PersonColor } from './calendarUtils';
+import { remindersApi } from '@/services/remindersApi';
+import { remindersSummary } from '@/lib/reminders';
 
 export type CalendarItem = { kind: 'appointment'; app: Appointment } | { kind: 'task'; task: ScheduledTask };
 
@@ -35,6 +37,17 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
 }) => {
   const navigate = useNavigate();
   const [busy, setBusy] = useState<string | null>(null);
+  // Resumo dos lembretes do agendamento aberto, guardado com o id dele.
+  const [reminders, setReminders] = useState<{ id: string; text: string } | null>(null);
+  const appointmentId = item?.kind === 'appointment' ? item.app.id : null;
+  useEffect(() => {
+    if (!appointmentId) return;
+    let cancelled = false;
+    remindersApi.fetchAppointmentReminders(appointmentId)
+      .then(r => { if (!cancelled) setReminders({ id: appointmentId, text: remindersSummary(r) }); })
+      .catch(error => console.error('Error loading reminders:', error));
+    return () => { cancelled = true; };
+  }, [appointmentId]);
   const run = async (key: string, fn: () => Promise<void>) => {
     setBusy(key);
     try { await fn(); } finally { setBusy(null); }
@@ -79,6 +92,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                 <Row icon={UserRound}>
                   <span className="text-muted-foreground">Responsável: </span>{nameOf(a.user_id)}
                 </Row>
+                {reminders?.id === a.id && <Row icon={Bell}>{reminders.text}</Row>}
                 {a.contact_id && (
                   <Row icon={MessageSquare}>
                     <div className="flex items-center justify-between gap-3">

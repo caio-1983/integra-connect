@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Plus, Loader2, CloudOff, Bot } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from './Button';
@@ -15,6 +16,8 @@ import { MonthView } from './scheduling/MonthView';
 import { TimeGridView } from './scheduling/TimeGridView';
 import { AppointmentFormDialog, type AppointmentFormValues } from './scheduling/AppointmentFormDialog';
 import { EventDetailsDialog, type CalendarItem } from './scheduling/EventDetailsDialog';
+import { remindersApi } from '@/services/remindersApi';
+import { DEFAULT_REMINDERS, type AppointmentReminderSettings } from '@/lib/reminders';
 
 type TeamUser = { user_id: string; name: string };
 
@@ -26,6 +29,7 @@ const VIEWS: { value: ViewMode; label: string; key: string }[] = [
 
 const blankForm = (date: string, time = '09:00'): AppointmentFormValues => ({
   title: '', date, time, duration: 60, type: 'meeting', description: '', contactId: '', attendees: '',
+  reminders: { ...DEFAULT_REMINDERS, customMinutes: [] },
 });
 
 /** Unowned items filter under this key. */
@@ -48,6 +52,9 @@ const Scheduling: React.FC = () => {
   const [form, setForm] = useState<{ open: boolean; mode: 'create' | 'edit'; initial: AppointmentFormValues; id?: string }>(
     { open: false, mode: 'create', initial: blankForm(ymd(new Date())) },
   );
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusId = searchParams.get('appointment');
 
   const loadAppointments = useCallback(() => api.fetchAppointments().then(setAppointments), []);
   const loadTasks = useCallback(() => api.fetchScheduledTasks().then(setTasks), []);
@@ -72,6 +79,19 @@ const Scheduling: React.FC = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [loadAppointments, loadTasks]);
+
+  // Link dos lembretes: /scheduling?appointment=<id> abre o agendamento no dia dele.
+  useEffect(() => {
+    if (!focusId || loading) return;
+    const a = appointments.find(x => x.id === focusId);
+    if (a) {
+      setCursor(fromYmd(a.date));
+      setDetail({ kind: 'appointment', app: a });
+    } else if (!failed) {
+      toast.info('Esse agendamento foi cancelado ou não existe mais');
+    }
+    setSearchParams(prev => { const next = new URLSearchParams(prev); next.delete('appointment'); return next; }, { replace: true });
+  }, [focusId, loading, failed, appointments, setSearchParams]);
 
   // --- People: colour by position in the team list, then anyone else who owns something.
   const people = useMemo(() => {
@@ -195,12 +215,22 @@ const Scheduling: React.FC = () => {
       contact_id: v.contactId || undefined,
     };
     try {
+      let id = form.id;
       if (form.mode === 'edit' && form.id) {
         await api.updateAppointment(form.id, payload);
         toast.success('Agendamento atualizado');
       } else {
-        await api.createAppointment(payload);
+        id = (await api.createAppointment(payload)).id;
         toast.success('Agendamento criado');
+      }
+      // O banco já dá os padrões a todo agendamento novo; aqui vale o que a pessoa escolheu.
+      if (id && v.reminders) {
+        try {
+          await remindersApi.setAppointmentReminders(id, v.reminders);
+        } catch (error) {
+          console.error('Error saving reminders:', error);
+          toast.warning('Os lembretes não foram salvos. Abra o agendamento e tente de novo.');
+        }
       }
       setForm(f => ({ ...f, open: false }));
       setCursor(fromYmd(v.date));
@@ -211,13 +241,20 @@ const Scheduling: React.FC = () => {
     }
   };
 
-  const editAppointment = (a: Appointment) => {
+  const editAppointment = async (a: Appointment) => {
+    let reminders: AppointmentReminderSettings | null = null;
+    try {
+      reminders = await remindersApi.fetchAppointmentReminders(a.id);
+    } catch (error) {
+      console.error('Error loading reminders:', error);
+    }
     setDetail(null);
     setForm({
       open: true, mode: 'edit', id: a.id,
       initial: {
         title: a.title, date: a.date, time: hhmm(a.time), duration: a.duration || 60, type: a.type,
         description: a.description ?? '', contactId: a.contact_id ?? '', attendees: a.attendees?.join(', ') ?? '',
+        reminders,
       },
     });
   };

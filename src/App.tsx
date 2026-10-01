@@ -36,6 +36,8 @@ import AISettingsPage from './components/ai/AISettingsPage';
 import { CompanySettingsProvider } from './hooks/useCompanySettings';
 import { AuthProvider } from './hooks/useAuth';
 import { ThemeProvider, useTheme } from './contexts/ThemeProvider';
+import { NotificationsProvider } from './hooks/useNotifications';
+import { RemindersOnLogin } from './components/notifications/RemindersOnLogin';
 import { Toaster } from 'sonner';
 
 /** Toaster that follows the current light/dark mode. */
@@ -47,15 +49,18 @@ const ThemedToaster: React.FC = () => {
 // Componente de Layout que envolve a aplicação principal
 const AppLayout: React.FC = () => {
   return (
-    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
-      <Sidebar />
+    <NotificationsProvider>
+      <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
+        <Sidebar />
 
-      <main className="flex-1 h-full overflow-hidden relative flex flex-col">
-        <div className="flex-1 w-full h-full relative">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+        <main className="flex-1 h-full overflow-hidden relative flex flex-col">
+          <div className="flex-1 w-full h-full relative">
+            <Outlet />
+          </div>
+        </main>
+      </div>
+      <RemindersOnLogin />
+    </NotificationsProvider>
   );
 };
 

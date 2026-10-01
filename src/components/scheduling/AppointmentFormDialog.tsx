@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Check, Loader2, Plus, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/Button';
 import type { Appointment, Contact } from '@/types';
 import { cn, contactDisplayName } from '@/lib/utils';
 import { appointmentTypeLabel } from '@/lib/appointmentTypes';
 import { durationLabel, endTime } from './calendarUtils';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { CUSTOM_REMINDER_OPTIONS, minutesBeforeLabel, type AppointmentReminderSettings } from '@/lib/reminders';
 
 export interface AppointmentFormValues {
   title: string;
@@ -16,6 +18,8 @@ export interface AppointmentFormValues {
   description: string;
   contactId: string;
   attendees: string;
+  /** null = não deu para carregar os lembretes atuais; a seção some e salvar não mexe neles. */
+  reminders: AppointmentReminderSettings | null;
 }
 
 interface AppointmentFormDialogProps {
@@ -50,6 +54,22 @@ const Chip: React.FC<{ active: boolean; onClick: () => void; children: React.Rea
   </button>
 );
 
+const ToggleChip: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
+  <button
+    type="button"
+    role="checkbox"
+    aria-checked={active}
+    onClick={onClick}
+    className={cn(
+      'px-3 h-8 rounded-full text-sm whitespace-nowrap transition-colors flex items-center gap-1',
+      active ? 'bg-primary-subtle text-primary-subtle-foreground font-medium' : 'bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground',
+    )}
+  >
+    {active && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
+    {children}
+  </button>
+);
+
 export const AppointmentFormDialog: React.FC<AppointmentFormDialogProps> = ({
   open, onOpenChange, mode, initial, contacts, onSubmit,
 }) => {
@@ -58,6 +78,10 @@ export const AppointmentFormDialog: React.FC<AppointmentFormDialogProps> = ({
   useEffect(() => { if (open) setV(initial); }, [open, initial]);
 
   const set = <K extends keyof AppointmentFormValues>(k: K, val: AppointmentFormValues[K]) => setV(prev => ({ ...prev, [k]: val }));
+
+  const r = v.reminders;
+  const setReminders = (next: AppointmentReminderSettings) => set('reminders', next);
+  const availableCustom = r ? CUSTOM_REMINDER_OPTIONS.filter(m => !r.customMinutes.includes(m)) : [];
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,6 +135,46 @@ export const AppointmentFormDialog: React.FC<AppointmentFormDialogProps> = ({
                 {DURATIONS.map(d => <Chip key={d} active={v.duration === d} onClick={() => set('duration', d)}>{durationLabel(d)}</Chip>)}
               </div>
             </div>
+
+            {r && (
+              <div>
+                <span className={label} id="ap-rem">Lembretes</span>
+                <div role="group" aria-labelledby="ap-rem" className="mt-2 flex flex-wrap gap-1.5">
+                  <ToggleChip active={r.dayBefore} onClick={() => setReminders({ ...r, dayBefore: !r.dayBefore })}>Na véspera</ToggleChip>
+                  <ToggleChip active={r.sameDay} onClick={() => setReminders({ ...r, sameDay: !r.sameDay })}>No dia</ToggleChip>
+                  {[...r.customMinutes].sort((a, b) => b - a).map(m => (
+                    <span key={m} className="pl-3 pr-1 h-8 rounded-full text-sm font-medium whitespace-nowrap flex items-center gap-0.5 bg-primary-subtle text-primary-subtle-foreground">
+                      {minutesBeforeLabel(m)}
+                      <button
+                        type="button"
+                        aria-label={`Remover lembrete ${minutesBeforeLabel(m)}`}
+                        onClick={() => setReminders({ ...r, customMinutes: r.customMinutes.filter(x => x !== m) })}
+                        className="w-6 h-6 rounded-full flex items-center justify-center hover:bg-primary/15 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    </span>
+                  ))}
+                  {availableCustom.length > 0 && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button type="button" className="px-3 h-8 rounded-full text-sm whitespace-nowrap flex items-center gap-1 bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+                          <Plus className="w-4 h-4" aria-hidden="true" /> Adicionar
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        {availableCustom.map(m => (
+                          <DropdownMenuItem key={m} onSelect={() => setReminders({ ...r, customMinutes: [...r.customMinutes, m] })}>
+                            {minutesBeforeLabel(m)}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">Na véspera e no dia, o aviso aparece quando o responsável entra no sistema.</p>
+              </div>
+            )}
 
             <div>
               <span className={label} id="ap-type">Tipo</span>
