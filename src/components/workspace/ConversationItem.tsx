@@ -4,11 +4,13 @@ import { Bot, User, Pause, ChevronDown, MailX, MailOpen, Archive, ArchiveRestore
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MessageType, UIConversation, ConversationStatus } from '@/types';
+import { MessageType, UIConversation, ConversationStatus, TagDefinition } from '@/types';
 import { cn } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { AttendantTag } from './AttendantTag';
 import { CampaignBadge } from './CampaignBadge';
+import { TagChip } from './TagChip';
+import { tagLabel } from './TagFilter';
 import type { LeadCampaign } from '@/services/attributionService';
 import { messagePreview, previewIcon, stripMediaEmoji } from './ConversationTimeline';
 
@@ -31,6 +33,10 @@ interface ConversationItemProps {
   taskBadge?: { kind: 'late' | 'today' | 'later' | 'none'; label: string };
   /** Campaign the lead came from — automatic origin badge, not a tag. */
   campaign?: LeadCampaign;
+  /** Tag catalog, for each tag's label and color. */
+  tagDefinitions?: TagDefinition[];
+  /** Tag the queue is filtered by — shown first, since it is why the row is there. */
+  activeTag?: string | null;
 }
 
 const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color: string }> = {
@@ -39,7 +45,7 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
   paused: { icon: Pause, color: 'bg-warning-subtle text-warning' },
 };
 
-const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName, teamMembers = [], onMarkAsUnread, onMarkAsRead, onToggleArchived, isPinned, onTogglePinned, showArchivedBadge, taskBadge, campaign }) => {
+const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSelected, onClick, sdrName, teamMembers = [], onMarkAsUnread, onMarkAsRead, onToggleArchived, isPinned, onTogglePinned, showArchivedBadge, taskBadge, campaign, tagDefinitions = [], activeTag }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel = conversation.status === 'nina' ? sdrName : conversation.status === 'human' ? 'Humano' : 'Pausado';
   const channelCfg = CHANNEL_CONFIG[conversation.primaryChannel];
@@ -58,6 +64,10 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
   const showStatus = conversation.status !== 'human';
   const showChannel = conversation.primaryChannel !== 'whatsapp';
   const isWaiting = !!lastMsg && lastMsg.fromType === 'user';
+
+  // One tag fits the row; the rest become "+N" (all of them in the tooltip).
+  const tags = [...new Set(conversation.tags)];
+  const shownTag = activeTag && tags.includes(activeTag) ? activeTag : tags[0];
 
   return (
     <div className="relative group">
@@ -132,7 +142,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
         </div>
 
         {(conversation.assignedUserId || campaign || conversation.tags.length > 0 || (showArchivedBadge && conversation.isArchived)) && (
-          <div className="flex items-center gap-1.5 mt-1">
+          <div className="flex items-center gap-1.5 mt-1 min-w-0">
             {/* Para quem a conversa foi direcionada — vem antes das tags porque é a
                 informação que o gestor procura ao varrer a fila. */}
             <AttendantTag assignedUserId={conversation.assignedUserId} teamMembers={teamMembers} compact />
@@ -144,11 +154,15 @@ const ConversationItem: React.FC<ConversationItemProps> = ({ conversation, isSel
             {/* Origin badge: computed from attribution, so it looks different
                 from the editable tags next to it. */}
             {campaign && <CampaignBadge campaign={campaign} className="max-w-[140px]" />}
-            {conversation.tags.slice(0, 1).map(tag => (
-              <span key={tag} className="px-1.5 h-[18px] leading-[18px] bg-secondary text-muted-foreground text-[11px] rounded-full truncate max-w-[80px]">
-                {tag}
-              </span>
-            ))}
+            {shownTag && (
+              <TagChip
+                tag={shownTag}
+                definitions={tagDefinitions}
+                extra={tags.length - 1}
+                title={tags.length > 1 ? tags.map(t => tagLabel(t, tagDefinitions)).join(', ') : undefined}
+                className="max-w-[160px]"
+              />
+            )}
           </div>
         )}
       </div>

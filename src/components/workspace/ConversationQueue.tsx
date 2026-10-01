@@ -333,6 +333,8 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
               showArchivedBadge={!showArchived}
               taskBadge={taskBadgeByContact?.get(conv.contactId)}
               campaign={campaignByContact.get(conv.contactId)}
+              tagDefinitions={tagDefinitions}
+              activeTag={tagActive ? tagFilter : null}
             />
           ))}
           {/* Archived and tagged ones are loaded in full, so paging only applies to the inbox. */}
