@@ -28,7 +28,7 @@ import type { QueueFilter } from './workspace';
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, sendMediaMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, setPinned, assignConversation, appendLocalMessage, setConversationTags, refetch, hasMore, loadingMore, loadMore } = useConversations();
+  const { conversations, loading, sendMessage, sendMediaMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, setPinned, assignConversation, appendLocalMessage, setConversationTags, loadTaggedConversations, refetch, hasMore, loadingMore, loadMore } = useConversations();
   const { sdrName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
   const { grantsByInstance } = useInstanceAccessGrants();
@@ -38,6 +38,7 @@ const ChatInterface: React.FC = () => {
   // Search to pre-fill when the dialog opens from a /chat?contact= deep link.
   const [newConversationSearch, setNewConversationSearch] = useState<string | undefined>();
   const [queueFilter, setQueueFilter] = useState<QueueFilter>('all');
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const { tasks: myTasks, setDone: setTaskDone, badgeByContact } = useMyTasks();
   const [inputText, setInputText] = useState('');
   const [showCustomerWorkspace, setShowCustomerWorkspace] = useState(false);
@@ -250,6 +251,10 @@ const ChatInterface: React.FC = () => {
         hasMore={hasMore}
         loadingMore={loadingMore}
         onLoadMore={loadMore}
+        tagDefinitions={availableTags}
+        tagFilter={tagFilter}
+        onTagFilterChange={setTagFilter}
+        onLoadTagged={loadTaggedConversations}
       />
 
       <NewConversationDialog
@@ -343,7 +348,8 @@ const ChatInterface: React.FC = () => {
           conversations={conversations}
           sdrName={sdrName}
           onOpenConversation={setSelectedChatId}
-          onApplyFilter={setQueueFilter}
+          // A home shortcut ("Aguardando", "Minhas") means the whole queue, not one tag.
+          onApplyFilter={(filter) => { setQueueFilter(filter); setTagFilter(null); }}
           onNewConversation={() => setNewConversationOpen(true)}
           tasks={myTasks}
           onToggleTask={setTaskDone}

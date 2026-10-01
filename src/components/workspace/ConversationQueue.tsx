@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Search, SquarePen, Loader2, MessageSquare, Smartphone, ChevronDown, Archive, ArrowLeft } from 'lucide-react';
-import { UIConversation } from '@/types';
+import { TagDefinition, UIConversation } from '@/types';
 import { ConversationItem } from './ConversationItem';
 import { ConversationFilters, QueueFilter } from './ConversationFilters';
+import { TagFilter, tagLabel } from './TagFilter';
 import { useWhatsappInstances } from '@/hooks/useWhatsappInstances';
 import { useInstanceLabels } from '@/hooks/useInstanceLabels';
 import { useInstanceAccessGrants } from '@/hooks/useInstanceAccessGrants';
@@ -38,6 +39,13 @@ interface ConversationQueueProps {
   hasMore?: boolean;
   loadingMore?: boolean;
   onLoadMore?: () => void;
+  /** Tag catalog (labels and colors) for the tag filter. */
+  tagDefinitions?: TagDefinition[];
+  /** Controlled tag filter — a tag key, or null for no tag filter. */
+  tagFilter?: string | null;
+  onTagFilterChange?: (tag: string | null) => void;
+  /** Brings every tagged conversation into the list (the queue is paged). */
+  onLoadTagged?: () => Promise<void>;
 }
 
 /** Invisible marker at the end of the list; asks for the next page when it scrolls into view. */
@@ -114,12 +122,16 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
   onMarkAsUnread, onMarkAsRead, onSetArchived, onSetPinned,
   activeFilter: controlledFilter, onFilterChange, taskBadgeByContact,
   hasMore = false, loadingMore = false, onLoadMore,
+  tagDefinitions = [], tagFilter: controlledTag, onTagFilterChange, onLoadTagged,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [localFilter, setLocalFilter] = useState<QueueFilter>('all');
   const activeFilter = controlledFilter ?? localFilter;
   const setActiveFilter = onFilterChange ?? setLocalFilter;
+  const [localTag, setLocalTag] = useState<string | null>(null);
+  const tagFilter = controlledTag !== undefined ? controlledTag : localTag;
+  const setTagFilter = onTagFilterChange ?? setLocalTag;
   const [instanceFilter, setInstanceFilter] = useState('all');
   const { instances: connectedInstances } = useWhatsappInstances();
   const { labels } = useInstanceLabels();
@@ -152,16 +164,26 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
 
   // WhatsApp-style archive: the main queue hides archived conversations (they
   // live behind the "Arquivadas" row), but a search there still finds them.
+  // A tag shows every conversation that carries it, archived ones included.
+  const tagActive = !!tagFilter && !showArchived;
   const inbox = conversations.filter(c => !c.isArchived);
   const archived = conversations.filter(c => c.isArchived);
-  const viewBase = showArchived ? archived : inbox;
-  const searchBase = showArchived || !searchQuery ? viewBase : conversations;
+  const viewBase = showArchived
+    ? archived
+    : tagActive ? conversations.filter(c => c.tags.includes(tagFilter!)) : inbox;
+  const searchBase = showArchived || tagActive || !searchQuery ? viewBase : conversations;
 
-  // Status counts reflect the instance currently selected.
+  // Status counts reflect the number and the tag currently selected.
   const byInstance = (list: UIConversation[]) => instanceFilter === 'all'
     ? list
     : list.filter(c => c.instance === instanceFilter);
-  const counts = buildCounts(byInstance(inbox), user?.id);
+  const counts = buildCounts(byInstance(tagActive ? viewBase : inbox), user?.id);
+
+  // Picking a tag starts from "Todos" so every conversation with it shows up.
+  const handleTagChange = (tag: string | null) => {
+    setTagFilter(tag);
+    if (tag) setActiveFilter('all');
+  };
   const archivedCount = byInstance(archived).length;
   const matches = applyFilter(searchBase, showArchived ? 'all' : activeFilter, searchQuery, instanceFilter, user?.id);
   // WhatsApp: pinned conversations stay on top of the inbox, the most recently
@@ -209,23 +231,37 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
           />
         </div>
 
-        {instances.length >= 1 && (
-          <div className="relative">
-            <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-icon pointer-events-none" aria-hidden="true" />
-            <select
-              aria-label="Filtrar por número"
-              value={instanceFilter}
-              onChange={(e) => setInstanceFilter(e.target.value)}
-              className="w-full pl-10 pr-8 h-8 bg-card border border-input rounded-full text-[13px] text-foreground outline-none appearance-none cursor-pointer hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
-            >
-              <option value="all">Todos os números ({viewBase.length})</option>
-              {instances.map(inst => (
-                <option key={inst} value={inst}>
-                  {labels[inst] ?? inst} ({viewBase.filter(c => c.instance === inst).length})
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-icon pointer-events-none" aria-hidden="true" />
+        {(instances.length >= 1 || !showArchived) && (
+          <div className="flex items-center gap-2">
+            {instances.length >= 1 && (
+              <div className="relative flex-1 min-w-0">
+                <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-icon pointer-events-none" aria-hidden="true" />
+                <select
+                  aria-label="Filtrar por número"
+                  value={instanceFilter}
+                  onChange={(e) => setInstanceFilter(e.target.value)}
+                  className="w-full pl-10 pr-8 h-8 bg-card border border-input rounded-full text-[13px] text-foreground outline-none appearance-none cursor-pointer truncate hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
+                >
+                  <option value="all">Todos os números ({viewBase.length})</option>
+                  {instances.map(inst => (
+                    <option key={inst} value={inst}>
+                      {labels[inst] ?? inst} ({viewBase.filter(c => c.instance === inst).length})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-icon pointer-events-none" aria-hidden="true" />
+              </div>
+            )}
+            {!showArchived && (
+              <TagFilter
+                definitions={tagDefinitions}
+                conversations={byInstance(conversations)}
+                selected={tagFilter}
+                onSelect={handleTagChange}
+                onLoad={onLoadTagged}
+                className="flex-shrink-0 max-w-[55%]"
+              />
+            )}
           </div>
         )}
       </div>
@@ -238,7 +274,8 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
       )}
 
       {/* Entrada para as arquivadas, como no WhatsApp: uma linha na coluna do avatar */}
-      {!showArchived && !searchQuery && archivedCount > 0 && (
+      {/* With a tag selected the archived ones are already in the list. */}
+      {!showArchived && !tagActive && !searchQuery && archivedCount > 0 && (
         <button
           onClick={() => { setShowArchived(true); setSearchQuery(''); }}
           className="flex items-center h-12 pl-3 pr-4 text-left hover:bg-accent transition-colors flex-shrink-0"
@@ -258,14 +295,25 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
             <Loader2 className="h-5 w-5 animate-spin text-primary" />
             <span className="text-xs text-muted-foreground">Sincronizando...</span>
           </div>
-        ) : filtered.length === 0 && !hasMore ? (
+        ) : filtered.length === 0 && (!hasMore || tagActive) ? (
           <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
             <MessageSquare className="w-8 h-8 text-icon/40 mb-3" aria-hidden="true" />
             <p className="text-sm text-muted-foreground">
-              {searchQuery || (!showArchived && activeFilter !== 'all') || instanceFilter !== 'all'
-                ? 'Nenhuma conversa encontrada'
-                : showArchived ? 'Nenhuma conversa arquivada' : 'Aguardando conversas'}
+              {tagActive && !searchQuery && activeFilter === 'all'
+                ? `Nenhuma conversa com a tag ${tagLabel(tagFilter!, tagDefinitions)}${instanceFilter !== 'all' ? ' neste número' : ''}`
+                : searchQuery || (!showArchived && activeFilter !== 'all') || instanceFilter !== 'all' || tagActive
+                  ? 'Nenhuma conversa encontrada'
+                  : showArchived ? 'Nenhuma conversa arquivada' : 'Aguardando conversas'}
             </p>
+            {tagActive && (
+              <button
+                type="button"
+                onClick={() => setTagFilter(null)}
+                className="mt-3 text-sm font-medium text-primary hover:underline"
+              >
+                Limpar filtro de tag
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -287,8 +335,8 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
               campaign={campaignByContact.get(conv.contactId)}
             />
           ))}
-          {/* Archived ones are loaded in full, so paging only applies to the inbox. */}
-          {!showArchived && hasMore && onLoadMore && (
+          {/* Archived and tagged ones are loaded in full, so paging only applies to the inbox. */}
+          {!showArchived && !tagActive && hasMore && onLoadMore && (
             <LoadMoreSentinel onVisible={onLoadMore} loading={loadingMore} />
           )}
           </>

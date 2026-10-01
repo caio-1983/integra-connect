@@ -1479,6 +1479,67 @@ export const api = {
   },
 
   /**
+   * Tags of every active conversation that has at least one (archived included),
+   * keyed by conversation id. Tags live on the contact (set from Detalhes) and,
+   * in older rows, on the conversation itself — the queue merges both the same
+   * way. Visibility follows the conversations RLS, so only threads the operator
+   * can open come back.
+   */
+  fetchConversationTags: async (): Promise<Map<string, string[]>> => {
+    const PAGE = 1000; // PostgREST row cap
+    const fetchAll = async (build: (from: number) => PromiseLike<{ data: unknown[] | null; error: unknown }>) => {
+      const rows: unknown[] = [];
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await build(from);
+        if (error) throw error;
+        rows.push(...(data ?? []));
+        if ((data ?? []).length < PAGE) return rows;
+      }
+    };
+
+    const [byContact, byConversation] = await Promise.all([
+      fetchAll((from) => supabase
+        .from('conversations')
+        .select('id, contact:contacts!inner(tags)')
+        .eq('is_active', true)
+        .not('contact.tags', 'eq', '{}')
+        .order('id')
+        .range(from, from + PAGE - 1)),
+      fetchAll((from) => supabase
+        .from('conversations')
+        .select('id, tags')
+        .eq('is_active', true)
+        .not('tags', 'eq', '{}')
+        .order('id')
+        .range(from, from + PAGE - 1)),
+    ]);
+
+    const tags = new Map<string, string[]>();
+    const add = (id: string, list: string[] | null | undefined) => {
+      if (!list?.length) return;
+      tags.set(id, [...new Set([...(tags.get(id) ?? []), ...list])]);
+    };
+    (byConversation as { id: string; tags: string[] | null }[]).forEach(r => add(r.id, r.tags));
+    (byContact as { id: string; contact: { tags: string[] | null } | null }[]).forEach(r => add(r.id, r.contact?.tags));
+    return tags;
+  },
+
+  /** Active conversations by id, with their recent messages — loads threads the queue hasn't paged in yet. */
+  fetchConversationsByIds: async (ids: string[]): Promise<UIConversation[]> => {
+    const CHUNK = 100; // keeps the `in` filter well under URL limits
+    const rows: unknown[] = [];
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const { data, error } = await activeConversationsQuery().in('id', ids.slice(i, i + CHUNK));
+      if (error) {
+        console.error('[API] Error fetching conversations by id:', error);
+        throw error;
+      }
+      rows.push(...(data ?? []));
+    }
+    return withRecentMessages(rows);
+  },
+
+  /**
    * Send a message (insert into send_queue for human messages)
    * Returns the ID of the created message
    */

@@ -52,6 +52,37 @@ function uiTypeForMime(mime: string): MessageType {
 /** 20 MB cap — base64 of this stays under the backend's 32 MB body limit. */
 const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
+/** Time of the newest loaded message — the queue is ordered by it (newest first). */
+function lastActivity(conv: UIConversation): number {
+  const sentAt = conv.messages[conv.messages.length - 1]?.sentAt;
+  return sentAt ? Date.parse(sentAt) || 0 : 0;
+}
+
+/**
+ * Adds conversations the list doesn't have yet, each at its place by recency.
+ * Pages and tag lookups can bring in threads older than ones already loaded,
+ * so appending would put them out of order.
+ */
+function mergeByRecency(prev: UIConversation[], incoming: UIConversation[]): UIConversation[] {
+  const known = new Set(prev.map(c => c.id));
+  const fresh = incoming.filter(c => !known.has(c.id));
+  if (fresh.length === 0) return prev;
+  const result = [...prev];
+  for (const conv of fresh) {
+    const at = lastActivity(conv);
+    // Threads without loaded messages have no time to compare — skip past them.
+    const index = result.findIndex(c => {
+      const other = lastActivity(c);
+      return other > 0 && other < at;
+    });
+    result.splice(index === -1 ? result.length : index, 0, conv);
+  }
+  return result;
+}
+
+const sameTags = (a: string[], b: string[]) =>
+  a.length === b.length && a.every(tag => b.includes(tag));
+
 export function useConversations() {
   const [conversations, setConversations] = useState<UIConversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -165,10 +196,7 @@ export function useConversations() {
     try {
       const { conversations: page, nextCursor } = await api.fetchOlderConversations(cursor);
       page.forEach(conv => conv.messages.forEach(msg => processedMessageIds.current.add(msg.id)));
-      setConversations(prev => {
-        const known = new Set(prev.map(c => c.id));
-        return [...prev, ...page.filter(c => !known.has(c.id))];
-      });
+      setConversations(prev => mergeByRecency(prev, page));
       setCursor(nextCursor);
     } catch (err) {
       console.error('[useConversations] Error loading more:', err);
@@ -741,6 +769,30 @@ export function useConversations() {
     setConversations(prev => prev.map(c => (c.id === conversationId ? { ...c, tags } : c)));
   }, []);
 
+  // Read inside loadTaggedConversations without re-creating it on every change.
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
+
+  /**
+   * Tag filter support: brings in every tagged conversation the queue hasn't
+   * paged in yet (archived too) and refreshes the tags of the loaded ones —
+   * contacts has no realtime, so tags set by another attendant are only seen here.
+   */
+  const loadTaggedConversations = useCallback(async () => {
+    const tagsById = await api.fetchConversationTags();
+    const known = new Set(conversationsRef.current.map(c => c.id));
+    const missing = [...tagsById.keys()].filter(id => !known.has(id));
+    const fetched = missing.length ? await api.fetchConversationsByIds(missing) : [];
+    fetched.forEach(conv => conv.messages.forEach(msg => processedMessageIds.current.add(msg.id)));
+    setConversations(prev => mergeByRecency(
+      prev.map(c => {
+        const tags = tagsById.get(c.id) ?? [];
+        return sameTags(c.tags, tags) ? c : { ...c, tags };
+      }),
+      fetched,
+    ));
+  }, []);
+
   // Append a message without touching Supabase/Edge Functions — used by the
   // Sprint 009 AI simulation loop (customer + AI-generated messages).
   const appendLocalMessage = useCallback((conversationId: string, message: UIMessage) => {
@@ -778,6 +830,7 @@ export function useConversations() {
     assignConversation,
     appendLocalMessage,
     setConversationTags,
+    loadTaggedConversations,
     refetch: fetchConversations,
     hasMore: cursor !== null,
     loadingMore,

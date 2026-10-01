@@ -1,6 +1,7 @@
 export { ConversationQueue } from './ConversationQueue';
 export { ConversationFilters } from './ConversationFilters';
 export type { QueueFilter } from './ConversationFilters';
+export { TagFilter } from './TagFilter';
 export { ConversationItem } from './ConversationItem';
 export { ConversationHeader } from './ConversationHeader';
 export { ConversationTimeline } from './ConversationTimeline';
