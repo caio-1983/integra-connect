@@ -97,6 +97,25 @@ function waveformBars(seed: string): number[] {
   return bars;
 }
 
+/** Calendar day a message belongs to. Optimistic `temp-` messages carry no
+ *  `sentAt` yet — they were just sent, so they belong to today. */
+function messageDay(msg: UIMessage): Date {
+  return new Date(msg.sentAt ?? Date.now());
+}
+
+/** WhatsApp's day separator: "Hoje", "Ontem", the weekday within the last
+ *  week, then the full date. Counted in calendar days, not 24h spans. */
+function dayLabel(date: Date): string {
+  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((today.getTime() - day.getTime()) / 86400000);
+  if (diffDays === 0) return 'Hoje';
+  if (diffDays === 1) return 'Ontem';
+  if (diffDays > 1 && diffDays < 7) return date.toLocaleDateString('pt-BR', { weekday: 'long' });
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 interface ConversationTimelineProps {
   messages: UIMessage[];
   messagesEndRef: React.RefObject<HTMLDivElement>;
@@ -341,18 +360,14 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
 
   return (
     <>
-      <div className="flex justify-center mb-3">
-        <span className="px-3 py-1.5 bg-[var(--wa-in)] text-[var(--wa-meta)] text-xs font-medium uppercase rounded-lg shadow-wa-bubble">
-          Hoje
-        </span>
-      </div>
-
       {messages.map((msg, idx) => {
         const isOutgoing = msg.direction === MessageDirection.OUTGOING;
-        // WhatsApp groups a side's consecutive messages: only the first gets the
-        // tail and the larger gap above it.
         const prev = messages[idx - 1];
-        const firstOfRun = !prev || (prev.direction === MessageDirection.OUTGOING) !== isOutgoing;
+        const day = messageDay(msg);
+        const newDay = !prev || messageDay(prev).toDateString() !== day.toDateString();
+        // WhatsApp groups a side's consecutive messages: only the first gets the
+        // tail and the larger gap above it. A new day starts a new run.
+        const firstOfRun = newDay || (prev.direction === MessageDirection.OUTGOING) !== isOutgoing;
         const msgChannel = msg.channel ?? primaryChannel;
         const showChannelHint = msgChannel !== primaryChannel;
         const channelCfg = CHANNEL_CONFIG[msgChannel];
@@ -403,6 +418,13 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
         );
         return (
           <React.Fragment key={msg.id}>
+          {newDay && (
+            <div className={cn('flex justify-center', idx > 0 && 'mt-3')}>
+              <span className="px-3 py-1.5 bg-[var(--wa-in)] text-[var(--wa-meta)] text-xs font-medium rounded-lg shadow-wa-bubble">
+                {dayLabel(day)}
+              </span>
+            </div>
+          )}
           <div
             id={`msg-${msg.id}`}
             className={cn(
