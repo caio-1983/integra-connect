@@ -4,51 +4,223 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Teste Smart Pix</title>
-  <!-- POC: destino do botão "Abrir teste" (backend/src/routes/pocUrlButton.ts). Apagar junto com a rota. -->
+  <meta name="color-scheme" content="light dark" />
+  <meta name="theme-color" content="#f0f2f5" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0c1317" media="(prefers-color-scheme: dark)" />
+  <title>Chave Pix · Lumina</title>
+  <!--
+    Smart Pix, etapa 2 (POC): página de cópia da chave Pix, destino do link das
+    rotas de POC (backend/src/routes/pocUrlButton.ts e pocUrlText.ts).
+    Chave FIXA só para o POC: token, banco e expiração vêm na próxima etapa.
+    Estática de propósito: abre rápido no celular, sem carregar o app.
+    A cópia só acontece no toque no botão, nunca ao carregar a página.
+  -->
   <style>
-    :root { color-scheme: light; }
+    :root {
+      --background: #f0f2f5;
+      --card: #ffffff;
+      --foreground: #111b21;
+      --muted: #f0f2f5;
+      --muted-foreground: #667781;
+      --primary: #008069;
+      --primary-foreground: #ffffff;
+      --primary-subtle: #d9fdd3;
+      --primary-subtle-foreground: #005c4b;
+      --warning: #b35309;
+      --warning-subtle: #fffae5;
+      --ring: #008069;
+      --logo-filter: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --background: #0c1317;
+        --card: #111b21;
+        --foreground: #e9edef;
+        --muted: #202c33;
+        --muted-foreground: #8696a0;
+        --primary: #00a884;
+        --primary-foreground: #111b21;
+        --primary-subtle: #0a332c;
+        --primary-subtle-foreground: #00a884;
+        --warning: #fbbd23;
+        --warning-subtle: #342814;
+        --ring: #00a884;
+        --logo-filter: brightness(0) invert(1);
+      }
+    }
     * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
     body {
       margin: 0;
       min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 24px 16px;
-      background: #f0f2f5;
-      color: #111b21;
+      background: var(--background);
+      color: var(--foreground);
       font-family: "Segoe UI", "Helvetica Neue", Helvetica, "Lucida Grande", Arial, Ubuntu, Cantarell, "Fira Sans", sans-serif;
+      -webkit-tap-highlight-color: transparent;
     }
     main {
       width: 100%;
-      max-width: 360px;
-      padding: 32px 24px;
+      max-width: 400px;
+      padding: 32px 24px 28px;
       border-radius: 12px;
-      background: #fff;
-      box-shadow: 0 1px 3px rgba(11, 20, 26, .12);
+      background: var(--card);
       text-align: center;
     }
-    .brand { margin: 0 0 24px; font-size: 22px; font-weight: 700; letter-spacing: .24em; }
-    h1 { margin: 0 0 8px; font-size: 20px; font-weight: 600; }
-    p { margin: 0 0 24px; color: #54656f; font-size: 15px; }
-    .status {
-      display: inline-block;
-      padding: 10px 16px;
+    .logo { display: block; width: 156px; height: auto; margin: 0 auto 28px; filter: var(--logo-filter); }
+    h1 { margin: 0 0 12px; font-size: 22px; font-weight: 700; line-height: 28px; }
+    .merchant { margin: 0; font-size: 17px; font-weight: 500; line-height: 24px; }
+    .doc { margin: 2px 0 0; color: var(--muted-foreground); font-size: 15px; line-height: 22px; font-variant-numeric: tabular-nums; }
+    .key-label { margin: 24px 0 8px; color: var(--muted-foreground); font-size: 14px; line-height: 20px; }
+    .key {
+      margin: 0;
+      padding: 14px 16px;
       border-radius: 8px;
-      background: #d9fdd3;
-      color: #005c4b;
-      font-size: 15px;
+      background: var(--muted);
+      font-size: 22px;
       font-weight: 600;
+      line-height: 30px;
+      letter-spacing: .02em;
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+      -webkit-user-select: all;
+      user-select: all;
+      cursor: text;
     }
+    .key.attention { box-shadow: inset 0 0 0 2px var(--warning); }
+    .copy {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 52px;
+      margin: 20px 0 0;
+      padding: 12px 24px;
+      border: 0;
+      border-radius: 9999px;
+      background: var(--primary);
+      color: var(--primary-foreground);
+      font: inherit;
+      font-size: 17px;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    @media (hover: hover) { .copy:hover { opacity: .9; } }
+    .copy:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+    .copy svg { flex: none; width: 20px; height: 20px; }
+    .copy .icon-done { display: none; }
+    .copy.done { background: var(--primary-subtle); color: var(--primary-subtle-foreground); opacity: 1; }
+    .copy.done .icon-copy { display: none; }
+    .copy.done .icon-done { display: block; }
+    .fallback {
+      margin: 16px 0 0;
+      padding: 12px 16px;
+      border-radius: 8px;
+      background: var(--warning-subtle);
+      color: var(--foreground);
+      font-size: 15px;
+      line-height: 22px;
+      text-align: left;
+    }
+    .fallback strong { color: var(--warning); }
+    .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   </style>
 </head>
 <body>
   <main>
-    <div class="brand">LUMINA</div>
-    <h1>Teste Smart Pix</h1>
-    <p>Esta é uma página de teste.</p>
-    <div class="status">Página carregada com sucesso</div>
+    <img class="logo" src="/logo-lumina-sidebar.png" alt="LUMINA" width="156" height="81" />
+    <h1>Chave Pix</h1>
+    <p class="merchant">Lumina Comércio de Iluminação LTDA</p>
+    <p class="doc">CNPJ: 38.230.659/0001-07</p>
+
+    <p class="key-label" id="key-label">Chave:</p>
+    <p class="key" id="pix-key" aria-labelledby="key-label">38230659000107</p>
+
+    <button class="copy" id="copy" type="button">
+      <svg class="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+      <svg class="icon-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
+      <span id="copy-label">Copiar chave Pix</span>
+    </button>
+
+    <p class="fallback" id="fallback" role="alert" hidden>
+      <strong>Não foi possível copiar automaticamente.</strong>
+      <span id="fallback-how">Selecione a chave acima e copie.</span>
+    </p>
+    <noscript><p class="fallback">Selecione a chave acima e copie.</p></noscript>
+    <p class="sr-only" id="status" aria-live="polite"></p>
   </main>
+
+  <script>
+    (function () {
+      var keyEl = document.getElementById('pix-key');
+      var button = document.getElementById('copy');
+      var label = document.getElementById('copy-label');
+      var fallback = document.getElementById('fallback');
+      var status = document.getElementById('status');
+      var key = keyEl.textContent.trim();
+
+      // Older WebViews and in-app browsers without the Clipboard API: copy from
+      // a hidden textarea. 16px and readonly keep iOS from zooming or raising
+      // the keyboard.
+      function legacyCopy() {
+        var area = document.createElement('textarea');
+        area.value = key;
+        area.setAttribute('readonly', '');
+        area.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px';
+        document.body.appendChild(area);
+        area.focus();
+        area.select();
+        area.setSelectionRange(0, key.length);
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(area);
+        return ok;
+      }
+
+      function copied() {
+        fallback.hidden = true;
+        keyEl.classList.remove('attention');
+        button.classList.add('done');
+        label.textContent = 'Chave Pix copiada';
+        status.textContent = 'Chave Pix copiada';
+      }
+
+      // Last resort: leave the key selected and say how to copy it by hand.
+      function failed() {
+        button.blur();
+        var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        document.getElementById('fallback-how').textContent = touch
+          ? 'Toque e segure a chave acima e escolha Copiar.'
+          : 'Selecione a chave acima e copie (Ctrl+C).';
+        fallback.hidden = false;
+        keyEl.classList.add('attention');
+        var selection = window.getSelection && window.getSelection();
+        if (selection) {
+          var range = document.createRange();
+          range.selectNodeContents(keyEl);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+      }
+
+      button.addEventListener('click', function () {
+        if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+          navigator.clipboard.writeText(key).then(copied, function () {
+            if (legacyCopy()) copied(); else failed();
+          });
+        } else if (legacyCopy()) {
+          copied();
+        } else {
+          failed();
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
