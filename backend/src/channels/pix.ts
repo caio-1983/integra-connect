@@ -89,10 +89,16 @@ export function pixKeyTypeFromWire(value: unknown): PixKeyType {
  *
  * `plain`: logo with the details as caption, then the key alone in a second
  * message. Always arrives, but the user rejected the separate message.
+ *
+ * `smart`: one ordinary text with a Smart Pix link (/pix/{token}) to a page
+ * that shows and copies the key; the key itself is not in the message. Plain
+ * text links did arrive, on the phone and on WhatsApp Web, where every
+ * interactive button failed. Only where the card would go (WhatsApp through
+ * Evolution); other channels keep `plain`. See smartPix/smartPixMessage.ts.
  */
-export function pixCardStyle(): 'plain' | 'branded' | 'native' {
+export function pixCardStyle(): 'plain' | 'branded' | 'native' | 'smart' {
   const style = (configService.get('PIX_CARD_STYLE') ?? '').toLowerCase();
-  return style === 'branded' || style === 'plain' ? style : 'native';
+  return style === 'branded' || style === 'plain' || style === 'smart' ? style : 'native';
 }
 
 /** Caption under the logo in the `plain` style. The key itself follows alone. */

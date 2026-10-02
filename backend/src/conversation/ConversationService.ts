@@ -5,6 +5,7 @@ import { conversationRepository } from '../persistence/ConversationRepository.js
 import { getConnector } from '../channels/connectorRegistry.js';
 import { applySignature, signatureFooter } from '../channels/outboundSignature.js';
 import { fetchPixHeaderImage, pixCaption, pixCardStyle, pixHeaderImageUrl, pixMessageText } from '../channels/pix.js';
+import { createSmartPixMessage, SmartPixKeyNotSupportedError, type SmartPixMessage } from '../smartPix/smartPixMessage.js';
 import { ensureAdCataloged } from '../channels/meta/MetaAdsCatalog.js';
 import { runAgentChat } from '../runtime/AgentRuntime.js';
 import { contactAvatarService } from './ContactAvatarService.js';
@@ -312,7 +313,8 @@ export async function requestManualMediaReply(conversationId: string, media: Man
  * media, so a failure reaches the attendant instead of vanishing in the bus.
  *
  * By default (see pixCardStyle) it goes as WhatsApp's own Pix card, with a
- * one-tap copy button; `plain` sends ordinary messages instead.
+ * one-tap copy button; `plain` sends ordinary messages instead, and `smart` one
+ * text with a Smart Pix link in place of the card.
  */
 export async function requestManualPixReply(conversationId: string, operatorId?: string): Promise<void> {
   const info = await conversationRepository.getConversationChannelInfo(conversationId);
@@ -327,6 +329,36 @@ export async function requestManualPixReply(conversationId: string, operatorId?:
   if (!pix) throw new Error('Chave Pix não cadastrada. Cadastre em Configurações.');
 
   const signature = operatorId ? await conversationRepository.getOperatorName(operatorId) : undefined;
+
+  // Smart Pix replaces the card, so it applies only where the card would go;
+  // a channel without one (Meta) keeps the plain messages below.
+  if (pixCardStyle() === 'smart' && connector.sendPix) {
+    let smart: SmartPixMessage;
+    try {
+      smart = await createSmartPixMessage(pix);
+    } catch (error) {
+      // Nothing has been sent. The error never carries the token: it fails
+      // either before the token exists or while storing its hash.
+      logger.error({ err: error instanceof Error ? error.message : String(error), conversationId }, '[pix] smart pix link not created — nothing sent');
+      throw new Error(error instanceof SmartPixKeyNotSupportedError
+        ? error.message
+        : 'Não foi possível gerar o link Pix. Nada foi enviado ao cliente.');
+    }
+    // A send failure goes up like any other send failure, and the link is not
+    // revoked: an Evolution error does not prove the message did not arrive.
+    // Undelivered, it simply expires.
+    const { providerMessageId } = await connector.sendText(info.instance, info.to, applySignature(smart.text, signature, info.channel));
+    await conversationRepository.insertOutboundMessage({
+      conversationId,
+      channel: info.channel,
+      providerMessageId,
+      content: smart.text,
+      fromType: 'human',
+      operatorId,
+      metadata: { smart_pix: { expires_at: smart.expiresAt.toISOString() } },
+    });
+    return;
+  }
 
   if (pixCardStyle() !== 'plain' && connector.sendPix) {
     const { providerMessageId, card } = await connector.sendPix(info.instance, info.to, pix, { footer: signatureFooter(signature) });

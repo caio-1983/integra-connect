@@ -9,11 +9,12 @@ import { smartPixService, type SmartPixService } from '../smartPix/SmartPixServi
  * Every link that must not open (malformed, unknown, revoked, expired) gets the
  * same 404 and body, so the response never says whether a token exists.
  *
- * PRODUCTION REQUIREMENT: adicionar rate limiting específico para
- * `/v1/pix/smart/:token` na camada de proxy/rede quando o Smart Pix entrar no
- * fluxo de produção. Not done here on purpose: without `trustProxy` every
- * request reaches this process from the proxy's IP, so an in-app limit would be
- * one bucket shared by all customers.
+ * Rate limit: its own bucket, 60/min, apart from the global 120/min. Without
+ * `trustProxy` every request through the proxy arrives from the proxy's IP, so
+ * this bucket is shared by all customers: it caps the load and keeps abuse of
+ * a link from using up the bucket the attendants' app depends on, but it is not
+ * a per-customer limit. That one still needs the proxy/rede layer (or a trusted
+ * client IP), which is outside this repository.
  */
 export const INVALID_LINK_BODY = { error: 'Link Pix inválido ou expirado.' } as const;
 
@@ -44,6 +45,14 @@ export async function smartPixRoutes(app: FastifyInstance, opts: SmartPixRouteOp
 
   app.get('/v1/pix/smart/:token', {
     validatorCompiler: noopValidator,
+    // A route-level limit gets its own counters in @fastify/rate-limit, so these
+    // requests no longer count against the global bucket.
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: 60_000,
+      },
+    },
     schema: {
       tags: ['pix'],
       summary: 'Smart Pix: dados do link /pix/{token} (público, sem autenticação)',
