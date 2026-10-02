@@ -6,46 +6,95 @@
   <meta name="robots" content="noindex, nofollow" />
   <meta name="referrer" content="no-referrer" />
   <meta name="color-scheme" content="light dark" />
-  <meta name="theme-color" content="#f0f2f5" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#0c1317" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f4f7f8" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#15232a" media="(prefers-color-scheme: dark)" />
   <title>Chave Pix · Lumina</title>
   <!--
     Smart Pix: página dos links /pix/{token} (nginx.conf serve este arquivo).
     Nenhum dado de pagamento fica aqui: a página lê o token da URL e busca razão
     social, documento e chave em GET /v1/pix/smart/{token}
-    (backend/src/routes/smartPix.ts). Visual e cópia iguais aos de
-    public/pix/test/index.html. A cópia só acontece no toque no botão.
+    (backend/src/routes/smartPix.ts). A cópia só acontece no toque no botão.
+    Visual da Lumina: a luminária do logo ilumina a chave; ao copiar, a luz
+    acende. Fonte Jost servida daqui mesmo (public/fonts, licença OFL) para a
+    página não depender do Google Fonts.
   -->
+  <link rel="preload" href="/fonts/jost-latin.woff2" as="font" type="font/woff2" crossorigin />
   <style>
+    @font-face {
+      font-family: "Jost";
+      font-style: normal;
+      font-weight: 400 600;
+      font-display: swap;
+      src: url("/fonts/jost-latin.woff2") format("woff2");
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
     :root {
-      --background: #f0f2f5;
-      --card: #ffffff;
-      --foreground: #111b21;
-      --muted: #f0f2f5;
-      --muted-foreground: #667781;
-      --primary: #008069;
-      --primary-foreground: #ffffff;
-      --primary-subtle: #d9fdd3;
-      --primary-subtle-foreground: #005c4b;
-      --warning: #b35309;
-      --warning-subtle: #fffae5;
-      --ring: #008069;
+      --page: #f4f7f8;
+      --ink: #1d2a30;
+      --muted: #5e6f76;
+      --steel: #2f5664;
+      --ray: #5b8796;
+      --ray-faint: #b4c6cd;
+      --ceiling: #c9d7dc;
+      --lamp: #1d2a30;
+      --panel: #ffffff;
+      --panel-border: #d3dee2;
+      --panel-rule: #e3eaed;
+      --marker: #9db6bf;
+      --button: #2f5664;
+      --button-ink: #ffffff;
+      --skeleton: #e6edf0;
+      --disabled: #d3dee2;
+      --selection: #c7dee6;
+      --light: #ffd27a;
+      --light-edge: #e0b04f;
+      --beam-top: .8;
+      --beam-bottom: .2;
+      --lit-panel: #fff6de;
+      --lit-border: #ebc56b;
+      --lit-rule: #f0dfaf;
+      --lit-label: #2f5664;
+      --lit-ink: #1d2a30;
+      --lit-muted: #5e6f76;
+      --lit-glow: rgba(201, 140, 20, .55);
+      --lit-button-ink: #1d2a30;
+      --warn: #b85a0a;
+      --warn-ink: #8f4300;
+      --warn-bg: #fcebd8;
       --logo-filter: none;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --background: #0c1317;
-        --card: #111b21;
-        --foreground: #e9edef;
-        --muted: #202c33;
-        --muted-foreground: #8696a0;
-        --primary: #00a884;
-        --primary-foreground: #111b21;
-        --primary-subtle: #0a332c;
-        --primary-subtle-foreground: #00a884;
-        --warning: #fbbd23;
-        --warning-subtle: #342814;
-        --ring: #00a884;
+        --page: #15232a;
+        --ink: #e6edef;
+        --muted: #93a7ae;
+        --steel: #9cc3cf;
+        --ray: #6f98a6;
+        --ray-faint: #3d5964;
+        --ceiling: #2c4049;
+        --lamp: #8fa9b2;
+        --panel: #1c2e35;
+        --panel-border: #2f4650;
+        --panel-rule: #2a3f48;
+        --marker: #4f6d78;
+        --button: #9cc3cf;
+        --button-ink: #15232a;
+        --skeleton: #24373f;
+        --disabled: #24373f;
+        --selection: #35596a;
+        --beam-top: .65;
+        --beam-bottom: .12;
+        --lit-panel: #2b2a20;
+        --lit-border: #8a6b2c;
+        --lit-rule: #4a4128;
+        --lit-label: #f2cf7e;
+        --lit-ink: #fff6de;
+        --lit-muted: #b9b19a;
+        --lit-glow: rgba(255, 200, 90, .45);
+        --lit-button-ink: #15232a;
+        --warn: #e08a3c;
+        --warn-ink: #ffb870;
+        --warn-bg: #3a2a18;
         --logo-filter: brightness(0) invert(1);
       }
     }
@@ -56,130 +105,252 @@
       margin: 0;
       min-height: 100vh;
       min-height: 100dvh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px 16px;
-      background: var(--background);
-      color: var(--foreground);
-      font-family: "Segoe UI", "Helvetica Neue", Helvetica, "Lucida Grande", Arial, Ubuntu, Cantarell, "Fira Sans", sans-serif;
+      background: var(--page);
+      color: var(--ink);
+      font-family: "Jost", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 24px;
       -webkit-tap-highlight-color: transparent;
     }
-    main {
-      width: 100%;
-      max-width: 400px;
-      padding: 32px 24px 28px;
-      border-radius: 12px;
-      background: var(--card);
-      text-align: center;
+    main { width: 100%; max-width: 440px; margin: 0 auto; padding: 24px 0 40px; }
+    @media (min-width: 600px) { main { padding-top: 56px; } }
+    .top, .content { padding: 0 24px; }
+    .logo { display: block; width: 77px; height: 40px; filter: var(--logo-filter); }
+    h1 { margin: 28px 0 0; font-size: 22px; line-height: 28px; font-weight: 500; }
+
+    /* A luminária: tracejada enquanto a chave não foi copiada, acesa depois. */
+    .lamp { display: block; width: 100%; height: auto; aspect-ratio: 390 / 150; margin-top: 20px; }
+    .lamp line { stroke-width: 1; vector-effect: non-scaling-stroke; }
+    .lamp .ceiling-mid { stop-color: var(--ceiling); }
+    .lamp .ceiling-edge { stop-color: var(--ceiling); stop-opacity: 0; }
+    .lamp .cord { stroke: var(--lamp); stroke-width: 1.5; }
+    .lamp .shade { fill: var(--lamp); }
+    .lamp .ray { stroke: var(--ray); stroke-dasharray: 4 4; transition: stroke .4s; }
+    .lamp .bulb { fill: var(--ray); transition: fill .4s; }
+    .lamp .beam { opacity: 0; transition: opacity .5s ease-out; }
+    .lamp .beam-top { stop-color: var(--light); stop-opacity: var(--beam-top); }
+    .lamp .beam-bottom { stop-color: var(--light); stop-opacity: var(--beam-bottom); }
+    main[data-state="invalid"] .ray, main[data-state="error"] .ray { stroke: var(--ray-faint); stroke-dasharray: 2 6; }
+    main[data-state="invalid"] .bulb, main[data-state="error"] .bulb { fill: var(--ray-faint); }
+    .lit .lamp .beam { opacity: 1; }
+    .lit .lamp .ray { stroke: var(--light-edge); stroke-dasharray: none; }
+    .lit .lamp .bulb { fill: var(--light); }
+
+    .panel {
+      padding: 18px 20px 20px;
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      background: var(--panel);
+      transition: background-color .4s, border-color .4s, box-shadow .4s;
     }
-    .logo { display: block; width: 156px; height: auto; margin: 0 auto 28px; filter: var(--logo-filter); }
-    h1 { margin: 0 0 12px; font-size: 22px; font-weight: 700; line-height: 28px; }
-    .merchant { margin: 0; font-size: 17px; font-weight: 500; line-height: 24px; }
-    .doc { margin: 2px 0 0; color: var(--muted-foreground); font-size: 15px; line-height: 22px; font-variant-numeric: tabular-nums; }
-    .key-label { margin: 24px 0 8px; color: var(--muted-foreground); font-size: 14px; line-height: 20px; }
+    .panel.attention { padding: 17px 19px 19px; border: 2px solid var(--warn); }
+    .lit .panel { border-color: var(--lit-border); background: var(--lit-panel); box-shadow: 0 14px 32px -18px var(--lit-glow); }
+    .label { margin: 0; color: var(--steel); font-size: 14px; line-height: 20px; font-weight: 500; transition: color .4s; }
     .key {
-      margin: 0;
-      padding: 14px 16px;
-      border-radius: 8px;
-      background: var(--muted);
-      font-size: 22px;
-      font-weight: 600;
-      line-height: 30px;
-      letter-spacing: .02em;
+      margin: 4px 0 0;
+      /* 14 dígitos + 4 espaços cabem em ~10em: encolhe só em telas estreitas. */
+      font-size: clamp(22px, calc((100vw - 92px) / 10), 30px);
+      line-height: 1.27;
+      font-weight: 500;
+      letter-spacing: .01em;
       font-variant-numeric: tabular-nums;
-      overflow-wrap: anywhere;
+      white-space: nowrap;
       -webkit-user-select: all;
       user-select: all;
       cursor: text;
     }
-    .key.attention { box-shadow: inset 0 0 0 2px var(--warning); }
+    /* Grupos só no visual: o espaço é margem, então a seleção copia os dígitos juntos. */
+    .key span + span { margin-left: .33em; }
+    .key.long { font-size: 20px; line-height: 28px; white-space: normal; overflow-wrap: anywhere; }
+    .key::selection, .key span::selection { background: var(--selection); }
+    .rule { height: 1px; margin: 16px 0 14px; background: var(--panel-rule); transition: background-color .4s; }
+    .meta { margin: 0; color: var(--muted); font-size: 14px; line-height: 20px; transition: color .4s; }
+    .merchant { margin: 2px 0 0; font-size: 16px; line-height: 22px; font-weight: 500; transition: color .4s; }
+    .doc { margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .lit .label { color: var(--lit-label); }
+    .lit .key, .lit .merchant { color: var(--lit-ink); }
+    .lit .meta { color: var(--lit-muted); }
+    .lit .rule { background: var(--lit-rule); }
+
+    .bar { height: 12px; border-radius: 4px; background: var(--skeleton); }
+    .bar + .bar { margin-top: 10px; }
+    .bar-key { width: 250px; max-width: 100%; height: 26px; margin: 10px 0 2px; border-radius: 6px; }
+
     .btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 10px;
       width: 100%;
-      min-height: 52px;
-      margin: 20px 0 0;
+      min-height: 56px;
+      margin: 16px 0 0;
       padding: 12px 24px;
       border: 0;
-      border-radius: 9999px;
-      background: var(--primary);
-      color: var(--primary-foreground);
+      border-radius: 10px;
+      background: var(--button);
+      color: var(--button-ink);
       font: inherit;
       font-size: 17px;
-      font-weight: 600;
+      font-weight: 500;
       cursor: pointer;
       touch-action: manipulation;
+      transition: background-color .3s, color .3s;
     }
-    @media (hover: hover) { .btn:hover { opacity: .9; } }
-    .btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+    @media (hover: hover) { .btn:not(:disabled):hover { filter: brightness(1.08); } }
+    .btn:focus-visible { outline: 2px solid var(--steel); outline-offset: 3px; }
+    .btn:disabled { background: var(--disabled); color: var(--muted); cursor: default; }
     .btn svg { flex: none; width: 20px; height: 20px; }
     .copy .icon-done { display: none; }
-    .copy.done { background: var(--primary-subtle); color: var(--primary-subtle-foreground); opacity: 1; }
+    .copy.done { background: var(--light); color: var(--lit-button-ink); }
     .copy.done .icon-copy { display: none; }
     .copy.done .icon-done { display: block; }
-    .fallback {
-      margin: 16px 0 0;
-      padding: 12px 16px;
-      border-radius: 8px;
-      background: var(--warning-subtle);
-      color: var(--foreground);
-      font-size: 15px;
-      line-height: 22px;
-      text-align: left;
+
+    .fallback { margin: 14px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--warn-bg); font-size: 15px; line-height: 22px; }
+    .fallback strong { color: var(--warn-ink); font-weight: 600; }
+
+    .steps { display: flex; flex-direction: column; gap: 14px; margin: 28px 0 0; padding: 0; list-style: none; }
+    .steps li { display: flex; align-items: flex-start; gap: 12px; }
+    .marker {
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--marker);
+      border-radius: 50%;
+      color: var(--steel);
+      font-size: 13px;
+      line-height: 1;
+      font-weight: 500;
+      transition: background-color .3s, border-color .3s;
     }
-    .fallback strong { color: var(--warning); }
-    .notice h1 { margin-bottom: 8px; font-size: 19px; font-weight: 600; line-height: 26px; }
-    .notice p, .loading { margin: 0; color: var(--muted-foreground); font-size: 15px; line-height: 22px; }
+    .marker svg { display: none; width: 14px; height: 14px; }
+    .lit .step-copy .marker { border-color: var(--light-edge); background: var(--light); color: var(--lit-button-ink); }
+    .lit .step-copy .marker .num { display: none; }
+    .lit .step-copy .marker svg { display: block; }
+    .lit .step-copy .text { color: var(--muted); }
+
+    .notice { padding: 22px 20px 24px; border: 1px dashed var(--marker); border-radius: 10px; }
+    .notice h2 { margin: 0; font-size: 22px; line-height: 28px; font-weight: 500; }
+    .notice p { margin: 8px 0 0; color: var(--muted); }
+
     .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition: none !important; }
+    }
   </style>
 </head>
 <body>
-  <main>
-    <img class="logo" src="/logo-lumina-sidebar.png" alt="LUMINA" width="156" height="81" />
+  <main id="page" data-state="loading">
+    <header class="top">
+      <img class="logo" src="/logo-lumina-sidebar.png" alt="Lumina Lighting Design" width="77" height="40" />
+      <h1>Pague com Pix</h1>
+    </header>
 
-    <p class="loading" id="state-loading" role="status">Carregando…</p>
+    <svg class="lamp" viewBox="0 0 390 150" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
+          <stop class="beam-top" offset="0" />
+          <stop class="beam-bottom" offset="1" />
+        </linearGradient>
+        <!-- userSpaceOnUse: a horizontal line has a zero-height box, where a
+             bounding-box gradient would not paint at all. -->
+        <linearGradient id="ceiling" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="390" y2="0">
+          <stop class="ceiling-edge" offset="0" />
+          <stop class="ceiling-mid" offset="0.12" />
+          <stop class="ceiling-mid" offset="0.88" />
+          <stop class="ceiling-edge" offset="1" />
+        </linearGradient>
+      </defs>
+      <line class="ceiling" x1="0" y1="0.5" x2="390" y2="0.5" stroke="url(#ceiling)" />
+      <line class="cord" x1="195" y1="1" x2="195" y2="36" />
+      <polygon class="beam" points="170,66 220,66 352,150 38,150" fill="url(#beam)" />
+      <line class="ray" x1="170" y1="66" x2="38" y2="150" />
+      <line class="ray" x1="220" y1="66" x2="352" y2="150" />
+      <path class="shade" d="M184 41H206L224 64Q195 70 166 64Z" />
+      <rect class="shade" x="190" y="34" width="10" height="7" rx="1.5" />
+      <ellipse class="bulb" cx="195" cy="66" rx="16" ry="3" />
+    </svg>
 
-    <section id="state-pix" hidden>
-      <h1>Chave Pix</h1>
-      <p class="merchant" id="merchant"></p>
-      <p class="doc" id="doc"></p>
+    <div class="content">
+      <section id="state-loading" aria-busy="true">
+        <div class="panel">
+          <p class="label" role="status">Carregando a chave Pix…</p>
+          <div class="bar bar-key"></div>
+          <div class="rule"></div>
+          <div class="bar" style="width: 90px"></div>
+          <div class="bar" style="width: 230px; height: 14px"></div>
+          <div class="bar" style="width: 150px"></div>
+        </div>
+        <button class="btn" type="button" disabled>Copiar chave Pix</button>
+      </section>
 
-      <p class="key-label" id="key-label">Chave:</p>
-      <p class="key" id="pix-key" aria-labelledby="key-label"></p>
+      <section id="state-pix" hidden>
+        <div class="panel" id="panel">
+          <p class="label" id="key-label">Chave Pix</p>
+          <p class="key" id="pix-key" aria-labelledby="key-label"></p>
+          <div class="rule"></div>
+          <p class="meta">Recebedor</p>
+          <p class="merchant" id="merchant"></p>
+          <p class="meta doc" id="doc"></p>
+        </div>
 
-      <button class="btn copy" id="copy" type="button">
-        <svg class="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-        <svg class="icon-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
-        <span id="copy-label">Copiar chave Pix</span>
-      </button>
+        <button class="btn copy" id="copy" type="button">
+          <svg class="icon-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+          <svg class="icon-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>
+          <span id="copy-label">Copiar chave Pix</span>
+        </button>
 
-      <p class="fallback" id="fallback" role="alert" hidden>
-        <strong>Não foi possível copiar automaticamente.</strong>
-        <span id="fallback-how">Selecione a chave acima e copie.</span>
-      </p>
-      <p class="sr-only" id="status" aria-live="polite"></p>
-    </section>
+        <p class="fallback" id="fallback" role="alert" hidden>
+          <strong>Seu navegador não deixou copiar.</strong>
+          <span id="fallback-how">Selecione a chave acima e copie.</span>
+        </p>
 
-    <section class="notice" id="state-invalid" hidden>
-      <h1>Link Pix inválido ou expirado.</h1>
-      <p>Peça um novo link no WhatsApp.</p>
-    </section>
+        <ol class="steps">
+          <li class="step-copy">
+            <span class="marker"><span class="num">1</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg></span>
+            <span class="text">Copie a chave</span>
+          </li>
+          <li>
+            <span class="marker">2</span>
+            <span class="text">Abra o Pix no app do seu banco e escolha pagar com chave</span>
+          </li>
+          <li>
+            <span class="marker">3</span>
+            <span class="text">Cole a chave e confira se o recebedor é <span id="step-merchant"></span></span>
+          </li>
+        </ol>
+        <p class="sr-only" id="status" aria-live="polite"></p>
+      </section>
 
-    <section class="notice" id="state-error" hidden>
-      <h1>Não foi possível carregar a chave Pix.</h1>
-      <p>Verifique sua conexão e tente de novo.</p>
-      <button class="btn" id="retry" type="button">Tentar de novo</button>
-    </section>
+      <section id="state-invalid" hidden>
+        <div class="notice">
+          <h2>Este link Pix expirou ou está incompleto.</h2>
+          <p>Peça um novo link no WhatsApp da Lumina.</p>
+        </div>
+      </section>
 
-    <noscript><p class="fallback">Ative o JavaScript do navegador para ver a chave Pix.</p></noscript>
+      <section id="state-error" hidden>
+        <div class="notice">
+          <h2>A chave Pix não carregou.</h2>
+          <p>Confira sua internet e tente de novo.</p>
+        </div>
+        <button class="btn" id="retry" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></svg>
+          <span>Tentar de novo</span>
+        </button>
+      </section>
+
+      <noscript><p class="fallback">Ative o JavaScript do navegador para ver a chave Pix.</p></noscript>
+    </div>
   </main>
 
   <script>
     (function () {
       var STATES = ['loading', 'pix', 'invalid', 'error'];
+      var page = document.getElementById('page');
+      var panel = document.getElementById('panel');
       var keyEl = document.getElementById('pix-key');
       var button = document.getElementById('copy');
       var label = document.getElementById('copy-label');
@@ -188,6 +359,7 @@
       var key = '';
 
       function show(name) {
+        page.setAttribute('data-state', name);
         for (var i = 0; i < STATES.length; i++) {
           document.getElementById('state-' + STATES[i]).hidden = STATES[i] !== name;
         }
@@ -198,13 +370,54 @@
 
       function isText(value) { return typeof value === 'string' && value.length > 0; }
 
+      function chunk(text, sizes) {
+        var parts = [];
+        var at = 0;
+        for (var i = 0; i < sizes.length; i++) {
+          parts.push(text.slice(at, at + sizes[i]));
+          at += sizes[i];
+        }
+        return parts;
+      }
+
+      // Kind of key for the label, and digit groups for the ones read as numbers.
+      // Only an exact unformatted shape is grouped: what is copied is always the
+      // key exactly as the backend sent it.
+      function keyKind(k) {
+        if (/^\d{14}$/.test(k)) return { name: 'CNPJ', groups: chunk(k, [2, 3, 3, 4, 2]) };
+        if (/^\d{11}$/.test(k)) return { name: 'CPF', groups: chunk(k, [3, 3, 3, 2]) };
+        if (/^\+55\d{11}$/.test(k)) return { name: 'telefone', groups: chunk(k, [3, 2, 5, 4]) };
+        if (/^\+55\d{10}$/.test(k)) return { name: 'telefone', groups: chunk(k, [3, 2, 4, 4]) };
+        if (/^\+\d{8,15}$/.test(k)) return { name: 'telefone' };
+        if (/^[^\s@]+@[^\s@]+$/.test(k)) return { name: 'e-mail' };
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(k)) return { name: 'aleatória' };
+        return {};
+      }
+
+      function renderKey(k) {
+        var kind = keyKind(k);
+        document.getElementById('key-label').textContent = kind.name ? 'Chave Pix (' + kind.name + ')' : 'Chave Pix';
+        keyEl.textContent = '';
+        if (kind.groups) {
+          for (var i = 0; i < kind.groups.length; i++) {
+            var part = document.createElement('span');
+            part.textContent = kind.groups[i];
+            keyEl.appendChild(part);
+          }
+        } else {
+          keyEl.textContent = k;
+        }
+        keyEl.classList.toggle('long', !kind.groups);
+      }
+
       function render(data) {
         if (!data || !isText(data.merchantName) || !isText(data.document) || !isText(data.pixKey)) throw new Error('bad payload');
         var digits = data.document.replace(/\D/g, '');
         var docLabel = digits.length === 14 ? 'CNPJ' : digits.length === 11 ? 'CPF' : 'Documento';
         document.getElementById('merchant').textContent = data.merchantName;
-        document.getElementById('doc').textContent = docLabel + ': ' + data.document;
-        keyEl.textContent = data.pixKey;
+        document.getElementById('step-merchant').textContent = data.merchantName;
+        document.getElementById('doc').textContent = docLabel + ' ' + data.document;
+        renderKey(data.pixKey);
         key = data.pixKey;
         show('pix');
       }
@@ -241,11 +454,13 @@
         return ok;
       }
 
+      // The light comes on: lamp, panel, button and step 1 all show it.
       function copied() {
         fallback.hidden = true;
-        keyEl.classList.remove('attention');
+        panel.classList.remove('attention');
+        page.classList.add('lit');
         button.classList.add('done');
-        label.textContent = 'Chave Pix copiada';
+        label.textContent = 'Chave copiada';
         status.textContent = 'Chave Pix copiada';
       }
 
@@ -255,9 +470,9 @@
         var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
         document.getElementById('fallback-how').textContent = touch
           ? 'Toque e segure a chave acima e escolha Copiar.'
-          : 'Selecione a chave acima e copie (Ctrl+C).';
+          : 'Selecione a chave acima e copie com Ctrl+C.';
         fallback.hidden = false;
-        keyEl.classList.add('attention');
+        panel.classList.add('attention');
         var selection = window.getSelection && window.getSelection();
         if (selection) {
           var range = document.createRange();
