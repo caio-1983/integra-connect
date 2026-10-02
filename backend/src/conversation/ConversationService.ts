@@ -311,9 +311,8 @@ export async function requestManualMediaReply(conversationId: string, media: Man
  * reaches the customer is always the registered key. Handled directly, like
  * media, so a failure reaches the attendant instead of vanishing in the bus.
  *
- * By default (see pixCardStyle) it goes as two ordinary messages: the logo with
- * the details as caption, then the key alone. Interactive cards would be nicer,
- * but they do not render for the customer through Evolution today.
+ * By default (see pixCardStyle) it goes as WhatsApp's own Pix card, with a
+ * one-tap copy button; `plain` sends ordinary messages instead.
  */
 export async function requestManualPixReply(conversationId: string, operatorId?: string): Promise<void> {
   const info = await conversationRepository.getConversationChannelInfo(conversationId);

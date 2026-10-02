@@ -8,7 +8,7 @@ import { usePixSettings } from '@/hooks/usePixSettings';
 import {
   PIX_KEY_TYPES, formatPixKey, normalizePixKey, pixKeyTypeLabel, validatePixKey, type PixKeyType,
 } from '@/lib/pix';
-import { PixMessagesPreview, PixMark } from '@/components/workspace/PixCard';
+import { PixBubblePreview, PixMark } from '@/components/workspace/PixCard';
 import { SettingsPanel } from './SettingsPanel';
 
 interface Draft { merchantName: string; keyType: PixKeyType; key: string }
@@ -57,7 +57,7 @@ export const PixSettings: React.FC = () => {
   return (
     <SettingsPanel
       title="Chave Pix"
-      description='No chat, use o "+" → Chave Pix: o cliente recebe a logo com os dados e, em seguida, a chave sozinha, fácil de copiar.'
+      description='No chat, use o "+" → Chave Pix: o cliente recebe o cartão Pix do WhatsApp e copia a chave com um toque.'
       action={canEdit && !draft && !loading && (
         <Button size="sm" variant={pixSettings ? 'outline' : 'primary'} onClick={openDraft}>
           {pixSettings
@@ -161,8 +161,8 @@ export const PixSettings: React.FC = () => {
           {previewSource && (
             <div className="md:w-[340px]">
               <p className="mb-2 text-sm text-muted-foreground">Como o cliente recebe</p>
-              <PixMessagesPreview pix={previewSource} />
-              <p className="mt-2 text-xs text-muted-foreground">O nome de quem envia aparece no início da legenda.</p>
+              <PixBubblePreview pix={previewSource} />
+              <p className="mt-2 text-xs text-muted-foreground">É o cartão Pix do próprio WhatsApp: o ícone é fixo e não leva logo nem o nome de quem envia.</p>
             </div>
           )}
         </div>

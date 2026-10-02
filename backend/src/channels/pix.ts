@@ -77,21 +77,22 @@ export function pixKeyTypeFromWire(value: unknown): PixKeyType {
 /**
  * How the key goes out.
  *
- * `plain` (default): the logo as an image with the details in its caption,
- * then a second message holding only the key, so long-press → copy takes
- * exactly the key. Ordinary messages, so it reaches every phone and
- * WhatsApp Web.
+ * `native` (default): WhatsApp's own Pix card — one message, merchant name,
+ * key and a one-tap "Copiar chave Pix", exactly what the WhatsApp Business app
+ * sends. No logo: the Pix icon is drawn by WhatsApp.
  *
- * `branded` / `native`: interactive cards (copy button / WhatsApp's own Pix
- * card). Tested in production on 2026-10-01 and NEITHER rendered for the
- * customer — WhatsApp Web showed "Não foi possível carregar a mensagem" and
- * the phone showed nothing. WhatsApp requires a `biz` stanza node on
- * interactive messages from a linked device, and neither Evolution 2.3.7 nor
- * its Baileys 7.0.0-rc.9 adds one. Kept behind `PIX_CARD_STYLE` for when they do.
+ * `branded`: interactive card with the Lumina logo and a copy button. Tested in
+ * production on 2026-10-01 and it did NOT render for the customer (WhatsApp Web:
+ * "Não foi possível carregar a mensagem"; phone: nothing) — WhatsApp wants a
+ * `biz` stanza node on interactive messages from a linked device, and neither
+ * Evolution 2.3.7 nor its Baileys 7.0.0-rc.9 adds one.
+ *
+ * `plain`: logo with the details as caption, then the key alone in a second
+ * message. Always arrives, but the user rejected the separate message.
  */
 export function pixCardStyle(): 'plain' | 'branded' | 'native' {
   const style = (configService.get('PIX_CARD_STYLE') ?? '').toLowerCase();
-  return style === 'branded' || style === 'native' ? style : 'plain';
+  return style === 'branded' || style === 'plain' ? style : 'native';
 }
 
 /** Caption under the logo in the `plain` style. The key itself follows alone. */
