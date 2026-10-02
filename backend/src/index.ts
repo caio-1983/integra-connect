@@ -11,6 +11,7 @@ import { channelWebhookRoutes } from './routes/channelWebhooks.js';
 import { whatsappInstanceRoutes } from './routes/whatsappInstances.js';
 import { conversationReplyRoutes } from './routes/conversationReply.js';
 import { metaAccountRoutes } from './routes/metaAccounts.js';
+import { pocUrlButtonRoutes } from './routes/pocUrlButton.js';
 // Side-effect imports: each subscribes its handlers to the EventBus at boot.
 import './telemetry/TelemetryService.js';
 import './channels/ChannelOrchestrator.js';
@@ -63,6 +64,8 @@ async function main(): Promise<void> {
   await app.register(whatsappInstanceRoutes);
   await app.register(conversationReplyRoutes);
   await app.register(metaAccountRoutes);
+  // POC (link button through Evolution) — remove with routes/pocUrlButton.ts.
+  await app.register(pocUrlButtonRoutes);
 
   const port = configService.getNumber('PORT', 8787);
   await app.listen({ port, host: '0.0.0.0' });
