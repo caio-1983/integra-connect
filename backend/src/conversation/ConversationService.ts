@@ -4,7 +4,7 @@ import { configService } from '../config/ConfigService.js';
 import { conversationRepository } from '../persistence/ConversationRepository.js';
 import { getConnector } from '../channels/connectorRegistry.js';
 import { applySignature, signatureFooter } from '../channels/outboundSignature.js';
-import { pixMessageText } from '../channels/pix.js';
+import { fetchPixHeaderImage, pixCaption, pixCardStyle, pixHeaderImageUrl, pixMessageText } from '../channels/pix.js';
 import { ensureAdCataloged } from '../channels/meta/MetaAdsCatalog.js';
 import { runAgentChat } from '../runtime/AgentRuntime.js';
 import { contactAvatarService } from './ContactAvatarService.js';
@@ -306,11 +306,14 @@ export async function requestManualMediaReply(conversationId: string, media: Man
 }
 
 /**
- * "Chave Pix" from the composer: sends the company's registered Pix key as a
- * card the customer copies with one tap, like the WhatsApp Business app does.
- * The key is read here, from Configurações — never taken from the request — so
- * what reaches the customer is always the registered key. Handled directly, like
+ * "Chave Pix" from the composer: sends the company's registered Pix key. The key
+ * is read here, from Configurações — never taken from the request — so what
+ * reaches the customer is always the registered key. Handled directly, like
  * media, so a failure reaches the attendant instead of vanishing in the bus.
+ *
+ * By default (see pixCardStyle) it goes as two ordinary messages: the logo with
+ * the details as caption, then the key alone. Interactive cards would be nicer,
+ * but they do not render for the customer through Evolution today.
  */
 export async function requestManualPixReply(conversationId: string, operatorId?: string): Promise<void> {
   const info = await conversationRepository.getConversationChannelInfo(conversationId);
@@ -319,22 +322,62 @@ export async function requestManualPixReply(conversationId: string, operatorId?:
   }
 
   const connector = getConnector(info.provider);
-  if (!connector?.sendPix) throw new Error('Este canal não envia Pix.');
+  if (!connector) throw new Error('Conector de canal indisponível.');
 
   const pix = await conversationRepository.getPixSettings();
   if (!pix) throw new Error('Chave Pix não cadastrada. Cadastre em Configurações.');
 
   const signature = operatorId ? await conversationRepository.getOperatorName(operatorId) : undefined;
-  const { providerMessageId, card } = await connector.sendPix(info.instance, info.to, pix, { footer: signatureFooter(signature) });
 
+  if (pixCardStyle() !== 'plain' && connector.sendPix) {
+    const { providerMessageId, card } = await connector.sendPix(info.instance, info.to, pix, { footer: signatureFooter(signature) });
+    await conversationRepository.insertOutboundMessage({
+      conversationId,
+      channel: info.channel,
+      providerMessageId,
+      content: pixMessageText(card),
+      fromType: 'human',
+      operatorId,
+      metadata: { pix: card },
+    });
+    return;
+  }
+
+  // 1) The logo with the details. Signed like any caption, so the customer sees
+  //    who sent it. Without a reachable image the caption goes as plain text.
+  const caption = pixCaption(pix);
+  const headerUrl = pixHeaderImageUrl();
+  const headerBase64 = headerUrl ? await fetchPixHeaderImage(headerUrl) : undefined;
+  if (headerUrl && headerBase64) {
+    const { providerMessageId } = await connector.sendMedia(info.instance, info.to, {
+      mediatype: 'image',
+      mimetype: 'image/jpeg',
+      base64: headerBase64,
+      url: headerUrl,
+      fileName: 'chave-pix-lumina.jpg',
+      caption: applySignature(caption, signature, info.channel),
+    });
+    await conversationRepository.insertOutboundMediaMessage({
+      conversationId,
+      channel: info.channel,
+      providerMessageId,
+      content: caption,
+      mediaUrl: headerUrl,
+      mediaType: 'image/jpeg',
+      dbType: 'image',
+      operatorId,
+    });
+  } else {
+    const { providerMessageId } = await connector.sendText(info.instance, info.to, applySignature(caption, signature, info.channel));
+    await conversationRepository.insertOutboundMessage({
+      conversationId, channel: info.channel, providerMessageId, content: caption, fromType: 'human', operatorId,
+    });
+  }
+
+  // 2) The key alone and unsigned: long-press → copy must take exactly the key.
+  const { providerMessageId } = await connector.sendText(info.instance, info.to, pix.key);
   await conversationRepository.insertOutboundMessage({
-    conversationId,
-    channel: info.channel,
-    providerMessageId,
-    content: pixMessageText(card),
-    fromType: 'human',
-    operatorId,
-    metadata: { pix: card },
+    conversationId, channel: info.channel, providerMessageId, content: pix.key, fromType: 'human', operatorId,
   });
 }
 

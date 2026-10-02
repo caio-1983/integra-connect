@@ -75,18 +75,54 @@ export function pixKeyTypeFromWire(value: unknown): PixKeyType {
 }
 
 /**
- * Which card goes out. `branded` (default) carries the logo; `native` is
- * WhatsApp's own Pix card — the fallback if some client turns out not to render
- * the branded one, switchable with `PIX_CARD_STYLE=native` and no code change.
+ * How the key goes out.
+ *
+ * `plain` (default): the logo as an image with the details in its caption,
+ * then a second message holding only the key, so long-press → copy takes
+ * exactly the key. Ordinary messages, so it reaches every phone and
+ * WhatsApp Web.
+ *
+ * `branded` / `native`: interactive cards (copy button / WhatsApp's own Pix
+ * card). Tested in production on 2026-10-01 and NEITHER rendered for the
+ * customer — WhatsApp Web showed "Não foi possível carregar a mensagem" and
+ * the phone showed nothing. WhatsApp requires a `biz` stanza node on
+ * interactive messages from a linked device, and neither Evolution 2.3.7 nor
+ * its Baileys 7.0.0-rc.9 adds one. Kept behind `PIX_CARD_STYLE` for when they do.
  */
-export function pixCardStyle(): 'branded' | 'native' {
-  return (configService.get('PIX_CARD_STYLE') ?? '').toLowerCase() === 'native' ? 'native' : 'branded';
+export function pixCardStyle(): 'plain' | 'branded' | 'native' {
+  const style = (configService.get('PIX_CARD_STYLE') ?? '').toLowerCase();
+  return style === 'branded' || style === 'native' ? style : 'plain';
+}
+
+/** Caption under the logo in the `plain` style. The key itself follows alone. */
+export function pixCaption(pix: PixDetails): string {
+  return `*Chave Pix*\n${pix.merchant_name}\n${pixKeyLine(pix)}\n\nCopie a chave na mensagem abaixo.`;
+}
+
+let headerImageCache: { url: string; base64: string } | undefined;
+
+/**
+ * The header image as base64, for channels that send media as bytes
+ * (Evolution). Fetched once per process — it is a static asset. Undefined on
+ * any failure: the caller then sends the caption as text instead of failing.
+ */
+export async function fetchPixHeaderImage(url: string): Promise<string | undefined> {
+  if (headerImageCache?.url === url) return headerImageCache.base64;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return undefined;
+    const base64 = Buffer.from(await res.arrayBuffer()).toString('base64');
+    headerImageCache = { url, base64 };
+    return base64;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
- * Header image of the branded card. Evolution downloads it from this URL, so it
+ * The logo image (header of the branded card, image of the plain style). It
  * must be publicly reachable — by default the copy the frontend serves on the
- * same domain. Undefined sends the card without an image rather than failing.
+ * same domain. Undefined sends without an image rather than failing.
  */
 export function pixHeaderImageUrl(): string | undefined {
   const explicit = configService.get('PIX_HEADER_IMAGE_URL');

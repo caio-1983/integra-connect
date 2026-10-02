@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { fetchQuickReplyImage, useQuickReplies, type QuickReply } from '@/hooks/useQuickReplies';
 import { usePixSettings } from '@/hooks/usePixSettings';
 import { EmojiPicker } from './EmojiPicker';
-import { PixBubblePreview, PixMark } from './PixCard';
+import { PixMessagesPreview, PixMark } from './PixCard';
 
 interface MessageComposerProps {
   value: string;
@@ -528,9 +528,9 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Enviar chave Pix</DialogTitle>
-              <DialogDescription>O cliente recebe este cartão e copia a chave com um toque.</DialogDescription>
+              <DialogDescription>O cliente recebe a logo com os dados e, em seguida, a chave sozinha, fácil de copiar.</DialogDescription>
             </DialogHeader>
-            <PixBubblePreview card={{ ...pixSettings, variant: 'branded' }} />
+            <PixMessagesPreview pix={pixSettings} />
             <DialogFooter>
               <Button variant="outline" onClick={() => setPixConfirmOpen(false)} disabled={sendingPix}>Cancelar</Button>
               <Button onClick={confirmSendPix} disabled={sendingPix}>

@@ -1,7 +1,8 @@
 import React from 'react';
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { PIX_HEADER_IMAGE, pixKeyLine, type PixCardData } from '@/lib/pix';
+import { cn } from '@/lib/utils';
+import { PIX_CAPTION_HINT, PIX_HEADER_IMAGE, pixKeyLine, type PixCardData } from '@/lib/pix';
 
 /** The Pix mark (four rounded diamonds), as WhatsApp draws it on its own card. */
 export const PixMark: React.FC<{ className?: string }> = ({ className }) => (
@@ -77,14 +78,30 @@ export const PixCard: React.FC<PixCardProps> = ({ card, meta, footer }) => (
   </div>
 );
 
-/** The card as it will leave, in an outgoing bubble on the chat wall — for the
- *  send confirmation and the settings screen, outside the timeline. */
-export const PixBubblePreview: React.FC<{ card: PixCardData; footer?: string }> = ({ card, footer }) => {
+/**
+ * What "Chave Pix" sends, on the chat wall — for the send confirmation and the
+ * settings screen. Two ordinary messages: the logo with the details as caption,
+ * then the key alone so the customer copies exactly the key. (Interactive cards
+ * do not reach the customer through Evolution today; see pixCardStyle.)
+ */
+export const PixMessagesPreview: React.FC<{ pix: Pick<PixCardData, 'merchantName' | 'key' | 'keyType'> }> = ({ pix }) => {
   const now = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const meta = <span className="float-right -mb-1 mt-2 ml-3 text-[11px] leading-none text-[var(--wa-meta)]">{now}</span>;
+  const bubble = 'relative bg-[var(--wa-out)] shadow-wa-bubble text-[14.2px] leading-[19px] text-[var(--wa-text)] rounded-lg';
   return (
-    <div className="chat-wall flex justify-end rounded-lg overflow-hidden px-6 py-5">
-      <div className="relative rounded-lg rounded-tr-none wa-tail-out bg-[var(--wa-out)] p-1 shadow-wa-bubble text-[14.2px] leading-[19px] text-[var(--wa-text)]">
-        <PixCard card={card} footer={footer} meta={<span className="text-[11px] leading-none text-[var(--wa-meta)]">{now}</span>} />
+    <div className="chat-wall flex flex-col items-end gap-0.5 rounded-lg overflow-hidden px-6 py-5">
+      <div className={cn(bubble, 'rounded-tr-none wa-tail-out p-1 w-[260px] max-w-full')}>
+        <img src={PIX_HEADER_IMAGE} alt="Lumina" className="block w-full aspect-[1.91/1] object-cover rounded-md bg-white" />
+        <p className="px-1.5 pt-1.5 pb-1 break-words">
+          <strong className="font-semibold">Chave Pix</strong><br />
+          {pix.merchantName}<br />
+          {pixKeyLine(pix)}<br /><br />
+          {PIX_CAPTION_HINT}
+          {meta}
+        </p>
+      </div>
+      <div className={cn(bubble, 'px-2 pt-1.5 pb-2 max-w-full')}>
+        <p className="break-all">{pix.key}{meta}</p>
       </div>
     </div>
   );

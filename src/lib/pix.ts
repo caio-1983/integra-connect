@@ -85,6 +85,10 @@ export function pixKeyLine(card: Pick<PixCardData, 'key' | 'keyType'>): string {
   return `${pixKeyTypeLabel(card.keyType)}: ${formatPixKey(card.keyType, card.key)}`;
 }
 
+/** Last line of the caption under the logo; the key follows in its own message.
+ *  Mirrors pixCaption in backend/src/channels/pix.ts. */
+export const PIX_CAPTION_HINT = 'Copie a chave na mensagem abaixo.';
+
 /** `messages.metadata.pix` (snake_case, as the backend writes it) → PixCardData. */
 export function pixFromMetadata(metadata: unknown): PixCardData | null {
   const pix = (metadata as { pix?: Record<string, unknown> } | null)?.pix;
