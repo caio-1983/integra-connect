@@ -41,11 +41,12 @@ function fileToBase64(file: File): Promise<string> {
   });
 }
 
-/** UIMessage.type for a file, from its MIME (video/document fall back to TEXT —
- *  the timeline renders those as a download chip when mediaUrl is present). */
+/** UIMessage.type for a file, from its MIME (a document falls back to TEXT —
+ *  the timeline renders it as a download chip when mediaUrl is present). */
 function uiTypeForMime(mime: string): MessageType {
   if (mime.startsWith('image/')) return MessageType.IMAGE;
   if (mime.startsWith('audio/')) return MessageType.AUDIO;
+  if (mime.startsWith('video/')) return MessageType.VIDEO;
   return MessageType.TEXT;
 }
 
@@ -233,10 +234,28 @@ export function useConversations() {
             return;
           }
           
+          // A message recovered after the fact (messages.metadata.backfill) is
+          // history, not news: it slots into its place in the thread and leaves
+          // the queue order, preview and unread count alone.
+          const recovered = !!(newMessage.metadata as { backfill?: unknown } | null)?.backfill;
+
           setConversations(prev => {
             // Check if conversation exists in our state
             const conversationExists = prev.some(c => c.id === newMessage.conversation_id);
-            
+
+            if (recovered) {
+              const target = prev.find(c => c.id === newMessage.conversation_id);
+              if (!target || target.messages.some(m => m.id === newMessage.id || (!!newMessage.whatsapp_message_id && m.whatsappMessageId === newMessage.whatsapp_message_id))) {
+                return prev;
+              }
+              processedMessageIds.current.add(newMessage.id);
+              const sentAt = Date.parse(newMessage.sent_at);
+              const at = target.messages.findIndex(m => !!m.sentAt && Date.parse(m.sentAt) > sentAt);
+              const messages = [...target.messages];
+              messages.splice(at === -1 ? messages.length : at, 0, transformDBToUIMessage(newMessage));
+              return prev.map(c => (c.id === target.id ? { ...c, messages } : c));
+            }
+
             if (!conversationExists) {
               // Message from a new conversation - fetch it asynchronously
               console.log('[Realtime] Message from unknown conversation, fetching async...');

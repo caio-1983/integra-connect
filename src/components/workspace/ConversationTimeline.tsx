@@ -71,6 +71,7 @@ export function previewIcon(msg: UIMessage | undefined, fallbackText = ''): Luci
   if (msg?.pix) return Diamond;
   if (msg?.type === MessageType.IMAGE) return Camera;
   if (msg?.type === MessageType.AUDIO) return Mic;
+  if (msg?.type === MessageType.VIDEO) return Video;
   const text = msg ? msg.content ?? '' : fallbackText;
   return MEDIA_PREFIX.find(([re]) => re.test(text))?.[1] ?? null;
 }
@@ -139,16 +140,16 @@ interface ConversationTimelineProps {
 }
 
 /**
- * The caption typed with a photo, or '' when there is none. `content` of an
- * image holds the caption when present, but otherwise a fallback: the
- * "📷 Imagem" placeholder (inbound), the file name (sent from the platform) or,
- * on legacy rows, the image URL itself — none of which is a caption.
+ * The caption typed with a photo or video, or '' when there is none. `content`
+ * holds the caption when present, but otherwise a fallback: the "📷 Imagem" /
+ * "🎥 Vídeo" placeholder (inbound), the file name (sent from the platform) or,
+ * on legacy rows, the media URL itself — none of which is a caption.
  */
-export function imageCaption(msg: UIMessage): string {
+export function mediaCaption(msg: UIMessage): string {
   const text = (msg.content ?? '').trim();
-  if (!text || text === '📷 Imagem' || text === msg.mediaUrl) return '';
+  if (!text || text === '📷 Imagem' || text === '🎥 Vídeo' || text === msg.mediaUrl) return '';
   if (/^https?:\/\/\S+$/i.test(text)) return '';
-  if (/^\S+\.(jpe?g|png|webp|gif|heic|heif)$/i.test(text)) return '';
+  if (/^[^\n]+\.(jpe?g|png|webp|gif|heic|heif|mp4|mov|3gp|webm|mkv|avi)$/i.test(text)) return '';
   return text;
 }
 
@@ -156,7 +157,8 @@ export function imageCaption(msg: UIMessage): string {
 export function messagePreview(msg: UIMessage): string {
   if (msg.pix) return 'Chave Pix';
   switch (msg.type) {
-    case MessageType.IMAGE: return imageCaption(msg) || 'Foto';
+    case MessageType.IMAGE: return mediaCaption(msg) || 'Foto';
+    case MessageType.VIDEO: return mediaCaption(msg) || 'Vídeo';
     case MessageType.AUDIO: return 'Áudio';
     default: return stripMediaEmoji(msg.content || '') || 'Mensagem';
   }
@@ -187,6 +189,8 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
   const [audioProgress, setAudioProgress] = useState<Record<string, number>>({});
   const [audioSpeed, setAudioSpeed] = useState<Record<string, number>>({});
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
+  /** Videos the browser could not play (e.g. a codec it lacks) — shown as the download chip instead. */
+  const [unplayableVideos, setUnplayableVideos] = useState<Set<string>>(() => new Set());
 
   const SPEED_LABEL: Record<number, string> = { 1: '1×', 1.5: '1,5×', 2: '2×' };
 
@@ -330,9 +334,27 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
       );
     }
 
-    // Document/video (image & audio are handled above) reach here with a
-    // mediaUrl but no dedicated player — render a downloadable attachment chip.
-    // The kind emoji is already carried in `content` (📄 Documento / 🎥 Vídeo).
+    if (msg.type === MessageType.VIDEO && msg.mediaUrl && !unplayableVideos.has(msg.id)) {
+      return (
+        <video
+          src={msg.mediaUrl}
+          controls
+          playsInline
+          // Only the header is fetched up front: enough for the first frame and
+          // the duration, without downloading every video in the thread.
+          preload="metadata"
+          aria-label="Vídeo"
+          className={cn(
+            'block max-w-full max-h-80 bg-black',
+            msg.replyToId ? 'rounded-xl' : 'rounded-[inherit]',
+          )}
+          onError={() => setUnplayableVideos(prev => new Set(prev).add(msg.id))}
+        />
+      );
+    }
+
+    // A document, or a video the browser cannot play, reaches here with a
+    // mediaUrl but no player — render a downloadable attachment chip.
     if (msg.mediaUrl) {
       return (
         <a
@@ -377,9 +399,11 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
         const ChannelIcon = channelCfg.icon;
         const quoted = msg.replyToId ? messagesById.get(msg.replyToId) : undefined;
         const canReply = !!onReply && !msg.id.startsWith('temp-');
-        const caption = msg.type === MessageType.IMAGE ? imageCaption(msg) : '';
+        const isVisual = msg.type === MessageType.IMAGE || msg.type === MessageType.VIDEO;
+        const caption = isVisual ? mediaCaption(msg) : '';
+        // Time over the picture only for a photo: a video's controls sit there.
         const bareImage = msg.type === MessageType.IMAGE && !msg.replyToId && !caption;
-        const isText = !msg.pix && msg.type !== MessageType.IMAGE && msg.type !== MessageType.AUDIO && !msg.mediaUrl;
+        const isText = !msg.pix && !isVisual && msg.type !== MessageType.AUDIO && !msg.mediaUrl;
         const hoverAction = 'self-center p-1.5 rounded-full text-[var(--wa-meta)] hover:bg-black/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0';
         const replyButton = canReply && (
           <button
@@ -450,7 +474,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                 'relative rounded-lg text-[14.2px] leading-[19px] text-[var(--wa-text)] shadow-wa-bubble',
                 isOutgoing ? 'bg-[var(--wa-out)]' : 'bg-[var(--wa-in)]',
                 firstOfRun && (isOutgoing ? 'rounded-tr-none wa-tail-out' : 'rounded-tl-none wa-tail-in'),
-                msg.type === MessageType.IMAGE || msg.pix ? 'p-1' : 'px-2 pt-1.5 pb-2',
+                isVisual || msg.pix ? 'p-1' : 'px-2 pt-1.5 pb-2',
               )}>
                 {!isOutgoing && isGroup && firstOfRun && (msg.senderName || msg.senderPhone) && (
                   <span className={cn('block mb-0.5 text-[12.8px] font-semibold', senderColorClass(msg.senderPhone || msg.senderName || ''))}>

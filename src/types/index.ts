@@ -11,7 +11,8 @@ export * from './whatsappInstance';
 export enum MessageType {
   TEXT = 'text',
   IMAGE = 'image',
-  AUDIO = 'audio'
+  AUDIO = 'audio',
+  VIDEO = 'video'
 }
 
 export enum MessageDirection {
@@ -504,6 +505,7 @@ function mapDBMessageType(type: DBMessageType): MessageType {
   switch (type) {
     case 'image': return MessageType.IMAGE;
     case 'audio': return MessageType.AUDIO;
+    case 'video': return MessageType.VIDEO;
     default: return MessageType.TEXT;
   }
 }
