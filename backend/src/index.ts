@@ -13,6 +13,8 @@ import { conversationReplyRoutes } from './routes/conversationReply.js';
 import { metaAccountRoutes } from './routes/metaAccounts.js';
 import { pocUrlButtonRoutes } from './routes/pocUrlButton.js';
 import { pocUrlTextRoutes } from './routes/pocUrlText.js';
+import { smartPixRoutes } from './routes/smartPix.js';
+import { pocSmartPixRoutes } from './routes/pocSmartPix.js';
 // Side-effect imports: each subscribes its handlers to the EventBus at boot.
 import './telemetry/TelemetryService.js';
 import './channels/ChannelOrchestrator.js';
@@ -69,6 +71,9 @@ async function main(): Promise<void> {
   await app.register(pocUrlButtonRoutes);
   // POC 2 (plain text link through Evolution) — remove with routes/pocUrlText.ts.
   await app.register(pocUrlTextRoutes);
+  await app.register(smartPixRoutes);
+  // POC (Smart Pix link generation, own SMART_PIX_ADMIN_KEY) — remove with routes/pocSmartPix.ts.
+  await app.register(pocSmartPixRoutes);
 
   const port = configService.getNumber('PORT', 8787);
   await app.listen({ port, host: '0.0.0.0' });
