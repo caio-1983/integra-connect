@@ -22,8 +22,9 @@ export const SidebarNavigation: React.FC = () => {
 
   // Itens cuja rota está atrás de RoleRoute (admin/gestor). Mostrá-los para um
   // atendente renderiza um link que só o joga de volta em /operations, então a
-  // lista precisa acompanhar as rotas guardadas em App.tsx.
-  const MANAGER_ONLY_ITEMS = new Set(['team', 'campaigns']);
+  // lista precisa acompanhar as rotas guardadas em App.tsx. Campanhas fica
+  // visível: o atendente cai em /campanhas/configurar, que é aberta.
+  const MANAGER_ONLY_ITEMS = new Set(['team']);
 
   const visibleSections = sidebarNavigation
     .filter((section) => isModuleEnabled(section.id))

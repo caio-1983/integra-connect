@@ -102,14 +102,17 @@ const App: React.FC = () => {
               {/* Equipe/Usuários — RBAC: só admin/gestor (Route element={<RoleRoute />}) */}
               <Route element={<RoleRoute />}>
                 <Route path="/team" element={<Team />} />
-                {/* Campanhas e mapeamento de origem — quem define a atribuição
-                    define o que os relatórios dizem, então é admin/gestor. */}
-                <Route path="/campanhas" element={<CampaignsLayout />}>
-                  <Route index element={<CampaignScoreboard />} />
-                  <Route path="configurar" element={<CampaignSettings embedded />} />
-                </Route>
-                <Route path="/settings/campanhas" element={<Navigate to="/campanhas/configurar" replace />} />
               </Route>
+              {/* Campanhas — "Sinais e regras" é aberta a qualquer usuário; o
+                  placar compara atendentes, então segue admin/gestor e o
+                  atendente cai direto na configuração. */}
+              <Route path="/campanhas" element={<CampaignsLayout />}>
+                <Route element={<RoleRoute redirectTo="/campanhas/configurar" />}>
+                  <Route index element={<CampaignScoreboard />} />
+                </Route>
+                <Route path="configurar" element={<CampaignSettings embedded />} />
+              </Route>
+              <Route path="/settings/campanhas" element={<Navigate to="/campanhas/configurar" replace />} />
               <Route path="/settings" element={<Settings />} />
               {/* CRM — Sprint 007 (gated: Fase 2) */}
               <Route element={<ModuleRoute module="crm" />}>
