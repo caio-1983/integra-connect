@@ -211,7 +211,7 @@ describe('smart', () => {
     assert.match(url, /^https:\/\/chat\.example\.test\/pix\/[A-Za-z0-9_-]{22}$/);
     assert.equal(
       body.text,
-      `*Juliana*\n*Chave Pix*\n${PIX_ROW.merchant_name}\n\nToque no link abaixo para ver e copiar a chave Pix:\n\n${url}`,
+      `*Juliana*\n*Chave Pix · Lumina*\n\n${PIX_ROW.merchant_name}\n\nAcesse o link abaixo para consultar e copiar a chave Pix:\n\n${url}`,
     );
     assert.ok(!body.text.includes(KEY), 'raw key in the message');
     assert.ok(!body.text.includes(KEY_FORMATTED), 'formatted key in the message');

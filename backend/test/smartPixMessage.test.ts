@@ -158,7 +158,7 @@ describe('text', () => {
   test('exact text, URL alone on the last line', async () => {
     const { text } = await createSmartPixMessage(LUMINA, service);
     const url = `https://chat.example.test/pix/${tokenOf(text)}`;
-    assert.equal(text, `*Chave Pix*\n${LUMINA.merchant_name}\n\nToque no link abaixo para ver e copiar a chave Pix:\n\n${url}`);
+    assert.equal(text, `*Chave Pix · Lumina*\n\n${LUMINA.merchant_name}\n\nAcesse o link abaixo para consultar e copiar a chave Pix:\n\n${url}`);
     assert.equal(lastLine(text), url);
     assert.equal(smartPixMessageText(LUMINA.merchant_name, url), text);
   });

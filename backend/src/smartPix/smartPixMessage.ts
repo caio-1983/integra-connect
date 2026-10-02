@@ -56,10 +56,10 @@ export function smartPixBaseUrl(): string {
   return raw.replace(/\/+$/, '');
 }
 
-/** Same opening as the `plain` caption; the URL alone on the last line, so
- *  WhatsApp turns it into a link the way it did in the plain-text test. */
+/** The URL alone on the last line, so WhatsApp turns it into a link the way it
+ *  did in the plain-text test; its preview comes from smart.html's OG tags. */
 export function smartPixMessageText(merchantName: string, url: string): string {
-  return `*Chave Pix*\n${merchantName}\n\nToque no link abaixo para ver e copiar a chave Pix:\n\n${url}`;
+  return `*Chave Pix · Lumina*\n\n${merchantName}\n\nAcesse o link abaixo para consultar e copiar a chave Pix:\n\n${url}`;
 }
 
 export interface SmartPixMessage {

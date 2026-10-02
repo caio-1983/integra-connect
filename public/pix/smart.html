@@ -9,6 +9,14 @@
   <meta name="theme-color" content="#f4f7f8" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#15232a" media="(prefers-color-scheme: dark)" />
   <title>Chave Pix · Lumina</title>
+  <meta name="description" content="Acesse para consultar e copiar a chave Pix da Lumina." />
+  <meta property="og:title" content="Chave Pix · Lumina" />
+  <meta property="og:description" content="Acesse para consultar e copiar a chave Pix da Lumina." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://chat.luminaledstore.com.br/pix-og-lumina.jpg" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <!--
     Smart Pix: página dos links /pix/{token} (nginx.conf serve este arquivo).
     Nenhum dado de pagamento fica aqui: a página lê o token da URL e busca razão
@@ -17,6 +25,9 @@
     Visual da Lumina: a luminária do logo ilumina a chave; ao copiar, a luz
     acende. Fonte Jost servida daqui mesmo (public/fonts, licença OFL) para a
     página não depender do Google Fonts.
+    Prévia do link no WhatsApp: a Evolution baixa este HTML sem rodar JS, então
+    os metadados OG ficam fixos aqui e são iguais para todo link. A og:image é
+    absoluta e fica fora de /pix/, que o nginx inteiro manda para esta página.
   -->
   <link rel="preload" href="/fonts/jost-latin.woff2" as="font" type="font/woff2" crossorigin />
   <style>
