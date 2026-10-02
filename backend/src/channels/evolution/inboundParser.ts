@@ -229,12 +229,12 @@ function parseMessageEnvelope(rawBody: unknown): ParsedEnvelope | null {
   // verbatim as the `to` when sending a reply (Evolution accepts a JID there).
   const externalContactId = isGroup ? remoteJid : remoteJid.replace(/@s\.whatsapp\.net$/, '').replace(/@.*$/, '');
 
-  // Preview/playback only (no transcription/OCR). Confirmed against the live
-  // v2.3.7 server: media arrives as an ENCRYPTED `.enc` URL (mediaKey/
-  // fileEncSha256/directPath) — NOT inline base64, even with webhook.base64=true.
-  // So the common path is `pendingMedia`, which the connector resolves by
-  // calling Evolution's getBase64FromMedia (decrypts + returns base64). The
-  // inline-base64 branch is kept as a fast path in case a future config embeds it.
+  // Preview/playback only (no transcription/OCR). Both shapes occur on the live
+  // v2.3.7 server: inline base64 (the instance webhook has webhookBase64=true —
+  // 2026-10-02, a video's upsert was over 1 MB, which only the embedded file
+  // explains), or an ENCRYPTED `.enc` URL (mediaKey/fileEncSha256/directPath)
+  // left as `pendingMedia`, which the connector resolves by calling Evolution's
+  // getBase64FromMedia (decrypts + returns base64).
   let media: NormalizedInboundMedia | undefined;
   let pendingMedia: { kind: InboundMediaKind; mimeType: string; fileName?: string } | undefined;
   if (mediaNode) {

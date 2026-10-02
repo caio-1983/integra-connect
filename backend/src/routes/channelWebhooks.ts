@@ -19,6 +19,15 @@ import { ChannelEvents, type InboundWebhookReceivedPayload } from '../channels/c
 
 const noopValidator = () => () => true;
 
+/**
+ * Evolution embeds the media itself, as base64, in `messages.upsert` (the
+ * instance webhook has `webhookBase64: true`). Under Fastify's 1 MiB default
+ * every video or PDF over ~600 KB was refused with 413 and lost for good —
+ * Evolution does not retry. 64 MiB fits a ~47 MB file, already near the
+ * storage bucket's own per-file cap.
+ */
+const WEBHOOK_BODY_LIMIT = 64 * 1024 * 1024;
+
 const webhookParamsJsonSchema = {
   type: 'object',
   required: ['provider', 'secret'],
@@ -137,17 +146,22 @@ export async function channelWebhookRoutes(app: FastifyInstance): Promise<void> 
     // handler only checks the path secret and publishes to the event bus.
     // Authentication here is the unguessable `:secret` segment, not throttling.
     config: { rateLimit: false },
+    bodyLimit: WEBHOOK_BODY_LIMIT,
+    // The secret is checked before the body is read: with a 64 MiB limit and no
+    // rate limit, a caller without it must not get to make us buffer the body.
+    onRequest: async (request, reply) => {
+      const { provider, secret } = request.params as { provider: string; secret: string };
+      if (secret !== expectedPathSecret(provider)) {
+        return reply.code(401).send({ error: 'unauthorized' });
+      }
+    },
     schema: {
       tags: ['webhooks'],
       summary: 'Inbound channel webhook (thin ingress)',
       params: webhookParamsJsonSchema,
     },
   }, async (request, reply) => {
-    const { provider, secret } = request.params as { provider: string; secret: string };
-
-    if (secret !== expectedPathSecret(provider)) {
-      return reply.code(401).send({ error: 'unauthorized' });
-    }
+    const { provider } = request.params as { provider: string };
 
     if (provider === 'meta' && !metaSignatureValid(request)) {
       request.log.warn('[webhooks] meta signature mismatch — payload rejected');
