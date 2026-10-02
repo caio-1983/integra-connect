@@ -24,8 +24,6 @@ process.env.PUBLIC_BASE_URL = 'https://chat.example.test';
 process.env.PIX_HEADER_IMAGE_URL = '';
 process.env.OUTBOUND_SIGNATURE = 'on';
 process.env.META_PAGE_TOKENS = '{"page-1":"test-page-token"}';
-// Proves the production flow does not depend on the POC admin key.
-process.env.SMART_PIX_ADMIN_KEY = '';
 delete process.env.PIX_CARD_STYLE;
 
 const OPERATOR = 'operator-1';
@@ -257,9 +255,8 @@ describe('smart', () => {
     assert.ok(!stored.includes('token_hash'));
   });
 
-  test('never calls the POC routes', async () => {
+  test('never calls the backend API over HTTP', async () => {
     await requestManualPixReply('conv-wa', OPERATOR);
-    assert.equal(requests.filter((r) => r.path.startsWith('/v1/poc')).length, 0);
     assert.equal(requests.filter((r) => r.path.startsWith('/v1/')).length, 0);
   });
 

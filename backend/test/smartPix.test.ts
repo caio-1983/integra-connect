@@ -2,16 +2,9 @@ import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { createSmartPixService, type SmartPixService } from '../src/smartPix/SmartPixService.js';
-import { hashSmartPixToken, isWellFormedSmartPixToken } from '../src/smartPix/token.js';
+import { hashSmartPixToken } from '../src/smartPix/token.js';
 import { smartPixRoutes, INVALID_LINK_BODY } from '../src/routes/smartPix.js';
-import { pocSmartPixRoutes } from '../src/routes/pocSmartPix.js';
 import type { NewSmartPixToken, SmartPixData, SmartPixRecord, SmartPixRepository } from '../src/persistence/SmartPixRepository.js';
-
-const ADMIN_KEY = 'test-admin-key-0123456789abcdef0123456789';
-const GATEWAY_KEY = 'test-gateway-key-0123456789abcdef012345678';
-process.env.SMART_PIX_ADMIN_KEY = ADMIN_KEY;
-process.env.GATEWAY_API_KEY = GATEWAY_KEY;
-process.env.PUBLIC_BASE_URL = 'https://chat.example.test/';
 
 const LUMINA: SmartPixData = {
   merchantName: 'Lumina Comércio de Iluminação LTDA',
@@ -66,13 +59,9 @@ beforeEach(async () => {
   service = createSmartPixService(store.repo, () => clock);
   app = Fastify();
   await app.register(smartPixRoutes, { service });
-  await app.register(pocSmartPixRoutes, { service });
-  process.env.SMART_PIX_ADMIN_KEY = ADMIN_KEY;
 });
 
 const getLink = (token: string) => app.inject({ method: 'GET', url: `/v1/pix/smart/${encodeURIComponent(token)}` });
-const admin = (url: string, body: unknown, authorization: string | null = `Bearer ${ADMIN_KEY}`) =>
-  app.inject({ method: 'POST', url, headers: authorization ? { authorization } : {}, payload: body as object });
 
 describe('token generation', () => {
   test('two tokens for the same data are different', async () => {
@@ -184,77 +173,13 @@ describe('GET /v1/pix/smart/:token', () => {
 
 describe('only the hash reaches the repository', () => {
   test('create, resolve and revoke never pass the raw token down', async () => {
-    const res = await admin('/v1/poc/smart-pix/token', {});
-    assert.equal(res.statusCode, 201);
-    const { token } = res.json();
+    const { token } = await service.createToken(LUMINA);
     await getLink(token);
-    await admin('/v1/poc/smart-pix/revoke', { token });
+    await service.revoke(token);
     const recorded = JSON.stringify(store.calls);
-    assert.ok(store.calls.length >= 3);
+    assert.deepEqual(store.calls.map((c) => c.op), ['insert', 'findByHash', 'revokeByHash']);
     assert.ok(!recorded.includes(token), 'raw token reached the repository');
     assert.ok(recorded.includes(hashSmartPixToken(token)));
     for (const row of store.rows.values()) assert.match(row.tokenHash, /^[0-9a-f]{64}$/);
-  });
-});
-
-describe('POC admin routes', () => {
-  test('without an Authorization header: 401', async () => {
-    assert.equal((await admin('/v1/poc/smart-pix/token', {}, null)).statusCode, 401);
-    assert.equal((await admin('/v1/poc/smart-pix/revoke', { token: 'AAAAAAAAAAAAAAAAAAAAAA' }, null)).statusCode, 401);
-  });
-
-  test('with SMART_PIX_ADMIN_KEY unset in the backend: 401 for everyone', async () => {
-    delete process.env.SMART_PIX_ADMIN_KEY;
-    assert.equal((await admin('/v1/poc/smart-pix/token', {}, 'Bearer ')).statusCode, 401);
-    assert.equal((await admin('/v1/poc/smart-pix/token', {}, `Bearer ${ADMIN_KEY}`)).statusCode, 401);
-  });
-
-  test('with a configured key shorter than 32 characters: 401', async () => {
-    process.env.SMART_PIX_ADMIN_KEY = 'short-key';
-    assert.equal((await admin('/v1/poc/smart-pix/token', {}, 'Bearer short-key')).statusCode, 401);
-  });
-
-  test('with a wrong key: 401', async () => {
-    assert.equal((await admin('/v1/poc/smart-pix/token', {}, `Bearer ${ADMIN_KEY}x`)).statusCode, 401);
-    assert.equal((await admin('/v1/poc/smart-pix/revoke', { token: 'AAAAAAAAAAAAAAAAAAAAAA' }, 'Bearer wrong')).statusCode, 401);
-  });
-
-  test('with the GATEWAY_API_KEY: 401', async () => {
-    assert.equal((await admin('/v1/poc/smart-pix/token', {}, `Bearer ${GATEWAY_KEY}`)).statusCode, 401);
-  });
-
-  test('nothing is stored when auth fails', async () => {
-    await admin('/v1/poc/smart-pix/token', {}, 'Bearer wrong');
-    assert.equal(store.calls.length, 0);
-  });
-
-  test('creates a link for the fixed POC data, 30 days by default', async () => {
-    const res = await admin('/v1/poc/smart-pix/token', {});
-    assert.equal(res.statusCode, 201);
-    assert.equal(res.headers['cache-control'], 'no-store');
-    const body = res.json();
-    assert.deepEqual(Object.keys(body).sort(), ['expiresAt', 'token', 'url']);
-    assert.ok(isWellFormedSmartPixToken(body.token));
-    assert.equal(body.url, `https://chat.example.test/pix/${body.token}`);
-    assert.equal(body.expiresAt, new Date(clock.getTime() + 30 * DAY_MS).toISOString());
-    assert.deepEqual((await getLink(body.token)).json(), LUMINA);
-  });
-
-  test('expiresInDays is honored and bounded to 1..90', async () => {
-    const week = await admin('/v1/poc/smart-pix/token', { expiresInDays: 7 });
-    assert.equal(week.json().expiresAt, new Date(clock.getTime() + 7 * DAY_MS).toISOString());
-    for (const bad of [0, 91, 1.5, '7']) {
-      assert.equal((await admin('/v1/poc/smart-pix/token', { expiresInDays: bad })).statusCode, 400, String(bad));
-    }
-  });
-
-  test('revoke: validates the format, revokes once, then the link is gone', async () => {
-    const { token } = (await admin('/v1/poc/smart-pix/token', {})).json();
-    assert.equal((await admin('/v1/poc/smart-pix/revoke', { token: 'bad' })).statusCode, 400);
-    const first = await admin('/v1/poc/smart-pix/revoke', { token });
-    assert.deepEqual(first.json(), { revoked: true });
-    assert.equal((await getLink(token)).statusCode, 404);
-    assert.deepEqual((await admin('/v1/poc/smart-pix/revoke', { token })).json(), { revoked: false });
-    assert.deepEqual((await admin('/v1/poc/smart-pix/revoke', { token: 'AAAAAAAAAAAAAAAAAAAAAA' })).json(), { revoked: false });
   });
 });

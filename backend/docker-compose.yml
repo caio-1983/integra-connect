@@ -20,8 +20,6 @@ services:
       EVOLUTION_WEBHOOK_SECRET: ${EVOLUTION_WEBHOOK_SECRET}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
-      # Smart Pix POC admin routes. No value here: set the secret in the deploy environment.
-      SMART_PIX_ADMIN_KEY: ${SMART_PIX_ADMIN_KEY:-}
       # How "Chave Pix" goes out: native | branded | plain | smart. Empty = native.
       PIX_CARD_STYLE: ${PIX_CARD_STYLE:-}
     healthcheck:
