@@ -24,6 +24,23 @@ const getCurrentUserId = async (): Promise<string> => {
   return user.id;
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Trim contact fields, turn blanks into null and validate email.
+// call_name defaults to the first word of name when not provided.
+const normalizeContactFields = (fields: { name?: string | null; call_name?: string | null; email?: string | null }) => {
+  const out: { name?: string | null; call_name?: string | null; email?: string | null } = {};
+  if (fields.name !== undefined) out.name = fields.name?.trim() || null;
+  if (fields.call_name !== undefined) out.call_name = fields.call_name?.trim() || null;
+  else if (out.name) out.call_name = out.name.split(/\s+/)[0];
+  if (fields.email !== undefined) {
+    const email = fields.email?.trim() || null;
+    if (email && !EMAIL_RE.test(email)) throw new Error('E-mail inválido.');
+    out.email = email;
+  }
+  return out;
+};
+
 // Cache for system stage IDs (Ganho/Perdido) - keyed by user_id for multi-tenant
 const systemStagesCacheByUser: Map<string, { ganhoId: string | null; perdidoId: string | null }> = new Map();
 
@@ -1927,6 +1944,49 @@ export const api = {
 
     if (error) {
       console.error('[API] Error updating contact notes:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update contact identity fields (name, call name, email)
+   */
+  updateContact: async (
+    contactId: string,
+    fields: { name?: string | null; call_name?: string | null; email?: string | null },
+  ): Promise<void> => {
+    const { error } = await supabase
+      .from('contacts')
+      .update(normalizeContactFields(fields))
+      .eq('id', contactId);
+
+    if (error) {
+      console.error('[API] Error updating contact:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Save an auto-created contact to the base: updates its fields and marks
+   * it as saved by the current user (saved_at/saved_by).
+   */
+  saveContact: async (
+    contactId: string,
+    fields: { name: string; call_name?: string | null; email?: string | null },
+  ): Promise<void> => {
+    if (!fields.name?.trim()) throw new Error('Informe o nome do contato.');
+    const userId = await getCurrentUserId();
+    const { error } = await supabase
+      .from('contacts')
+      .update({
+        ...normalizeContactFields(fields),
+        saved_at: new Date().toISOString(),
+        saved_by: userId,
+      })
+      .eq('id', contactId);
+
+    if (error) {
+      console.error('[API] Error saving contact:', error);
       throw error;
     }
   },
