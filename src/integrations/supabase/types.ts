@@ -220,6 +220,8 @@ export type Database = {
           notes: string | null
           phone_number: string | null
           profile_picture_url: string | null
+          saved_at: string | null
+          saved_by: string | null
           tags: string[] | null
           updated_at: string
           user_id: string | null
@@ -243,6 +245,8 @@ export type Database = {
           notes?: string | null
           phone_number?: string | null
           profile_picture_url?: string | null
+          saved_at?: string | null
+          saved_by?: string | null
           tags?: string[] | null
           updated_at?: string
           user_id?: string | null
@@ -266,6 +270,8 @@ export type Database = {
           notes?: string | null
           phone_number?: string | null
           profile_picture_url?: string | null
+          saved_at?: string | null
+          saved_by?: string | null
           tags?: string[] | null
           updated_at?: string
           user_id?: string | null
