@@ -116,7 +116,8 @@ export interface AvatarRefreshCandidate { contactId: string; phone: string; inst
 export interface FindOrCreateConversationResult { conversationId: string; created: boolean; }
 /** Resolved routing target for an outbound message on an existing conversation. */
 export interface ConversationChannelInfo { provider: string; channel: string; instance: string; to: string; }
-export interface InsertMessageResult { inserted: boolean; }
+export interface InsertMessageResult { inserted: boolean; messageId?: string; type?: string; }
+export interface AudioForTranscription { id: string; mediaUrl: string | null; mediaType: string | null; status: string | null; }
 export interface EditableMessage {
   id: string;
   providerMessageId: string | null;
@@ -691,12 +692,13 @@ class ConversationRepository {
       ? { name: input.sender.name ?? null, phone: input.sender.phone ?? null }
       : null;
 
-    const { error } = await supabase.from('messages').insert({
+    const type = mediaUrl ? mediaKindToDbType(input.media!.kind) : 'text';
+    const { data: row, error } = await supabase.from('messages').insert({
       conversation_id: input.conversationId,
       channel: input.channel,
       whatsapp_message_id: input.providerMessageId,
       content: input.content,
-      type: mediaUrl ? mediaKindToDbType(input.media!.kind) : 'text',
+      type,
       media_url: mediaUrl,
       media_type: mediaUrl ? input.media!.mimeType : null,
       from_type: 'user',
@@ -704,14 +706,52 @@ class ConversationRepository {
       sent_at: sentAt,
       reply_to_id: replyToId,
       ...(sender || input.pix ? { metadata: { ...(sender ? { sender } : {}), ...(input.pix ? { pix: input.pix } : {}) } } : {}),
-    });
+    }).select('id').single();
 
     if (error) {
       if ((error as { code?: string }).code === '23505') return { inserted: false };
       throw new Error(`[repo] failed to insert inbound message: ${error.message}`);
     }
     await this.touchConversation(input.conversationId);
-    return { inserted: true };
+    return { inserted: true, messageId: row?.id as string | undefined, type };
+  }
+
+  async getAudioForTranscription(messageId: string): Promise<AudioForTranscription | null> {
+    const { data } = await getSupabase()
+      .from('messages')
+      .select('id, media_url, media_type, transcription_status')
+      .eq('id', messageId)
+      .eq('type', 'audio')
+      .maybeSingle();
+    if (!data) return null;
+    return { id: data.id as string, mediaUrl: data.media_url as string | null, mediaType: data.media_type as string | null, status: data.transcription_status as string | null };
+  }
+
+  async setTranscription(messageId: string, status: 'pending' | 'done' | 'failed' | 'skipped', text?: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from('messages')
+      .update({
+        transcription_status: status,
+        ...(text !== undefined ? { transcription: text } : {}),
+        ...(status === 'done' ? { transcribed_at: new Date().toISOString() } : {}),
+      })
+      .eq('id', messageId);
+    if (error) logger.warn({ err: error.message, messageId, status }, '[repo] failed to save transcription');
+  }
+
+  /** Customer audio since `sinceIso` without a finished transcript — for the backfill script. */
+  async listUntranscribedCustomerAudio(sinceIso: string): Promise<string[]> {
+    const { data, error } = await getSupabase()
+      .from('messages')
+      .select('id')
+      .eq('type', 'audio')
+      .eq('from_type', 'user')
+      .gte('sent_at', sinceIso)
+      .or('transcription_status.is.null,transcription_status.in.(pending,failed)')
+      .order('sent_at', { ascending: true })
+      .limit(5000);
+    if (error) throw new Error(`[repo] failed to list audio for transcription: ${error.message}`);
+    return (data ?? []).map((r) => r.id as string);
   }
 
   async insertOutboundMessage(input: {

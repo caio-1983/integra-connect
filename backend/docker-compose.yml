@@ -22,6 +22,9 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       # How "Chave Pix" goes out: native | branded | plain | smart. Empty = native.
       PIX_CARD_STYLE: ${PIX_CARD_STYLE:-}
+      # Customer voice notes → text (OpenAI). Off unless "true".
+      AUDIO_TRANSCRIBE: ${AUDIO_TRANSCRIBE:-}
+      TRANSCRIBE_MODEL: ${TRANSCRIBE_MODEL:-gpt-4o-mini-transcribe}
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s

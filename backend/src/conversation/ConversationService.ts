@@ -9,6 +9,7 @@ import { createSmartPixMessage, SmartPixKeyNotSupportedError, type SmartPixMessa
 import { ensureAdCataloged } from '../channels/meta/MetaAdsCatalog.js';
 import { runAgentChat } from '../runtime/AgentRuntime.js';
 import { contactAvatarService } from './ContactAvatarService.js';
+import { audioTranscribeEnabled, transcriptionService } from '../transcription/TranscriptionService.js';
 import {
   ChannelEvents,
   type ConversationLifecyclePayload,
@@ -46,7 +47,7 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
     isGroup: msg.isGroup,
   });
 
-  const { inserted } = await conversationRepository.insertInboundMessage({
+  const { inserted, messageId, type } = await conversationRepository.insertInboundMessage({
     conversationId,
     channel: msg.channel,
     providerMessageId: msg.providerMessageId,
@@ -59,6 +60,11 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
     pix: msg.pix,
   });
   if (!inserted) return; // duplicate delivery — already handled
+
+  // Customer voice note → transcript in the background (team echoes never get here).
+  if (type === 'audio' && messageId && audioTranscribeEnabled()) {
+    transcriptionService.transcribeInBackground(messageId);
+  }
 
   const lifecycle: ConversationLifecyclePayload = { conversationId, contactId };
   await aiEventBus.publish({
