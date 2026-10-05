@@ -390,9 +390,23 @@ export const api = {
    * contacts beyond the recent window are still findable/selectable. Without a
    * search it returns the most recently active contacts (capped, for the list).
    */
-  fetchContacts: async (search?: string): Promise<Contact[]> => {
+  /** Real totals for the Contacts header/chips (the list itself is capped). */
+  countContacts: async (): Promise<{ total: number; unsaved: number }> => {
+    const [all, unsaved] = await Promise.all([
+      supabase.from('contacts').select('id', { count: 'exact', head: true }),
+      supabase.from('contacts').select('id', { count: 'exact', head: true })
+        .is('saved_at', null).not('external_id', 'like', '%@g.us'),
+    ]);
+    if (all.error || unsaved.error) throw all.error ?? unsaved.error;
+    return { total: all.count ?? 0, unsaved: unsaved.count ?? 0 };
+  },
+
+  fetchContacts: async (search?: string, opts?: { unsavedOnly?: boolean; limit?: number }): Promise<Contact[]> => {
     const term = (search ?? '').trim();
     let query = supabase.from('contacts').select('*');
+    // "Não salvos": auto-created by the webhook and not reviewed yet. Groups are
+    // not contacts the team saves, so they stay out of this list.
+    if (opts?.unsavedOnly) query = query.is('saved_at', null).not('external_id', 'like', '%@g.us');
 
     if (term) {
       // DB stores phone as bare digits (5521...), so strip formatting from the
@@ -401,14 +415,14 @@ export const api = {
       const digits = term.replace(/\D/g, '');
       const safe = term.replace(/[,()*]/g, ' ').trim();
       const ors: string[] = [];
-      if (safe) ors.push(`name.ilike.%${safe}%`, `call_name.ilike.%${safe}%`);
+      if (safe) ors.push(`name.ilike.%${safe}%`, `call_name.ilike.%${safe}%`, `email.ilike.%${safe}%`);
       if (digits) ors.push(`phone_number.ilike.%${digits}%`);
       if (ors.length) query = query.or(ors.join(','));
     }
 
     const { data, error } = await query
       .order('last_activity', { ascending: false, nullsFirst: false })
-      .limit(term ? 50 : 500);
+      .limit(opts?.limit ?? (term ? 50 : 500));
 
     if (error) {
       console.error('[API] Error fetching contacts:', error);
@@ -432,6 +446,10 @@ export const api = {
       // Real name only (no phone fallback here) — the UI applies the phone
       // fallback via contactDisplayName, so nameless contacts still render.
       name: c.name || c.call_name || '',
+      rawName: c.name ?? null,
+      callName: c.call_name ?? null,
+      saved: !!c.saved_at,
+      isGroup: (c.external_id ?? '').endsWith('@g.us'),
       phone: c.phone_number,
       email: c.email || '',
       status: leadContactIds.has(c.id) ? ('lead' as const) : ('contact' as const),

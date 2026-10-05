@@ -87,6 +87,12 @@ export interface Contact {
   lastContact: string;
   /** WhatsApp profile photo (contacts.profile_picture_url), when known. */
   avatar?: string;
+  /** Raw contacts.name / call_name, for the edit form (`name` is already a fallback). */
+  rawName?: string | null;
+  callName?: string | null;
+  /** False while auto-created by the webhook and not saved by an attendant. */
+  saved?: boolean;
+  isGroup?: boolean;
 }
 
 export interface StatMetric {
