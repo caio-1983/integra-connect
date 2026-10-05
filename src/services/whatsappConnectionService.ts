@@ -127,6 +127,21 @@ export async function editConversationMessage(
   }
 }
 
+/** Transcribes a customer voice note on demand. The text arrives on the
+ * message row (realtime); the returned status is for immediate feedback. */
+export async function transcribeConversationAudio(conversationId: string, messageId: string): Promise<'done' | 'skipped' | 'failed'> {
+  const res = await fetch(
+    `${base()}/v1/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/transcribe`,
+    // '{}' body: Fastify rejects an empty body sent as application/json.
+    { method: 'POST', headers: headers(), body: '{}' },
+  );
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error || 'Erro ao transcrever o áudio.');
+  }
+  return ((await res.json()) as { status: 'done' | 'skipped' | 'failed' }).status;
+}
+
 export interface SendMediaReplyInput { base64: string; mimeType: string; fileName?: string; caption?: string; operatorId?: string; }
 
 /** Sends a human operator's media reply (attachment). base64 has no data: prefix. */

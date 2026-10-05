@@ -6,6 +6,7 @@ import { evolutionConnectionService } from '../channels/evolution/EvolutionConne
 import { summarizeConversation } from '../conversation/ConversationSummaryService.js';
 import { getConversationInsight } from '../conversation/ConversationInsightService.js';
 import { configService } from '../config/ConfigService.js';
+import { transcriptionService } from '../transcription/TranscriptionService.js';
 
 const paramsSchema = z.object({ conversationId: z.string().min(1) });
 
@@ -313,6 +314,31 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
       request.log.error(error);
       return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao editar mensagem.' });
     }
+  });
+
+  app.post('/v1/conversations/:conversationId/messages/:messageId/transcribe', {
+    preHandler: authMiddleware,
+    validatorCompiler: noopValidator,
+    // Each call may pay for a real transcription request.
+    config: {
+      rateLimit: {
+        max: configService.getNumber('AGENT_CHAT_RATE_LIMIT_MAX', 20),
+        timeWindow: configService.getNumber('RATE_LIMIT_WINDOW_MS', 60_000),
+      },
+    },
+    schema: {
+      tags: ['conversations'],
+      summary: 'Transcribe a customer voice note (manual retry / old audio). The text lands on messages.transcription.',
+      security: [{ bearerAuth: [] }],
+      params: editParamsJsonSchema,
+    },
+  }, async (request, reply) => {
+    const parsed = editParamsSchema.safeParse(request.params);
+    if (!parsed.success) return reply.code(400).send({ error: 'conversationId e messageId obrigatórios' });
+
+    const result = await transcriptionService.transcribe(parsed.data.messageId, parsed.data.conversationId);
+    if (result === 'not_found') return reply.code(404).send({ error: 'Áudio do cliente não encontrado nesta conversa.' });
+    return reply.send({ status: result });
   });
 
   app.post('/v1/conversations/:conversationId/reply-media', {

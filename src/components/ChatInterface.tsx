@@ -10,6 +10,7 @@ import { useAgentRuntime } from '@/ai/hooks/useAgentRuntime';
 import { useConversationInsight } from '@/ai/hooks/useConversationInsight';
 import { useMyTasks } from '@/hooks/useMyTasks';
 import { api } from '@/services/api';
+import { transcribeConversationAudio } from '@/services/whatsappConnectionService';
 import { toast } from 'sonner';
 import { ContactFormDialog, type ContactFormValues } from './contact/ContactFormDialog';
 import {
@@ -338,6 +339,15 @@ const ChatInterface: React.FC = () => {
               onReply={setReplyingTo}
               onEdit={setEditingMessage}
               canEdit={canEditMessage}
+              onTranscribe={async (msg) => {
+                try {
+                  const status = await transcribeConversationAudio(activeChat.id, msg.id);
+                  if (status === 'failed') toast.error('Não foi possível transcrever o áudio.');
+                  if (status === 'skipped') toast.info('Áudio longo demais para transcrever.');
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Erro ao transcrever o áudio.');
+                }
+              }}
               luNote={insight && insight.annotation ? {
                 messageId: insight.basedOnMessageId,
                 text: insight.annotation,

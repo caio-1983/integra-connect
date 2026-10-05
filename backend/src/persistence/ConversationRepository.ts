@@ -716,13 +716,16 @@ class ConversationRepository {
     return { inserted: true, messageId: row?.id as string | undefined, type };
   }
 
-  async getAudioForTranscription(messageId: string): Promise<AudioForTranscription | null> {
-    const { data } = await getSupabase()
+  /** Customer audio only — team audio is never transcribed. */
+  async getAudioForTranscription(messageId: string, conversationId?: string): Promise<AudioForTranscription | null> {
+    let query = getSupabase()
       .from('messages')
       .select('id, media_url, media_type, transcription_status')
       .eq('id', messageId)
       .eq('type', 'audio')
-      .maybeSingle();
+      .eq('from_type', 'user');
+    if (conversationId) query = query.eq('conversation_id', conversationId);
+    const { data } = await query.maybeSingle();
     if (!data) return null;
     return { id: data.id as string, mediaUrl: data.media_url as string | null, mediaType: data.media_type as string | null, status: data.transcription_status as string | null };
   }

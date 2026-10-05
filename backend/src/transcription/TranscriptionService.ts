@@ -50,15 +50,18 @@ async function transcribeOnce(mediaUrl: string, mediaType: string | null): Promi
   return result.text.trim();
 }
 
+type TranscribeResult = 'done' | 'skipped' | 'failed' | 'not_found';
+
 /** Transcribes one stored customer audio message and saves the result on the
  *  row (realtime carries it to the inbox). Never throws. */
-async function transcribe(messageId: string): Promise<void> {
-  await withSlot(async () => {
-    const audio = await conversationRepository.getAudioForTranscription(messageId);
-    if (!audio || audio.status === 'done') return;
+async function transcribe(messageId: string, conversationId?: string): Promise<TranscribeResult> {
+  return withSlot(async (): Promise<TranscribeResult> => {
+    const audio = await conversationRepository.getAudioForTranscription(messageId, conversationId);
+    if (!audio) return 'not_found';
+    if (audio.status === 'done') return 'done';
     if (!audio.mediaUrl) {
       await conversationRepository.setTranscription(messageId, 'skipped');
-      return;
+      return 'skipped';
     }
     await conversationRepository.setTranscription(messageId, 'pending');
 
@@ -67,16 +70,20 @@ async function transcribe(messageId: string): Promise<void> {
         const text = await transcribeOnce(audio.mediaUrl, audio.mediaType);
         if (text === 'too_long') {
           await conversationRepository.setTranscription(messageId, 'skipped');
-        } else {
-          await conversationRepository.setTranscription(messageId, 'done', text);
+          return 'skipped';
         }
-        return;
+        await conversationRepository.setTranscription(messageId, 'done', text);
+        return 'done';
       } catch (err) {
         logger.warn({ err: (err as Error).message, messageId, attempt }, '[transcription] failed');
       }
     }
     await conversationRepository.setTranscription(messageId, 'failed');
-  }).catch((err) => logger.error({ err: (err as Error).message, messageId }, '[transcription] unexpected error'));
+    return 'failed';
+  }).catch((err): TranscribeResult => {
+    logger.error({ err: (err as Error).message, messageId }, '[transcription] unexpected error');
+    return 'failed';
+  });
 }
 
 export const transcriptionService = {

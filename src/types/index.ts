@@ -367,6 +367,8 @@ export interface DBMessage {
   status: DBMessageStatus;
   media_url: string | null;
   media_type: string | null;
+  transcription?: string | null;
+  transcription_status?: 'pending' | 'done' | 'failed' | 'skipped' | null;
   reply_to_id: string | null;
   processed_by_nina: boolean;
   nina_response_time: number | null;
@@ -447,6 +449,9 @@ export interface UIMessage {
   /** Set when the message is a Pix card (messages.metadata.pix); `content` then
    *  holds its plain-text form, for previews and search. */
   pix?: PixCardData | null;
+  /** Customer voice note → text (backend TranscriptionService). */
+  transcription?: string | null;
+  transcriptionStatus?: 'pending' | 'done' | 'failed' | 'skipped' | null;
 }
 
 // ============= Utility Functions =============
@@ -514,6 +519,8 @@ export function transformDBToUIMessage(msg: DBMessage): UIMessage {
     replyToId: msg.reply_to_id ?? null,
     editedAt: (msg.metadata as { edited_at?: string } | null)?.edited_at ?? null,
     pix: pixFromMetadata(msg.metadata),
+    transcription: msg.transcription ?? null,
+    transcriptionStatus: msg.transcription_status ?? null,
   };
 }
 

@@ -137,6 +137,55 @@ interface ConversationTimelineProps {
   canEdit?: (msg: UIMessage) => boolean;
   /** Lu's one-line reading of what the customer asked, shown right after the message it was based on. */
   luNote?: { messageId: string; text: string; onOpen?: () => void } | null;
+  /** Transcribes a customer voice note on demand (old audio or a failed one). */
+  onTranscribe?: (msg: UIMessage) => Promise<void>;
+}
+
+/** Text of a customer voice note under its player: the transcript (collapsed
+ *  past 3 lines), "Transcrevendo…" while pending, or a "Transcrever" button. */
+function AudioTranscript({ msg, onTranscribe }: { msg: UIMessage; onTranscribe?: (msg: UIMessage) => Promise<void> }) {
+  const [expanded, setExpanded] = useState(false);
+  const [requesting, setRequesting] = useState(false);
+  const text = msg.transcription?.trim();
+
+  if (msg.transcriptionStatus === 'done' && text) {
+    const long = text.length > 160;
+    return (
+      <div className="mt-1.5 border-t border-black/5 dark:border-white/10 pt-1.5 text-[13px] leading-snug text-[var(--wa-text)]">
+        <p className={cn('whitespace-pre-wrap break-words', !expanded && long && 'line-clamp-3')}>{text}</p>
+        {long && (
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className="mt-0.5 text-[12px] font-medium text-read-receipt hover:underline"
+          >
+            {expanded ? 'Ver menos' : 'Ver mais'}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (msg.transcriptionStatus === 'pending' || requesting) {
+    return <p className="mt-1 text-[12px] italic text-[var(--wa-meta)]">Transcrevendo…</p>;
+  }
+
+  if (msg.transcriptionStatus === 'skipped' && msg.mediaUrl) {
+    return <p className="mt-1 text-[12px] text-[var(--wa-meta)]">Áudio longo demais para transcrever.</p>;
+  }
+
+  if (!onTranscribe || !msg.mediaUrl) return null;
+  return (
+    <button
+      onClick={async () => {
+        setRequesting(true);
+        try { await onTranscribe(msg); } finally { setRequesting(false); }
+      }}
+      className="mt-1 flex items-center gap-1 text-[12px] font-medium text-read-receipt hover:underline"
+    >
+      <FileText className="w-3.5 h-3.5" />
+      {msg.transcriptionStatus === 'failed' ? 'Tentar transcrever de novo' : 'Transcrever'}
+    </button>
+  );
 }
 
 /**
@@ -172,7 +221,7 @@ export function messageAuthor(msg: UIMessage, contactName?: string, isGroup?: bo
 }
 
 const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
-  messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply, onEdit, canEdit, luNote,
+  messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply, onEdit, canEdit, luNote, onTranscribe,
 }) => {
   const messagesById = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages]);
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -258,7 +307,8 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
       };
 
       return (
-        <div className="flex items-center gap-2 w-[260px] max-w-full pt-1">
+        <div className="w-[260px] max-w-full">
+        <div className="flex items-center gap-2 pt-1">
           {msg.mediaUrl && (
             <audio
               ref={el => { if (el) audioRefs.current[msg.id] = el; }}
@@ -330,6 +380,10 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
               {meta}
             </div>
           </div>
+        </div>
+        {msg.direction === MessageDirection.INCOMING && (
+          <AudioTranscript msg={msg} onTranscribe={onTranscribe} />
+        )}
         </div>
       );
     }
