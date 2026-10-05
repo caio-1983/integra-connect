@@ -224,23 +224,51 @@ class ConversationRepository {
 
   /** WhatsApp 1:1 contacts with a conversation whose picture was never checked
    * or is older than `staleBefore`, paired with the instance of their latest
-   * conversation (a picture lookup needs a connected number). For the backfill. */
-  async listAvatarRefreshCandidates(staleBefore: string): Promise<AvatarRefreshCandidate[]> {
+   * conversation (a picture lookup needs a connected number). Contacts with no
+   * conversation at all (imported, or from before the current numbers) get
+   * `fallbackInstance` when given — any connected number can look a picture up.
+   * For the backfill. */
+  async listAvatarRefreshCandidates(staleBefore: string, fallbackInstance?: string): Promise<AvatarRefreshCandidate[]> {
     const supabase = getSupabase();
-    const { data, error } = await supabase
-      .from('conversations')
-      .select('metadata, last_message_at, contacts!inner(id, external_id, channel, profile_picture_checked_at)')
-      .eq('contacts.channel', 'whatsapp')
-      .or(`profile_picture_checked_at.is.null,profile_picture_checked_at.lt.${staleBefore}`, { referencedTable: 'contacts' })
-      .order('last_message_at', { ascending: false, nullsFirst: false });
-    if (error) throw new Error(`[repo] failed to list avatar candidates: ${error.message}`);
+    const PAGE = 1000; // PostgREST caps each response at 1000 rows
+    const staleFilter = `profile_picture_checked_at.is.null,profile_picture_checked_at.lt.${staleBefore}`;
 
     const byContact = new Map<string, AvatarRefreshCandidate>();
-    for (const row of data ?? []) {
-      const contact = row.contacts as unknown as { id: string; external_id: string };
-      const instance = (row.metadata as { instance?: string } | null)?.instance;
-      if (!instance || !contact?.external_id || contact.external_id.includes('@')) continue; // groups/@lid
-      if (!byContact.has(contact.id)) byContact.set(contact.id, { contactId: contact.id, phone: contact.external_id, instance });
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('metadata, last_message_at, contacts!inner(id, external_id, channel, profile_picture_checked_at)')
+        .eq('contacts.channel', 'whatsapp')
+        .or(staleFilter, { referencedTable: 'contacts' })
+        .order('last_message_at', { ascending: false, nullsFirst: false })
+        .order('id')
+        .range(from, from + PAGE - 1);
+      if (error) throw new Error(`[repo] failed to list avatar candidates: ${error.message}`);
+      for (const row of data ?? []) {
+        const contact = row.contacts as unknown as { id: string; external_id: string };
+        const instance = (row.metadata as { instance?: string } | null)?.instance;
+        if (!instance || !contact?.external_id || contact.external_id.includes('@')) continue; // groups/@lid
+        if (!byContact.has(contact.id)) byContact.set(contact.id, { contactId: contact.id, phone: contact.external_id, instance });
+      }
+      if (!data || data.length < PAGE) break;
+    }
+
+    if (fallbackInstance) {
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await supabase
+          .from('contacts')
+          .select('id, external_id')
+          .eq('channel', 'whatsapp')
+          .or(staleFilter)
+          .order('id')
+          .range(from, from + PAGE - 1);
+        if (error) throw new Error(`[repo] failed to list avatar candidates: ${error.message}`);
+        for (const contact of data ?? []) {
+          if (!contact.external_id || contact.external_id.includes('@') || byContact.has(contact.id)) continue;
+          byContact.set(contact.id, { contactId: contact.id, phone: contact.external_id, instance: fallbackInstance });
+        }
+        if (!data || data.length < PAGE) break;
+      }
     }
     return [...byContact.values()];
   }

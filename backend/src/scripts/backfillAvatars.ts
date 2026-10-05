@@ -1,22 +1,35 @@
 /**
- * One-off backfill of contact profile pictures for everyone who already has a
- * WhatsApp conversation. New messages refresh pictures on their own
- * (ContactAvatarService); this covers the existing base. Contacts checked in
- * the last 7 days are skipped, so running it twice is harmless.
+ * One-off backfill of contact profile pictures for every WhatsApp contact.
+ * New messages refresh pictures on their own (ContactAvatarService); this
+ * covers the existing base. Contacts without a conversation are looked up
+ * through --instance <name> (default: the first connected number). Contacts
+ * checked in the last 7 days are skipped, so running it twice is harmless.
  *
- *   npx tsx src/scripts/backfillAvatars.ts --dry-run
- *   npx tsx src/scripts/backfillAvatars.ts
+ *   node dist/scripts/backfillAvatars.js --dry-run [--instance <name>]
+ *   node dist/scripts/backfillAvatars.js [--instance <name>]
  */
 import { conversationRepository } from '../persistence/ConversationRepository.js';
 import { AVATAR_TTL_MS, contactAvatarService } from '../conversation/ContactAvatarService.js';
+import { getEvolutionClient } from '../channels/evolution/evolutionClientInstance.js';
+import { toInstanceSummary } from '../channels/evolution/instanceSummary.js';
 
 const dryRun = process.argv.includes('--dry-run');
+const instanceArg = process.argv[process.argv.indexOf('--instance') + 1];
 /** Pause between lookups so Evolution/WhatsApp aren't hammered. */
 const DELAY_MS = 400;
 
+/** Number used for contacts with no conversation: --instance <name>, else the first connected one. */
+async function pickFallbackInstance(): Promise<string | undefined> {
+  if (process.argv.includes('--instance')) return instanceArg;
+  const instances = (await getEvolutionClient().fetchInstances()).map(toInstanceSummary);
+  return instances.find((i) => i.connected)?.name;
+}
+
 async function main(): Promise<void> {
   const staleBefore = new Date(Date.now() - AVATAR_TTL_MS).toISOString();
-  const candidates = await conversationRepository.listAvatarRefreshCandidates(staleBefore);
+  const fallbackInstance = await pickFallbackInstance();
+  console.log(`Número para contatos sem conversa: ${fallbackInstance ?? '(nenhum conectado — ficam de fora)'}`);
+  const candidates = await conversationRepository.listAvatarRefreshCandidates(staleBefore, fallbackInstance);
   console.log(`${candidates.length} contato(s) sem foto recente${dryRun ? ' (dry-run)' : ''}`);
   if (dryRun) return;
 
