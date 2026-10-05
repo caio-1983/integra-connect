@@ -387,7 +387,7 @@ export interface DailyContactsPoint {
 const BRT_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
 
 /** Distinct people who messaged in, per Brasília day; days without anyone read as 0. */
-export async function fetchDailyContacts(period: Period): Promise<DailyContactsPoint[]> {
+export async function fetchDailyContacts(period: Pick<Period, 'from' | 'to'>): Promise<DailyContactsPoint[]> {
   const { data, error } = await supabase.rpc('report_daily_contacts', {
     p_from: iso(period.from),
     p_to: iso(period.to),

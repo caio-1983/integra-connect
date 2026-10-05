@@ -3,6 +3,8 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { CircleDollarSign, Users, Percent, Receipt } from 'lucide-react';
 import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
 import { KPIStrip } from '@/components/operations/KPIStrip';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   fetchDailyContacts, fetchRevenueKpis, formatPercentDelta, type DailyContactsPoint, type KpiComparison,
 } from '@/services/analyticsService';
@@ -10,7 +12,14 @@ import { formatCurrency } from '@/lib/formatCurrency';
 import { useResultsPeriod } from './ResultsLayout';
 import { ReportError, ReportLoading, pct } from './ResultsUi';
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+/** `YYYY-MM-DD` of today on the Brasília calendar. */
+const todayBrt = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+/** Brasília has had no DST since 2019, so a fixed -03:00 offset is exact. */
+const brtMidnight = (day: string) => new Date(`${day}T00:00:00-03:00`);
+const shiftDay = (day: string, delta: number) =>
+  new Date(Date.parse(`${day}T12:00:00Z`) + delta * 86_400_000).toISOString().slice(0, 10);
+
+const plural =(n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /**
  * Headline numbers, each against the previous window.
@@ -22,29 +31,50 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export const ResultsOverview: React.FC = () => {
   const period = useResultsPeriod();
   const [kpis, setKpis] = useState<KpiComparison | null>(null);
-  const [chartData, setChartData] = useState<DailyContactsPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [kpiFailed, setKpiFailed] = useState(false);
-  const [chartFailed, setChartFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setKpiFailed(false);
-    setChartFailed(false);
 
-    Promise.allSettled([fetchRevenueKpis(period), fetchDailyContacts(period)])
-      .then(([k, chart]) => {
+    fetchRevenueKpis(period)
+      .then((k) => { if (!cancelled) setKpis(k); })
+      .catch((err) => {
         if (cancelled) return;
-        if (k.status === 'fulfilled') setKpis(k.value);
-        else { console.error('[results] KPIs:', k.reason); setKpis(null); setKpiFailed(true); }
-        if (chart.status === 'fulfilled') setChartData(chart.value);
-        else { console.error('[results] gráfico:', chart.reason); setChartFailed(true); }
+        console.error('[results] KPIs:', err); setKpis(null); setKpiFailed(true);
       })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
   }, [period]);
+
+  // The daily chart has its own window, independent of the page period: it
+  // always opens on the last 30 days and the user narrows it with its own dates.
+  const [range, setRange] = useState(() => ({ from: shiftDay(todayBrt(), -29), to: todayBrt() }));
+  const [chartData, setChartData] = useState<DailyContactsPoint[]>([]);
+  const [chartLoading, setChartLoading] = useState(true);
+  const [chartFailed, setChartFailed] = useState(false);
+
+  useEffect(() => {
+    if (!range.from || !range.to || range.from > range.to) return;
+    let cancelled = false;
+    setChartLoading(true);
+    setChartFailed(false);
+
+    const from = brtMidnight(range.from);
+    const to = brtMidnight(shiftDay(range.to, 1));
+    fetchDailyContacts({ from, to })
+      .then((points) => { if (!cancelled) setChartData(points); })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('[results] gráfico:', err); setChartFailed(true);
+      })
+      .finally(() => { if (!cancelled) setChartLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [range]);
 
   const current = kpis?.current;
   const previous = kpis?.previous;
@@ -74,7 +104,32 @@ export const ResultsOverview: React.FC = () => {
       </p>
 
       <Panel title="Pessoas que entraram em contato por dia" description="Contatos diferentes que mandaram mensagem em cada dia.">
-        {loading ? (
+        <div className="flex flex-wrap items-end gap-3 px-4 pb-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="daily-from">De</Label>
+            <Input
+              id="daily-from"
+              type="date"
+              className="w-auto"
+              value={range.from}
+              max={range.to}
+              onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="daily-to">Até</Label>
+            <Input
+              id="daily-to"
+              type="date"
+              className="w-auto"
+              value={range.to}
+              min={range.from}
+              max={todayBrt()}
+              onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
+            />
+          </div>
+        </div>
+        {chartLoading ? (
           <ReportLoading />
         ) : chartFailed ? (
           <ReportError />
