@@ -376,6 +376,43 @@ export async function fetchAttendantPerformance(period: Period): Promise<Attenda
   }));
 }
 
+// ============= Daily contacts =============
+
+export interface DailyContactsPoint {
+  /** `dd/mm`, for the chart axis. */
+  name: string;
+  contacts: number;
+}
+
+const BRT_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
+
+/** Distinct people who messaged in, per Brasília day; days without anyone read as 0. */
+export async function fetchDailyContacts(period: Period): Promise<DailyContactsPoint[]> {
+  const { data, error } = await supabase.rpc('report_daily_contacts', {
+    p_from: iso(period.from),
+    p_to: iso(period.to),
+  });
+
+  if (error) {
+    console.error('[analytics] report_daily_contacts failed:', error);
+    throw error;
+  }
+
+  const byDay = new Map(
+    ((data ?? []) as { day: string; contacts: number }[]).map((row) => [row.day, Number(row.contacts)]),
+  );
+
+  const points: DailyContactsPoint[] = [];
+  const last = BRT_DAY.format(new Date(period.to.getTime() - 1));
+  const cursor = new Date(period.from);
+  for (let key = BRT_DAY.format(cursor); key <= last; key = BRT_DAY.format(cursor)) {
+    const [, mm, dd] = key.split('-');
+    points.push({ name: `${dd}/${mm}`, contacts: byDay.get(key) ?? 0 });
+    cursor.setTime(cursor.getTime() + 86_400_000);
+  }
+  return points;
+}
+
 /** `1h 12min` / `4min` / `38s` — response times span three orders of magnitude,
  *  so a single unit would read as either noise or nonsense. */
 export function formatDuration(seconds: number | null): string {

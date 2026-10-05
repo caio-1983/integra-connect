@@ -3,8 +3,9 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { CircleDollarSign, Users, Percent, Receipt } from 'lucide-react';
 import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
 import { KPIStrip } from '@/components/operations/KPIStrip';
-import { api } from '@/services/api';
-import { fetchRevenueKpis, formatPercentDelta, type KpiComparison } from '@/services/analyticsService';
+import {
+  fetchDailyContacts, fetchRevenueKpis, formatPercentDelta, type DailyContactsPoint, type KpiComparison,
+} from '@/services/analyticsService';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { useResultsPeriod } from './ResultsLayout';
 import { ReportError, ReportLoading, pct } from './ResultsUi';
@@ -21,7 +22,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export const ResultsOverview: React.FC = () => {
   const period = useResultsPeriod();
   const [kpis, setKpis] = useState<KpiComparison | null>(null);
-  const [chartData, setChartData] = useState<{ name: string; chats: number; sales: number }[]>([]);
+  const [chartData, setChartData] = useState<DailyContactsPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [kpiFailed, setKpiFailed] = useState(false);
   const [chartFailed, setChartFailed] = useState(false);
@@ -32,17 +33,12 @@ export const ResultsOverview: React.FC = () => {
     setKpiFailed(false);
     setChartFailed(false);
 
-    // The daily volume chart still comes from the existing api helper, which takes
-    // a day count — derived from the selected window so the chart and the KPIs
-    // describe the same period.
-    const days = Math.max(1, Math.round((period.to.getTime() - period.from.getTime()) / 86_400_000));
-
-    Promise.allSettled([fetchRevenueKpis(period), api.fetchChartData(days)])
+    Promise.allSettled([fetchRevenueKpis(period), fetchDailyContacts(period)])
       .then(([k, chart]) => {
         if (cancelled) return;
         if (k.status === 'fulfilled') setKpis(k.value);
         else { console.error('[results] KPIs:', k.reason); setKpis(null); setKpiFailed(true); }
-        if (chart.status === 'fulfilled') setChartData(chart.value as { name: string; chats: number; sales: number }[]);
+        if (chart.status === 'fulfilled') setChartData(chart.value);
         else { console.error('[results] gráfico:', chart.reason); setChartFailed(true); }
       })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -77,7 +73,7 @@ export const ResultsOverview: React.FC = () => {
         {kpiFailed ? 'Não foi possível carregar os indicadores.' : 'As setas comparam com o período anterior.'}
       </p>
 
-      <Panel title="Mensagens por dia" description="Mensagens trocadas em todas as conversas no período.">
+      <Panel title="Pessoas que entraram em contato por dia" description="Contatos diferentes que mandaram mensagem em cada dia.">
         {loading ? (
           <ReportLoading />
         ) : chartFailed ? (
@@ -102,8 +98,8 @@ export const ResultsOverview: React.FC = () => {
                 />
                 <Area
                   type="monotone"
-                  dataKey="chats"
-                  name="Mensagens"
+                  dataKey="contacts"
+                  name="Pessoas"
                   stroke="hsl(var(--chart-1))"
                   strokeWidth={2}
                   fillOpacity={1}

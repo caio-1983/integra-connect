@@ -1523,6 +1523,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      report_daily_contacts: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          contacts: number
+          day: string
+        }[]
+      }
       report_campaign_performance: {
         Args: { p_from: string; p_to: string }
         Returns: {
