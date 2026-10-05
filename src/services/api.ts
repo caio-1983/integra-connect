@@ -998,6 +998,67 @@ export const api = {
     }));
   },
 
+  /**
+   * Where a deal came from: the contact's latest conversation, the WhatsApp
+   * number it runs on and who on the team answered it (messages.sent_by).
+   * Fetched per deal because fetchPipeline's bulk conversation lookup can't
+   * carry hundreds of contact ids in one URL.
+   */
+  fetchDealOrigin: async (contactId: string): Promise<{
+    conversationId: string;
+    instance: string | null;
+    attendants: string[];
+  } | null> => {
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('id, metadata, assigned_user_id')
+      .eq('contact_id', contactId)
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle();
+    if (!conv) return null;
+
+    const instanceName = (conv.metadata as any)?.instance ?? null;
+    const [{ data: msgs }, labels] = await Promise.all([
+      (supabase as any)
+        .from('messages')
+        .select('sent_by')
+        .eq('conversation_id', conv.id)
+        .not('sent_by', 'is', null)
+        .limit(1000),
+      api.fetchInstanceLabels().catch(() => ({} as Record<string, string>)),
+    ]);
+
+    const userIds = [...new Set<string>([
+      ...((msgs ?? []) as { sent_by: string }[]).map(m => m.sent_by),
+      ...(conv.assigned_user_id ? [conv.assigned_user_id] : []),
+    ])];
+    let attendants: string[] = [];
+    if (userIds.length > 0) {
+      const { data: members } = await (supabase as any)
+        .from('team_members')
+        .select('name, user_id, hidden')
+        .in('user_id', userIds);
+      attendants = ((members ?? []) as { name: string; hidden?: boolean }[])
+        .filter(m => !m.hidden)
+        .map(m => m.name);
+    }
+
+    return {
+      conversationId: conv.id,
+      instance: instanceName ? (labels[instanceName] || instanceName) : null,
+      attendants,
+    };
+  },
+
+  updateDealValue: async (id: string, value: number): Promise<void> => {
+    const { error } = await supabase.from('deals').update({ value }).eq('id', id);
+    if (error) {
+      console.error('[API] Error updating deal value:', error);
+      throw error;
+    }
+  },
+
   // Pipeline Stages CRUD
   fetchPipelineStages: async (): Promise<any[]> => {
     const userId = await getCurrentUserId();

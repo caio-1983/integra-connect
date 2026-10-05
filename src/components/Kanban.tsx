@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Loader2, CalendarClock, X, Building, CheckCircle2, Circle,
   FileText, Phone, Mail, CheckSquare, Calendar, Trash2, SlidersHorizontal, MessageSquare, Bot, CloudOff,
+  Pencil, Smartphone, UserRound,
 } from 'lucide-react';
 import { Button } from './Button';
 import { api } from '../services/api';
@@ -74,6 +75,8 @@ const Kanban: React.FC = () => {
   const [conversationMessages, setConversationMessages] = useState<any[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const [origin, setOrigin] = useState<{ conversationId: string; instance: string | null; attendants: string[] } | null>(null);
+  const [editingValue, setEditingValue] = useState<string | null>(null);
 
   const dragItem = useRef<string | null>(null);
 
@@ -141,17 +144,28 @@ const Kanban: React.FC = () => {
 
   useEffect(() => {
     if (selectedDeal) loadActivities();
+    setEditingValue(null);
+    setOrigin(null);
+    const contactId = selectedDeal?.contactId;
+    if (!contactId) return;
+    let cancelled = false;
+    api.fetchDealOrigin(contactId)
+      .then(o => { if (!cancelled) setOrigin(o); })
+      .catch(err => console.error('Erro ao carregar origem do negócio', err));
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDeal?.id]);
 
+  const conversationId = selectedDeal?.conversationId ?? origin?.conversationId;
+
   useEffect(() => {
-    if (selectedDeal?.conversationId) {
-      loadConversationMessages();
+    if (conversationId) {
+      loadConversationMessages(conversationId);
     } else {
       setConversationMessages([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDeal?.conversationId]);
+  }, [conversationId]);
 
   // Esc closes the details panel, like every other side panel in the app.
   useEffect(() => {
@@ -163,11 +177,10 @@ const Kanban: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedDeal, isWonModalOpen, isLostModalOpen]);
 
-  const loadConversationMessages = async () => {
-    if (!selectedDeal?.conversationId) return;
+  const loadConversationMessages = async (id: string) => {
     setLoadingMessages(true);
     try {
-      const messages = await api.fetchConversationMessages(selectedDeal.conversationId, 15);
+      const messages = await api.fetchConversationMessages(id, 15);
       setConversationMessages(messages);
     } catch (error) {
       console.error("Erro ao carregar mensagens", error);
@@ -213,6 +226,30 @@ const Kanban: React.FC = () => {
     } catch (error) {
       console.error("Erro ao marcar deal como perdido", error);
       toast.error("Não foi possível marcar como perdido");
+    }
+  };
+
+  const saveValue = async () => {
+    if (!selectedDeal || editingValue === null) return;
+    const raw = editingValue.trim().replace(/[R$\s.]/g, '').replace(',', '.');
+    const value = raw === '' ? 0 : Number(raw);
+    setEditingValue(null);
+    if (!Number.isFinite(value) || value < 0) {
+      toast.error('Valor inválido');
+      return;
+    }
+    if (value === selectedDeal.value) return;
+    const previous = selectedDeal.value;
+    setSelectedDeal({ ...selectedDeal, value });
+    setDeals(ds => ds.map(d => d.id === selectedDeal.id ? { ...d, value } : d));
+    try {
+      await api.updateDealValue(selectedDeal.id, value);
+      toast.success('Valor atualizado');
+    } catch (error) {
+      console.error('Erro ao atualizar valor', error);
+      toast.error('Não foi possível atualizar o valor');
+      setSelectedDeal(s => (s && s.id === selectedDeal.id ? { ...s, value: previous } : s));
+      setDeals(ds => ds.map(d => d.id === selectedDeal.id ? { ...d, value: previous } : d));
     }
   };
 
@@ -510,11 +547,54 @@ const Kanban: React.FC = () => {
                 {/* Identity */}
                 <div className="bg-card px-6 pt-6 pb-5">
                   <h2 className="text-[22px] leading-tight text-foreground break-words">{selectedDeal.title}</h2>
-                  <p className="mt-1 text-lg text-foreground tabular-nums">{formatCurrencyExact(selectedDeal.value)}</p>
+                  {editingValue !== null ? (
+                    <div className="mt-1 flex items-center gap-2">
+                      <span className="text-lg text-muted-foreground">R$</span>
+                      <input
+                        autoFocus
+                        inputMode="decimal"
+                        aria-label="Valor do negócio"
+                        value={editingValue}
+                        onChange={(e) => setEditingValue(e.target.value)}
+                        onBlur={saveValue}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); saveValue(); }
+                          if (e.key === 'Escape') { e.stopPropagation(); setEditingValue(null); }
+                        }}
+                        className="w-40 h-9 px-3 rounded-lg bg-secondary text-lg text-foreground tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setEditingValue(selectedDeal.value ? String(selectedDeal.value).replace('.', ',') : '')}
+                      title="Editar valor"
+                      className="mt-1 -mx-1 px-1 rounded flex items-center gap-1.5 text-lg text-foreground tabular-nums hover:bg-accent group/v"
+                    >
+                      {formatCurrencyExact(selectedDeal.value)}
+                      <Pencil className="w-3.5 h-3.5 text-icon opacity-60 group-hover/v:opacity-100" aria-hidden="true" />
+                    </button>
+                  )}
                   {selectedDeal.company && (
                     <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
                       <Building className="w-4 h-4" aria-hidden="true" /> {selectedDeal.company}
                     </p>
+                  )}
+                  {origin && (
+                    <div className="mt-3 space-y-1 text-sm">
+                      {origin.instance && (
+                        <p className="flex items-center gap-1.5 text-muted-foreground">
+                          <Smartphone className="w-4 h-4" aria-hidden="true" />
+                          Conversa no número <span className="text-foreground">{origin.instance}</span>
+                        </p>
+                      )}
+                      <p className="flex items-center gap-1.5 text-muted-foreground">
+                        <UserRound className="w-4 h-4" aria-hidden="true" />
+                        {origin.attendants.length > 0
+                          ? <>Atendido por <span className="text-foreground">{origin.attendants.join(', ')}</span></>
+                          : 'Nenhum atendente respondeu pelo sistema'}
+                      </p>
+                    </div>
                   )}
 
                   <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -726,7 +806,7 @@ const Kanban: React.FC = () => {
                 )}
 
                 {/* Conversation */}
-                {selectedDeal.conversationId && (
+                {conversationId && (
                   <>
                     <div className="h-2" aria-hidden="true" />
                     <div className="bg-card px-6 py-5">
@@ -765,7 +845,7 @@ const Kanban: React.FC = () => {
                       <Button
                         variant="outline"
                         className="w-full mt-3"
-                        onClick={() => navigate(`/chat?conversation=${selectedDeal.conversationId}`)}
+                        onClick={() => navigate(`/chat?conversation=${conversationId}`)}
                       >
                         <MessageSquare className="w-4 h-4 mr-2" aria-hidden="true" />
                         Abrir conversa
