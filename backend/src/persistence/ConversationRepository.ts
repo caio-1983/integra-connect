@@ -194,12 +194,21 @@ class ConversationRepository {
 
   /** Stores a contact's picture (already copied to our storage), or just marks
    * it checked when WhatsApp returned none — the picture already on file is
-   * kept then, since a hidden photo doesn't mean the old one is wrong. */
+   * kept then, since a hidden photo doesn't mean the old one is wrong — unless
+   * it's a raw WhatsApp link (pps.whatsapp.net), which has expired by now. */
   async setContactAvatar(contactId: string, publicUrl: string | null): Promise<void> {
+    const supabase = getSupabase();
     const update: Record<string, unknown> = { profile_picture_checked_at: new Date().toISOString() };
     if (publicUrl) update.profile_picture_url = publicUrl;
-    const { error } = await getSupabase().from('contacts').update(update).eq('id', contactId);
+    const { error } = await supabase.from('contacts').update(update).eq('id', contactId);
     if (error) throw new Error(`[repo] failed to set contact avatar: ${error.message}`);
+    if (publicUrl) return;
+    const { error: clearError } = await supabase
+      .from('contacts')
+      .update({ profile_picture_url: null })
+      .eq('id', contactId)
+      .like('profile_picture_url', '%pps.whatsapp.net%');
+    if (clearError) throw new Error(`[repo] failed to clear expired avatar: ${clearError.message}`);
   }
 
   /** Uploads a contact picture to the public `contact-avatars` bucket. The
