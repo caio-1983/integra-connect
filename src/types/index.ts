@@ -316,6 +316,8 @@ export interface DBContact {
   blocked_at: string | null;
   blocked_reason: string | null;
   client_memory: ClientMemory;
+  /** Set when an attendant saved/reviewed this contact (null = auto-created by the webhook). */
+  saved_at?: string | null;
   first_contact_date: string;
   last_activity: string;
   created_at: string;
@@ -377,6 +379,11 @@ export interface UIConversation {
   contactPhone: string;
   contactAvatar: string;
   contactEmail: string | null;
+  /** Raw contacts.name / call_name (contactName falls back to the phone). */
+  contactRawName: string | null;
+  contactCallName: string | null;
+  /** False while the contact was only auto-created on the first inbound message. */
+  contactSaved: boolean;
   status: ConversationStatus;
   isActive: boolean;
   /** Archived conversations leave the main queue and live under "Arquivadas";
@@ -458,6 +465,9 @@ export function transformDBToUIConversation(
     // Empty → ContactAvatar renders local initials.
     contactAvatar: conv.contact?.profile_picture_url || '',
     contactEmail: conv.contact?.email || null,
+    contactRawName: conv.contact?.name || null,
+    contactCallName: conv.contact?.call_name || null,
+    contactSaved: !!conv.contact?.saved_at,
     status: conv.status,
     isActive: conv.is_active,
     isArchived: !!conv.archived_at,

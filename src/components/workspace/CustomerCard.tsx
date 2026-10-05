@@ -1,6 +1,6 @@
 import React from 'react';
 import { ContactAvatar } from '@/components/workspace/ContactAvatar';
-import { User, Plus, X } from 'lucide-react';
+import { User, Plus, X, Pencil, UserPlus } from 'lucide-react';
 import { UIConversation, TagDefinition } from '@/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TagSelector } from '@/components/TagSelector';
@@ -25,17 +25,45 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 /** Compact identity line at the top of the panel — channel already shows in the conversation header. */
-const CustomerIdentity: React.FC<{ conversation: UIConversation }> = ({ conversation }) => {
+const CustomerIdentity: React.FC<{ conversation: UIConversation; onEditContact?: () => void }> = ({ conversation, onEditContact }) => {
   const stage = conversation.clientMemory.lead_profile.lead_stage;
+  // Groups are not contacts the team stores; they keep the WhatsApp subject.
+  const canEdit = !!onEditContact && !conversation.isGroup;
   return (
     <div className="flex flex-col items-center gap-3 px-4 pb-2 text-center">
       <ContactAvatar zoomable src={conversation.contactAvatar} name={conversation.contactName} className="w-24 h-24 text-3xl flex-shrink-0" />
       <div className="min-w-0 max-w-full">
-        <h3 className="text-xl text-foreground truncate">{conversation.contactName}</h3>
+        <div className="flex items-center justify-center gap-1.5 min-w-0">
+          <h3 className="text-xl text-foreground truncate">{conversation.contactName}</h3>
+          {canEdit && conversation.contactSaved && (
+            <button
+              type="button"
+              onClick={onEditContact}
+              title="Editar contato"
+              aria-label="Editar contato"
+              className="p-1 rounded-full text-icon hover:bg-accent hover:text-foreground transition-colors flex-shrink-0"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+        </div>
         <p className="mt-0.5 text-[15px] text-muted-foreground truncate tabular-nums">
           {conversation.contactPhone}{stage ? ` · ${STAGE_LABELS[stage] || stage}` : ''}
         </p>
       </div>
+      {canEdit && !conversation.contactSaved && (
+        <div className="flex flex-col items-center gap-2">
+          <span className="text-xs text-muted-foreground">Contato ainda não salvo</span>
+          <button
+            type="button"
+            onClick={onEditContact}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-primary-subtle text-primary-subtle-foreground text-sm font-medium hover:brightness-95 transition"
+          >
+            <UserPlus className="w-4 h-4" />
+            Salvar contato
+          </button>
+        </div>
+      )}
     </div>
   );
 };

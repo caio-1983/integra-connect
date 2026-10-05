@@ -11,6 +11,7 @@ import { useConversationInsight } from '@/ai/hooks/useConversationInsight';
 import { useMyTasks } from '@/hooks/useMyTasks';
 import { api } from '@/services/api';
 import { toast } from 'sonner';
+import { ContactFormDialog, type ContactFormValues } from './contact/ContactFormDialog';
 import {
   ConversationQueue,
   ConversationHeader,
@@ -28,7 +29,7 @@ import type { QueueFilter } from './workspace';
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
 
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, sendMediaMessage, sendPixMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, setPinned, assignConversation, appendLocalMessage, setConversationTags, loadTaggedConversations, refetch, hasMore, loadingMore, loadMore } = useConversations();
+  const { conversations, loading, sendMessage, sendMediaMessage, sendPixMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, setPinned, assignConversation, appendLocalMessage, setConversationTags, setContactInfo, loadTaggedConversations, refetch, hasMore, loadingMore, loadMore } = useConversations();
   const { sdrName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
   const { grantsByInstance } = useInstanceAccessGrants();
@@ -49,6 +50,7 @@ const ChatInterface: React.FC = () => {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [replyingTo, setReplyingTo] = useState<UIMessage | null>(null);
   const [editingMessage, setEditingMessage] = useState<UIMessage | null>(null);
+  const [contactFormOpen, setContactFormOpen] = useState(false);
   const { user } = useAuth();
 
   // Same rules the backend enforces: your own WhatsApp text, still in the window.
@@ -66,6 +68,12 @@ const ChatInterface: React.FC = () => {
   [user?.id]);
 
   const activeChat = conversations.find(c => c.id === selectedChatId);
+  // Recomputed only on open/contact change so a realtime refresh doesn't wipe what is being typed.
+  const contactFormInitial = useMemo<ContactFormValues>(() => ({
+    name: activeChat?.contactRawName ?? '',
+    call_name: activeChat?.contactCallName ?? '',
+    email: activeChat?.contactEmail ?? '',
+  }), [activeChat?.contactId, contactFormOpen]); // eslint-disable-line react-hooks/exhaustive-deps
   const { insight, loading: insightLoading, error: insightError, regenerate } = useConversationInsight(activeChat);
 
   // Only offer transfer/assign targets who can actually see this conversation:
@@ -189,6 +197,26 @@ const ChatInterface: React.FC = () => {
     } catch {
       toast.error('Erro ao criar tag');
     }
+  };
+
+  const handleSubmitContact = async (values: ContactFormValues) => {
+    if (!activeChat) return;
+    const fields = { name: values.name, call_name: values.call_name, email: values.email };
+    try {
+      if (activeChat.contactSaved) await api.updateContact(activeChat.contactId, fields);
+      else await api.saveContact(activeChat.contactId, fields);
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : 'Erro ao salvar contato');
+      return;
+    }
+    setContactInfo(activeChat.contactId, {
+      name: values.name.trim() || null,
+      callName: values.call_name.trim() || values.name.trim().split(/\s+/)[0] || null,
+      email: values.email.trim() || null,
+      saved: true,
+    });
+    setContactFormOpen(false);
+    toast.success(activeChat.contactSaved ? 'Contato atualizado' : 'Contato salvo');
   };
 
   const handleSendMessage = async () => {
@@ -382,6 +410,7 @@ const ChatInterface: React.FC = () => {
           insight={insight}
           insightLoading={insightLoading}
           onClose={() => setShowCustomerWorkspace(false)}
+          onEditContact={() => setContactFormOpen(true)}
           onAssignUser={async (userId) => {
             try {
               await assignConversation(activeChat.id, userId);
@@ -390,6 +419,17 @@ const ChatInterface: React.FC = () => {
               toast.error('Erro ao atribuir conversa.');
             }
           }}
+        />
+      )}
+
+      {activeChat && (
+        <ContactFormDialog
+          open={contactFormOpen}
+          onOpenChange={setContactFormOpen}
+          mode={activeChat.contactSaved ? 'edit' : 'save'}
+          phone={activeChat.contactPhone}
+          initial={contactFormInitial}
+          onSubmit={handleSubmitContact}
         />
       )}
     </div>

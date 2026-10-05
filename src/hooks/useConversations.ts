@@ -13,6 +13,7 @@ import {
   MessageType
 } from '@/types';
 import { toast } from 'sonner';
+import { contactDisplayName } from '@/lib/utils';
 
 /**
  * Current operator's auth id, for `messages.sent_by`.
@@ -800,6 +801,19 @@ export function useConversations() {
     setConversations(prev => prev.map(c => (c.id === conversationId ? { ...c, tags } : c)));
   }, []);
 
+  // Local-only contact update after "Salvar contato" — patches every thread of
+  // the same contact (one per WhatsApp number), since contacts has no realtime.
+  const setContactInfo = useCallback((contactId: string, info: { name: string | null; callName: string | null; email: string | null; saved: boolean }) => {
+    setConversations(prev => prev.map(c => (c.contactId !== contactId ? c : {
+      ...c,
+      contactRawName: info.name,
+      contactCallName: info.callName,
+      contactName: contactDisplayName(info.name || info.callName, c.contactPhone, 'Desconhecido'),
+      contactEmail: info.email,
+      contactSaved: info.saved,
+    })));
+  }, []);
+
   // Read inside loadTaggedConversations without re-creating it on every change.
   const conversationsRef = useRef(conversations);
   conversationsRef.current = conversations;
@@ -862,6 +876,7 @@ export function useConversations() {
     assignConversation,
     appendLocalMessage,
     setConversationTags,
+    setContactInfo,
     loadTaggedConversations,
     refetch: fetchConversations,
     hasMore: cursor !== null,

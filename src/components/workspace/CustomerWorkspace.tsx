@@ -27,6 +27,8 @@ interface CustomerWorkspaceProps {
   onCreateTag: (tag: { key: string; label: string; color: string; category: string }) => void;
   onNotesBlur: () => void;
   onAssignUser: (userId: string | null) => void;
+  /** Opens the Salvar/Editar contato dialog. */
+  onEditContact?: () => void;
   /** Lu's reading of the conversation (need, fields, next steps) — shared with the suggestion card. */
   insight: ConversationInsight | null;
   insightLoading: boolean;
@@ -73,6 +75,7 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
   onCreateTag,
   onNotesBlur,
   onAssignUser,
+  onEditContact,
   insight,
   insightLoading,
   onClose,
@@ -98,7 +101,7 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pt-6">
           <div className="flex flex-col gap-3">
-            <CustomerIdentity conversation={conversation} />
+            <CustomerIdentity conversation={conversation} onEditContact={onEditContact} />
 
             {/* Oportunidade + próximos passos: o que a Lu leu da conversa */}
             <LuOpportunityCard contactId={contactId} insight={insight} loading={insightLoading} />
