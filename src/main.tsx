@@ -14,3 +14,9 @@ root.render(
     <App />
   </React.StrictMode>
 );
+// Torna o app instalável no celular (ver public/sw.js — sem cache).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
