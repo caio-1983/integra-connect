@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ContactAvatar } from '@/components/workspace/ContactAvatar';
-import { Bot, User, Pause, MessageSquarePlus } from 'lucide-react';
+import { ArrowLeft, Bot, User, Pause, MessageSquarePlus } from 'lucide-react';
 import { UIConversation, ConversationStatus } from '@/types';
 import { cn } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
@@ -26,6 +26,8 @@ interface ConversationHeaderProps {
   /** Troca ou remove (null) o atendente pela própria tag. */
   onChangeAttendant: (teamMemberId: string | null) => void;
   onMarkAsUnread: (conversationId: string) => void;
+  /** Celular: volta para a lista de conversas. */
+  onBack?: () => void;
 }
 
 const SimulateCustomerMessagePopover: React.FC<{ onSimulate: (content: string) => void }> = ({ onSimulate }) => {
@@ -93,7 +95,7 @@ const STATUS_CONFIG: Record<ConversationStatus, { icon: React.ElementType; color
 
 const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   conversation, sdrName, showCustomerPanel, onToggleCustomerPanel, onSimulateCustomerMessage,
-  teamMembers, onTransfer, onChangeAttendant, onMarkAsUnread,
+  teamMembers, onTransfer, onChangeAttendant, onMarkAsUnread, onBack,
 }) => {
   const { icon: StatusIcon, color } = STATUS_CONFIG[conversation.status];
   const statusLabel =
@@ -106,8 +108,18 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   const campaign = useLeadCampaigns([conversation.contactId]).get(conversation.contactId);
 
   return (
-    <div className="h-[60px] px-4 flex items-center justify-between bg-muted shrink-0 gap-4">
-      <div className="flex items-center gap-3 min-w-0">
+    <div className="h-[60px] px-2 md:px-4 flex items-center justify-between bg-muted shrink-0 gap-2 md:gap-4">
+      <div className="flex items-center gap-2 md:gap-3 min-w-0">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Voltar para as conversas"
+            className="md:hidden flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-full text-icon hover:bg-accent"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        )}
         <div className="flex-shrink-0">
           <ContactAvatar zoomable src={conversation.contactAvatar} name={conversation.contactName} className="w-10 h-10 text-sm" />
         </div>
@@ -141,7 +153,7 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
             <span className="hidden 2xl:inline text-[13px] text-muted-foreground truncate tabular-nums">
               {isGroup ? 'Grupo do WhatsApp' : conversation.contactPhone}
             </span>
-            {campaign && <CampaignBadge campaign={campaign} className="max-w-[220px] flex-shrink" />}
+            {campaign && <CampaignBadge campaign={campaign} className="hidden md:inline-flex max-w-[220px] flex-shrink" />}
             {/* Para quem esta conversa foi direcionada — derivado de
                 assigned_user_id, não de conversations.tags (ver AttendantTag). */}
             <AttendantTag

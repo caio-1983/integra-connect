@@ -195,7 +195,7 @@ const ConversationQueue: React.FC<ConversationQueueProps> = ({
   ];
 
   return (
-    <div className="w-[30%] min-w-[320px] max-w-[560px] border-r border-border flex flex-col bg-card flex-shrink-0">
+    <div className="w-full md:w-[30%] md:min-w-[320px] md:max-w-[560px] md:border-r border-border flex flex-col bg-card flex-shrink-0">
       {/* Header — WhatsApp Web: title left, actions as round icon buttons right */}
       <div className="h-[60px] px-4 flex items-center justify-between flex-shrink-0">
         {showArchived ? (

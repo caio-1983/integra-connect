@@ -9,6 +9,8 @@ import { useInstanceAccessGrants } from '@/hooks/useInstanceAccessGrants';
 import { useAgentRuntime } from '@/ai/hooks/useAgentRuntime';
 import { useConversationInsight } from '@/ai/hooks/useConversationInsight';
 import { useMyTasks } from '@/hooks/useMyTasks';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { api } from '@/services/api';
 import { transcribeConversationAudio } from '@/services/whatsappConnectionService';
 import { toast } from 'sonner';
@@ -89,6 +91,31 @@ const ChatInterface: React.FC = () => {
   }, [teamMembers, activeChat?.instance, grantsByInstance]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const didInitRef = useRef(false);
+  const isMobile = useIsMobile();
+
+  // Celular: um painel por vez. Abrir uma conversa empilha uma entrada no
+  // histórico para que o "voltar" do Android/iPhone volte à lista.
+  const pushedHistoryRef = useRef(false);
+  useEffect(() => {
+    if (!isMobile) return;
+    if (selectedChatId && !pushedHistoryRef.current) {
+      window.history.pushState({ ...window.history.state, chatOpen: true }, '');
+      pushedHistoryRef.current = true;
+    } else if (!selectedChatId && pushedHistoryRef.current) {
+      pushedHistoryRef.current = false;
+      window.history.back();
+    }
+  }, [isMobile, selectedChatId]);
+  useEffect(() => {
+    if (!isMobile) return;
+    const onPop = () => {
+      if (!pushedHistoryRef.current) return;
+      pushedHistoryRef.current = false;
+      setSelectedChatId(null);
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [isMobile]);
 
   useEffect(() => {
     api.fetchTagDefinitions().then(setAvailableTags).catch(console.error);
@@ -267,7 +294,8 @@ const ChatInterface: React.FC = () => {
   return (
     <div className="flex h-full bg-card overflow-hidden">
 
-      {/* Coluna 1 — Conversas */}
+      {/* Coluna 1 — Conversas (no celular, só quando nenhuma está aberta) */}
+      {!(isMobile && activeChat) && (
       <ConversationQueue
         conversations={conversations}
         selectedId={selectedChatId}
@@ -291,6 +319,7 @@ const ChatInterface: React.FC = () => {
         onTagFilterChange={setTagFilter}
         onLoadTagged={loadTaggedConversations}
       />
+      )}
 
       <NewConversationDialog
         open={newConversationOpen}
@@ -309,6 +338,7 @@ const ChatInterface: React.FC = () => {
             onToggleCustomerPanel={() => setShowCustomerWorkspace(v => !v)}
             onSimulateCustomerMessage={handleSimulateCustomerMessage}
             onMarkAsUnread={handleMarkAsUnread}
+            onBack={isMobile ? () => setSelectedChatId(null) : undefined}
             teamMembers={eligibleTeamMembers}
             onTransfer={async (userId) => {
               try {
@@ -329,7 +359,7 @@ const ChatInterface: React.FC = () => {
           />
 
           <div className="chat-wall flex-1 min-h-0 z-0">
-          <div className="absolute inset-0 overflow-y-auto px-6 lg:px-12 xl:px-16 py-4 custom-scrollbar">
+          <div className="absolute inset-0 overflow-y-auto px-3 md:px-6 lg:px-12 xl:px-16 py-4 custom-scrollbar">
             <ConversationTimeline
               messages={activeChat.messages}
               messagesEndRef={messagesEndRef}
@@ -387,7 +417,7 @@ const ChatInterface: React.FC = () => {
             onSave={(msg, text) => editMessage(activeChat.id, msg, text)}
           />
         </div>
-      ) : (
+      ) : isMobile ? null : (
         /* Início: o que fazer em seguida (próximo da fila, atalhos, Lu, números) */
         <ChatHome
           conversations={conversations}
@@ -402,7 +432,8 @@ const ChatInterface: React.FC = () => {
       )}
 
       {/* Coluna 3 — Workspace do Cliente */}
-      {activeChat && showCustomerWorkspace && (
+      {activeChat && showCustomerWorkspace && (() => {
+        const workspace = (
         <CustomerWorkspace
           conversation={activeChat}
           sdrName={sdrName}
@@ -429,8 +460,18 @@ const ChatInterface: React.FC = () => {
               toast.error('Erro ao atribuir conversa.');
             }
           }}
+          className={isMobile ? 'w-full xl:w-full border-l-0 h-full' : undefined}
         />
-      )}
+        );
+        // Celular: os detalhes cobrem a tela num Sheet em vez de virar coluna.
+        return isMobile ? (
+          <Sheet open onOpenChange={(open) => { if (!open) setShowCustomerWorkspace(false); }}>
+            <SheetContent side="right" className="w-full sm:max-w-full p-0 [&>button]:hidden">
+              {workspace}
+            </SheetContent>
+          </Sheet>
+        ) : workspace;
+      })()}
 
       {activeChat && (
         <ContactFormDialog

@@ -1,7 +1,8 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import React, { useState, createContext, useContext } from "react";
+import React, { useState, createContext, useContext, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X, ChevronLeft } from "lucide-react";
 
@@ -86,7 +87,7 @@ export const DesktopSidebar = ({
 }: React.ComponentProps<typeof motion.div>) => {
   const { open, setOpen, animate } = useSidebar();
   return (
-    <div className="relative h-full flex-shrink-0">
+    <div className="relative h-full flex-shrink-0 hidden md:block">
       <motion.div
         className={cn(
           "h-full px-2.5 py-3 hidden md:flex md:flex-col w-[248px]",
@@ -131,6 +132,11 @@ export const MobileSidebar = ({
   ...props
 }: React.ComponentProps<"div">) => {
   const { open, setOpen } = useSidebar();
+  const { pathname } = useLocation();
+  // Tocar num item do menu navega; o overlay fecha junto.
+  useEffect(() => {
+    if (window.innerWidth < 768) setOpen(false);
+  }, [pathname, setOpen]);
   return (
     <>
       <div

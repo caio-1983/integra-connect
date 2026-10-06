@@ -52,10 +52,10 @@ const ThemedToaster: React.FC = () => {
 const AppLayout: React.FC = () => {
   return (
     <NotificationsProvider>
-      <div className="flex h-screen w-full bg-background text-foreground overflow-hidden">
+      <div className="flex flex-col md:flex-row h-[100dvh] w-full bg-background text-foreground overflow-hidden">
         <Sidebar />
 
-        <main className="flex-1 h-full overflow-hidden relative flex flex-col">
+        <main className="flex-1 min-h-0 h-full overflow-hidden relative flex flex-col">
           <div className="flex-1 w-full h-full relative">
             <Outlet />
           </div>

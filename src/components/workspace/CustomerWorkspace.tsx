@@ -34,6 +34,7 @@ interface CustomerWorkspaceProps {
   insightLoading: boolean;
   /** Closes the panel (the X in its header, like WhatsApp's contact info). */
   onClose?: () => void;
+  className?: string;
 }
 
 // Every row starts closed: the panel opens showing only who the customer is
@@ -79,11 +80,12 @@ const CustomerWorkspace: React.FC<CustomerWorkspaceProps> = ({
   insight,
   insightLoading,
   onClose,
+  className,
 }) => {
   const contactId = conversation.contactId;
 
   return (
-    <div className="w-80 xl:w-[340px] border-l border-border bg-card flex flex-col flex-shrink-0 overflow-hidden">
+    <div className={cn("w-80 xl:w-[340px] border-l border-border bg-card flex flex-col flex-shrink-0 overflow-hidden", className)}>
       <div className="h-[60px] flex items-center gap-6 px-4 bg-muted flex-shrink-0">
         {onClose && (
           <button

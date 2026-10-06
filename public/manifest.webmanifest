@@ -1,0 +1,9 @@
+{
+  "name": "Integra Connect",
+  "short_name": "Chat",
+  "start_url": "/chat",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#008069",
+  "icons": [{ "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" }]
+}

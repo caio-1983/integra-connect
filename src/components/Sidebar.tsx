@@ -20,7 +20,8 @@ import { GlobalSearch } from '@/components/crm/GlobalSearch';
  * regras de negócio, autenticação, estado global ou APIs.
  */
 const AppSidebar: React.FC = () => {
-  const [open, setOpen] = useState(true);
+  // No celular o menu é um overlay de tela cheia: começa fechado.
+  const [open, setOpen] = useState(() => window.innerWidth >= 768);
   const [searchOpen, setSearchOpen] = useState(false);
 
   // Ctrl+K / Cmd+K shortcut
