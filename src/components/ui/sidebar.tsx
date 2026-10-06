@@ -145,10 +145,15 @@ export const MobileSidebar = ({
         )}
         {...props}
       >
-        <div className="flex justify-end z-20 w-full">
+        <div className="flex items-center gap-3 z-20 w-full">
           <button type="button" aria-label="Abrir menu" onClick={() => setOpen(!open)} className="text-icon hover:text-foreground transition-colors">
             <Menu />
           </button>
+          <img
+            src="/logo-lumina-sidebar.png"
+            alt="Integra Connect"
+            className="h-8 w-auto object-contain dark:brightness-0 dark:invert"
+          />
         </div>
         <AnimatePresence>
           {open && (
