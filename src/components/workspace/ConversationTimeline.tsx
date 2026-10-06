@@ -6,6 +6,7 @@ import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { PixCard } from './PixCard';
 import { LightingProjectSheet } from '@/components/projects/LightingProjectSheet';
 import { isPdfAttachment } from '@/services/lightingProjectService';
+import { useFeatureVisible } from '@/lib/devPreview';
 
 const WAVE_BARS = 40;
 
@@ -244,6 +245,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
   const [unplayableVideos, setUnplayableVideos] = useState<Set<string>>(() => new Set());
   /** PDF whose luminaires are being counted in the side sheet. */
   const [projectMessage, setProjectMessage] = useState<UIMessage | null>(null);
+  const canCountLuminaires = useFeatureVisible('projects');
 
   const SPEED_LABEL: Record<number, string> = { 1: '1×', 1.5: '1,5×', 2: '2×' };
 
@@ -426,7 +428,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
           <Download className="w-3.5 h-3.5 shrink-0 opacity-70" />
         </a>
       );
-      if (!isPdfAttachment(msg.mediaUrl)) return chip;
+      if (!canCountLuminaires || !isPdfAttachment(msg.mediaUrl)) return chip;
       return (
         <div className="flex flex-col gap-1.5 max-w-full">
           {chip}

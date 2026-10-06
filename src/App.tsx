@@ -12,6 +12,7 @@ import Auth from './pages/Auth';
 import SetNewPassword from './pages/SetNewPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import ModuleRoute from './components/ModuleRoute';
+import DevPreviewRoute from './components/DevPreviewRoute';
 import RoleRoute from './components/RoleRoute';
 import CRMPeople from './components/crm/CRMPeople';
 import CRMCompanies from './components/crm/CRMCompanies';
@@ -100,7 +101,9 @@ const App: React.FC = () => {
               <Route path="/chat" element={<ChatInterface />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/scheduling" element={<Scheduling />} />
-              <Route path="/projetos" element={<LightingProjects />} />
+              <Route element={<DevPreviewRoute feature="projects" />}>
+                <Route path="/projetos" element={<LightingProjects />} />
+              </Route>
               {/* Equipe/Usuários — RBAC: só admin/gestor (Route element={<RoleRoute />}) */}
               <Route element={<RoleRoute />}>
                 <Route path="/team" element={<Team />} />

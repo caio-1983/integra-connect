@@ -5,6 +5,7 @@ import { sidebarNavigation } from './navigation.config';
 import { useUnreadMessagesCount } from '@/hooks/useUnreadMessagesCount';
 import { isModuleEnabled } from '@/lib/platformPhase';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
+import { isDevPreviewFeature, useIsDevPreviewUser } from '@/lib/devPreview';
 
 /**
  * Navegação global da plataforma.
@@ -19,6 +20,7 @@ export const SidebarNavigation: React.FC = () => {
   const unreadCount = useUnreadMessagesCount();
   const badges = { chat: unreadCount };
   const { canManageUsers } = useCompanySettings();
+  const devPreviewUser = useIsDevPreviewUser();
 
   // Itens cuja rota está atrás de RoleRoute (admin/gestor). Mostrá-los para um
   // atendente renderiza um link que só o joga de volta em /operations, então a
@@ -30,7 +32,9 @@ export const SidebarNavigation: React.FC = () => {
     .filter((section) => isModuleEnabled(section.id))
     .map((section) => ({
       ...section,
-      items: section.items.filter((item) => !MANAGER_ONLY_ITEMS.has(item.id) || canManageUsers),
+      items: section.items.filter((item) =>
+        (!MANAGER_ONLY_ITEMS.has(item.id) || canManageUsers) &&
+        (!isDevPreviewFeature(item.id) || devPreviewUser)),
     }));
 
   // Subpáginas (/campanhas/configurar) marcam o item pai; vence o href mais
