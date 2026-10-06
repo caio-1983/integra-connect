@@ -90,6 +90,7 @@ const ChatInterface: React.FC = () => {
     return teamMembers.filter((m) => m.user_id && granted?.has(m.user_id));
   }, [teamMembers, activeChat?.instance, grantsByInstance]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const timelineScrollRef = useRef<HTMLDivElement>(null);
   const didInitRef = useRef(false);
   const isMobile = useIsMobile();
 
@@ -184,7 +185,10 @@ const ChatInterface: React.FC = () => {
   }, [activeChat?.id]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    // Rola só a timeline: scrollIntoView também rolaria os ancestrais (até os
+    // overflow-hidden), o que no celular empurrava o cabeçalho para fora da tela.
+    const el = timelineScrollRef.current;
+    el?.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [activeChat?.messages, selectedChatId]);
 
   const handleNotesBlur = async () => {
@@ -359,7 +363,7 @@ const ChatInterface: React.FC = () => {
           />
 
           <div className="chat-wall flex-1 min-h-0 z-0">
-          <div className="absolute inset-0 overflow-y-auto px-3 md:px-6 lg:px-12 xl:px-16 py-4 custom-scrollbar">
+          <div ref={timelineScrollRef} className="absolute inset-0 overflow-y-auto px-3 md:px-6 lg:px-12 xl:px-16 py-4 custom-scrollbar">
             <ConversationTimeline
               messages={activeChat.messages}
               messagesEndRef={messagesEndRef}
