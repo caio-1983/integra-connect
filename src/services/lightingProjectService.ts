@@ -1,3 +1,4 @@
+import { supabase } from '@/integrations/supabase/client';
 import { backendBaseUrl, backendHeaders, backendAuthOnlyHeaders, handleBackendResponse } from './backendGateway';
 
 /** Mirrors backend/src/projects/LightingProjectParser.ts. */
@@ -220,4 +221,44 @@ export function splitDescription(text: string | null): DescriptionParts {
   });
   out.specs = clean(extra.map(clean).filter(Boolean).join(' / '));
   return out;
+}
+
+/** How a chat PDF shows on /projetos. Display only: the message and the PDF
+ * are never changed. */
+export interface ProjectLabel {
+  displayName: string | null;
+  hidden: boolean;
+}
+
+// Not in the generated types yet (migration 20261006120000).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const labelsTable = () => (supabase as any).from('lighting_project_labels');
+
+export async function loadProjectLabels(messageIds: string[]): Promise<Record<string, ProjectLabel>> {
+  if (messageIds.length === 0) return {};
+  const { data, error } = await labelsTable().select('message_id, display_name, hidden_at').in('message_id', messageIds);
+  if (error) {
+    console.error('[Projetos] Error loading labels:', error);
+    return {};
+  }
+  return Object.fromEntries(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (data ?? []).map((row: any) => [row.message_id, { displayName: row.display_name, hidden: !!row.hidden_at }]),
+  );
+}
+
+export async function saveProjectLabel(messageId: string, label: ProjectLabel): Promise<void> {
+  const { error } = await labelsTable().upsert(
+    {
+      message_id: messageId,
+      display_name: label.displayName?.trim() || null,
+      hidden_at: label.hidden ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'message_id' },
+  );
+  if (error) {
+    console.error('[Projetos] Error saving label:', error);
+    throw new Error('Não foi possível salvar. Tente de novo em instantes.');
+  }
 }

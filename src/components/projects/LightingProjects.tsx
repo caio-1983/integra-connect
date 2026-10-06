@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, ChevronDown, Copy, FileSpreadsheet, FilePlus2, FileText, Lightbulb, Loader2, MessageSquare, MoreVertical, PanelRightClose, PanelRightOpen, RotateCw, Search, Upload } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ChevronDown, Copy, FileSpreadsheet, FilePlus2, FileText, Lightbulb, Loader2, MessageSquare, MoreVertical, PanelRightClose, Pencil, Trash2, PanelRightOpen, RotateCw, Search, Upload } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { cn, contactDisplayName } from '@/lib/utils';
-import { analyzeMessageProject, analyzeUploadedProject, scanMessageProjects, type LightingProjectResult, type ProjectScanEntry } from '@/services/lightingProjectService';
+import { analyzeMessageProject, analyzeUploadedProject, loadProjectLabels, saveProjectLabel, scanMessageProjects, type ProjectLabel, type LightingProjectResult, type ProjectScanEntry } from '@/services/lightingProjectService';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { PdfSheetPreview } from './PdfSheetPreview';
 import { LightingProjectResultView, copyProjectSummary, downloadProjectSpreadsheet } from './LightingProjectResultView';
@@ -13,6 +14,8 @@ interface ProjectEntry {
   id: string;
   source: 'chat' | 'upload';
   name: string;
+  /** The PDF's own name, kept when the project is renamed on screen. */
+  fileName: string;
   /** Contact name for chat PDFs, "Enviado por você" for uploads. */
   origin: string;
   date: string;
@@ -46,6 +49,12 @@ export const LightingProjects: React.FC = () => {
   const [scanFailed, setScanFailed] = useState(false);
   const [showOthers, setShowOthers] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** Display names and "excluídos" shared by the team (lighting_project_labels). */
+  const [labels, setLabels] = useState<Record<string, ProjectLabel>>({});
+  const [renaming, setRenaming] = useState(false);
+  /** Radix returns focus to the menu trigger on close, which would blur (and
+   * close) the rename field right after it opens. */
+  const keepFocusRef = useRef(false);
 
   useEffect(() => {
     supabase
@@ -63,6 +72,7 @@ export const LightingProjects: React.FC = () => {
               id: row.id,
               source: 'chat' as const,
               name: row.content || 'Projeto.pdf',
+              fileName: row.content || 'Projeto.pdf',
               origin: contactDisplayName(contact?.call_name || contact?.name, contact?.phone_number, 'Contato'),
               date: row.sent_at,
               phone: contact?.phone_number ?? null,
@@ -70,6 +80,7 @@ export const LightingProjects: React.FC = () => {
             };
           });
         setReceived(entries);
+        loadProjectLabels(entries.map((e) => e.id)).then(setLabels);
         // Most PDFs in a chat are invoices, catalogues, boletos — only the ones
         // with luminaire codes on a plan are projects.
         scanMessageProjects(entries.map((e) => e.id))
@@ -81,17 +92,24 @@ export const LightingProjects: React.FC = () => {
   // Object URLs of uploads live as long as the page.
   useEffect(() => () => uploads.forEach((u) => u.pdfUrl && URL.revokeObjectURL(u.pdfUrl)), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const all = useMemo(() => [...uploads, ...(received ?? [])], [uploads, received]);
+  const visibleReceived = useMemo(
+    () => (received ?? [])
+      .filter((p) => !labels[p.id]?.hidden)
+      .map((p) => (labels[p.id]?.displayName ? { ...p, name: labels[p.id].displayName! } : p)),
+    [received, labels],
+  );
+  const all = useMemo(() => [...uploads, ...visibleReceived], [uploads, visibleReceived]);
   const selected = all.find((p) => p.id === selectedId) ?? null;
   const analysis = selectedId ? analyses[selectedId] : undefined;
 
   const filter = (list: ProjectEntry[]) => {
     const q = query.trim().toLocaleLowerCase('pt-BR');
-    return q ? list.filter((p) => `${p.name} ${p.origin}`.toLocaleLowerCase('pt-BR').includes(q)) : list;
+    return q ? list.filter((p) => `${p.name} ${p.fileName} ${p.origin}`.toLocaleLowerCase('pt-BR').includes(q)) : list;
   };
 
   const analyze = async (entry: ProjectEntry) => {
     setSelectedId(entry.id);
+    setRenaming(false);
     if (analyses[entry.id]?.status === 'done' || analyses[entry.id]?.status === 'loading') return;
     setAnalyses((prev) => ({ ...prev, [entry.id]: { status: 'loading' } }));
     try {
@@ -113,6 +131,7 @@ export const LightingProjects: React.FC = () => {
       id: `upload-${Date.now()}`,
       source: 'upload',
       name: file.name,
+      fileName: file.name,
       origin: 'Enviado por você',
       date: new Date().toISOString(),
       phone: null,
@@ -130,11 +149,59 @@ export const LightingProjects: React.FC = () => {
   };
 
   // A failed scan never promotes every PDF to "project": they all wait in Outros.
-  const projects = (received ?? []).filter((p) => scan?.[p.id]?.isProject);
-  const others = (received ?? []).filter((p) => scan && !scan[p.id]?.isProject);
+  const projects = visibleReceived.filter((p) => scan?.[p.id]?.isProject);
+  const others = visibleReceived.filter((p) => scan && !scan[p.id]?.isProject);
   const receivedList = filter(projects);
   const otherList = filter(others);
   const uploadList = filter(uploads);
+
+  const rename = async (entry: ProjectEntry, value: string) => {
+    setRenaming(false);
+    const name = value.trim();
+    if (name === entry.name || (!name && entry.name === entry.fileName)) return;
+    if (entry.source === 'upload') {
+      setUploads((prev) => prev.map((u) => (u.id === entry.id ? { ...u, name: name || u.fileName } : u)));
+      return;
+    }
+    const previous = labels[entry.id];
+    const next: ProjectLabel = { displayName: name && name !== entry.fileName ? name : null, hidden: false };
+    setLabels((prev) => ({ ...prev, [entry.id]: next }));
+    try {
+      await saveProjectLabel(entry.id, next);
+    } catch (e) {
+      setLabels((prev) => ({ ...prev, [entry.id]: previous ?? { displayName: null, hidden: false } }));
+      toast.error(e instanceof Error ? e.message : 'Não foi possível renomear.');
+    }
+  };
+
+  const remove = async (entry: ProjectEntry) => {
+    setSelectedId(null);
+    if (entry.source === 'upload') {
+      setUploads((prev) => prev.filter((u) => u.id !== entry.id));
+      if (entry.pdfUrl) URL.revokeObjectURL(entry.pdfUrl);
+      toast.success(`"${entry.name}" excluído da lista.`);
+      return;
+    }
+    const previous = labels[entry.id] ?? { displayName: null, hidden: false };
+    const hidden = { ...previous, hidden: true };
+    setLabels((prev) => ({ ...prev, [entry.id]: hidden }));
+    try {
+      await saveProjectLabel(entry.id, hidden);
+      toast.success(`"${entry.name}" excluído da lista.`, {
+        description: 'A mensagem e o PDF continuam na conversa.',
+        action: {
+          label: 'Desfazer',
+          onClick: () => {
+            setLabels((prev) => ({ ...prev, [entry.id]: previous }));
+            saveProjectLabel(entry.id, previous).catch(() => toast.error('Não foi possível desfazer.'));
+          },
+        },
+      });
+    } catch (e) {
+      setLabels((prev) => ({ ...prev, [entry.id]: previous }));
+      toast.error(e instanceof Error ? e.message : 'Não foi possível excluir.');
+    }
+  };
 
   const liveMessage =
     received === null ? 'Carregando os PDFs do chat.'
@@ -259,31 +326,67 @@ export const LightingProjects: React.FC = () => {
               <FileText className="h-5 w-5" aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-base text-foreground">{selected?.name ?? 'Arquivo recusado'}</p>
-              {selected && <p className="truncate text-[13px] text-muted-foreground">{selected.origin} · {formatDate(selected.date)}</p>}
+              {selected && renaming ? (
+                <input
+                  autoFocus
+                  defaultValue={selected.name}
+                  aria-label="Nome do projeto"
+                  maxLength={200}
+                  onFocus={(e) => e.currentTarget.select()}
+                  onBlur={(e) => rename(selected, e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur();
+                    if (e.key === 'Escape') setRenaming(false);
+                  }}
+                  className="h-8 w-full rounded-md border border-input bg-card px-2 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                />
+              ) : (
+                <p className="truncate text-base text-foreground">{selected?.name ?? 'Arquivo recusado'}</p>
+              )}
+              {selected && (
+                <p className="truncate text-[13px] text-muted-foreground">
+                  {selected.name !== selected.fileName && `${selected.fileName} · `}{selected.origin} · {formatDate(selected.date)}
+                </p>
+              )}
             </div>
             {analysis?.status === 'done' && analysis.result && analysis.result.lines.length > 0 && (
               <>
                 <HeaderAction label="Copiar resumo" onClick={() => copyProjectSummary(analysis.result!)} icon={Copy} className="hidden sm:flex" />
                 <HeaderAction label="Baixar planilha" onClick={() => downloadProjectSpreadsheet(analysis.result!)} icon={FileSpreadsheet} className="hidden sm:flex" />
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    title="Mais ações"
-                    aria-label="Mais ações"
-                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-icon transition-colors hover:bg-accent sm:hidden"
-                  >
-                    <MoreVertical className="h-5 w-5" aria-hidden="true" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={() => copyProjectSummary(analysis.result!)}>
-                      <Copy className="mr-2 h-4 w-4" aria-hidden="true" /> Copiar resumo
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => downloadProjectSpreadsheet(analysis.result!)}>
-                      <FileSpreadsheet className="mr-2 h-4 w-4" aria-hidden="true" /> Baixar planilha
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </>
+            )}
+            {selected && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  title="Mais ações"
+                  aria-label="Mais ações"
+                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-icon transition-colors hover:bg-accent"
+                >
+                  <MoreVertical className="h-5 w-5" aria-hidden="true" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="min-w-[200px]"
+                  onCloseAutoFocus={(e) => { if (keepFocusRef.current) { e.preventDefault(); keepFocusRef.current = false; } }}
+                >
+                  {analysis?.status === 'done' && analysis.result && analysis.result.lines.length > 0 && (
+                    <>
+                      <DropdownMenuItem className="sm:hidden" onSelect={() => copyProjectSummary(analysis.result!)}>
+                        <Copy className="mr-2 h-4 w-4" aria-hidden="true" /> Copiar resumo
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="sm:hidden" onSelect={() => downloadProjectSpreadsheet(analysis.result!)}>
+                        <FileSpreadsheet className="mr-2 h-4 w-4" aria-hidden="true" /> Baixar planilha
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuItem onSelect={() => { keepFocusRef.current = true; setRenaming(true); }}>
+                    <Pencil className="mr-2 h-4 w-4" aria-hidden="true" /> Renomear
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => remove(selected)} className="text-destructive focus:text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" /> Excluir da lista
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             {selected?.phone && (
               <Link
