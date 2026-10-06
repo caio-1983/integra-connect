@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, Copy, FileSpreadsheet, FilePlus2, FileText, Lightbulb, Loader2, MessageSquare, PanelRightClose, PanelRightOpen, Search, Upload } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ChevronDown, Copy, FileSpreadsheet, FilePlus2, FileText, Lightbulb, Loader2, MessageSquare, MoreVertical, PanelRightClose, PanelRightOpen, RotateCw, Search, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn, contactDisplayName } from '@/lib/utils';
 import { analyzeMessageProject, analyzeUploadedProject, scanMessageProjects, type LightingProjectResult, type ProjectScanEntry } from '@/services/lightingProjectService';
-import { LightingProjectResultView, copyProjectSummary, downloadProjectCsv } from './LightingProjectResultView';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { PdfSheetPreview } from './PdfSheetPreview';
+import { LightingProjectResultView, copyProjectSummary, downloadProjectSpreadsheet } from './LightingProjectResultView';
 
 /** A project in the list: a PDF received in a chat, or one uploaded on this page. */
 interface ProjectEntry {
@@ -134,6 +136,14 @@ export const LightingProjects: React.FC = () => {
   const otherList = filter(others);
   const uploadList = filter(uploads);
 
+  const liveMessage =
+    received === null ? 'Carregando os PDFs do chat.'
+    : scan === null ? `Procurando projetos entre ${received.length} PDFs do chat.`
+    : analysis?.status === 'loading' ? 'Lendo o projeto e contando as luminárias.'
+    : analysis?.status === 'error' ? `Não foi possível ler este projeto. ${analysis.error ?? ''}`
+    : analysis?.status === 'done' && analysis.result ? `Contagem pronta: ${analysis.result.total} itens em ${analysis.result.lines.length} códigos.`
+    : `${projects.length} projetos encontrados no chat.`;
+
   return (
     <div
       className="relative flex h-full overflow-hidden bg-card"
@@ -141,6 +151,10 @@ export const LightingProjects: React.FC = () => {
       onDragLeave={(e) => { if (e.currentTarget === e.target) setDragging(false); }}
       onDrop={onDrop}
     >
+      {/* Always mounted: screen readers only announce changes inside a live
+          region that already exists. */}
+      <p className="sr-only" aria-live="polite">{liveMessage}</p>
+
       <input
         ref={inputRef}
         type="file"
@@ -150,7 +164,7 @@ export const LightingProjects: React.FC = () => {
       />
 
       {/* Coluna 1 — Projetos */}
-      <div className="flex w-[30%] min-w-[320px] max-w-[480px] flex-shrink-0 flex-col border-r border-border bg-card">
+      <div className={cn('w-full flex-shrink-0 flex-col border-border bg-card md:flex md:w-[30%] md:min-w-[320px] md:max-w-[480px] md:border-r', selectedId ? 'hidden' : 'flex')}>
         <div className="flex h-[60px] flex-shrink-0 items-center justify-between px-4">
           <h2 className="text-[22px] font-bold text-foreground">Projetos</h2>
           <button
@@ -232,7 +246,16 @@ export const LightingProjects: React.FC = () => {
       {selected || selectedId === 'rejected' ? (
         <div className="flex min-w-0 flex-1 flex-col bg-background">
           <div className="flex h-[60px] flex-shrink-0 items-center gap-3 border-b border-border bg-muted px-4">
-            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-avatar text-avatar-foreground">
+            <button
+              type="button"
+              onClick={() => setSelectedId(null)}
+              title="Voltar para a lista"
+              aria-label="Voltar para a lista"
+              className="-ml-2 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-icon transition-colors hover:bg-accent md:hidden"
+            >
+              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <span className="hidden h-10 w-10 sm:flex flex-shrink-0 items-center justify-center rounded-full bg-avatar text-avatar-foreground">
               <FileText className="h-5 w-5" aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
@@ -241,8 +264,25 @@ export const LightingProjects: React.FC = () => {
             </div>
             {analysis?.status === 'done' && analysis.result && analysis.result.lines.length > 0 && (
               <>
-                <HeaderAction label="Copiar resumo" onClick={() => copyProjectSummary(analysis.result!)} icon={Copy} />
-                <HeaderAction label="Baixar planilha" onClick={() => downloadProjectCsv(analysis.result!)} icon={FileSpreadsheet} />
+                <HeaderAction label="Copiar resumo" onClick={() => copyProjectSummary(analysis.result!)} icon={Copy} className="hidden sm:flex" />
+                <HeaderAction label="Baixar planilha" onClick={() => downloadProjectSpreadsheet(analysis.result!)} icon={FileSpreadsheet} className="hidden sm:flex" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    title="Mais ações"
+                    aria-label="Mais ações"
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-icon transition-colors hover:bg-accent sm:hidden"
+                  >
+                    <MoreVertical className="h-5 w-5" aria-hidden="true" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => copyProjectSummary(analysis.result!)}>
+                      <Copy className="mr-2 h-4 w-4" aria-hidden="true" /> Copiar resumo
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => downloadProjectSpreadsheet(analysis.result!)}>
+                      <FileSpreadsheet className="mr-2 h-4 w-4" aria-hidden="true" /> Baixar planilha
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
             {selected?.phone && (
@@ -260,12 +300,13 @@ export const LightingProjects: React.FC = () => {
                 label={showPdf ? 'Esconder PDF' : 'Mostrar PDF'}
                 onClick={() => setShowPdf((v) => !v)}
                 icon={showPdf ? PanelRightClose : PanelRightOpen}
+                className="hidden xl:flex"
               />
             )}
           </div>
 
           <div className="flex min-h-0 flex-1">
-            <div className="custom-scrollbar min-w-0 flex-1 overflow-y-auto px-6 py-5">
+            <div className="custom-scrollbar min-w-0 flex-1 overflow-y-auto px-3 py-4 sm:px-6 sm:py-5">
               <div className="mx-auto max-w-[720px]">
                 {!analysis || analysis.status === 'loading' ? (
                   <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
@@ -275,13 +316,27 @@ export const LightingProjects: React.FC = () => {
                   <div className="rounded-lg bg-card px-6 py-10 text-center">
                     <p className="text-[15px] text-foreground">Não foi possível ler este projeto</p>
                     <p className="mt-1 text-sm text-muted-foreground">{analysis.error}</p>
-                    <button
-                      type="button"
-                      onClick={() => inputRef.current?.click()}
-                      className="mt-4 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-                    >
-                      Enviar outro PDF
-                    </button>
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      {selected && (
+                        <button
+                          type="button"
+                          onClick={() => analyze(selected)}
+                          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                        >
+                          <RotateCw className="h-4 w-4" aria-hidden="true" /> Tentar de novo
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => inputRef.current?.click()}
+                        className={cn(
+                          'rounded-full px-5 py-2 text-sm font-medium transition-colors',
+                          selected ? 'border border-input bg-card text-foreground hover:bg-accent' : 'bg-primary text-primary-foreground hover:opacity-90',
+                        )}
+                      >
+                        Enviar outro PDF
+                      </button>
+                    </div>
                   </div>
                 ) : analysis.result ? (
                   <LightingProjectResultView result={analysis.result} />
@@ -290,14 +345,14 @@ export const LightingProjects: React.FC = () => {
             </div>
 
             {showPdf && selected?.pdfUrl && (
-              <div className="hidden w-[42%] max-w-[640px] flex-shrink-0 border-l border-border bg-card xl:block">
-                <iframe src={`${selected.pdfUrl}#toolbar=0&navpanes=0&view=FitH`} title={`PDF de ${selected.name}`} className="h-full w-full" />
+              <div className="hidden w-[42%] max-w-[640px] flex-shrink-0 border-l border-border xl:block">
+                <PdfSheetPreview url={selected.pdfUrl} name={selected.name} />
               </div>
             )}
           </div>
         </div>
       ) : (
-        <div className="chat-wall min-w-0 flex-1">
+        <div className="chat-wall hidden min-w-0 flex-1 md:block">
           <div className="custom-scrollbar absolute inset-0 flex overflow-y-auto">
             <div className="m-auto flex w-full max-w-[480px] flex-col items-center gap-5 px-6 py-10 text-center text-foreground">
               <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-subtle text-primary-subtle-foreground">
@@ -369,16 +424,20 @@ const ProjectRow: React.FC<{
         </span>
         <span className="flex items-center justify-between gap-2">
           <span className="truncate text-sm text-muted-foreground">{entry.origin}</span>
-          {analysis?.status === 'loading' && <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-muted-foreground" />}
+          {analysis?.status === 'loading' && (
+            <Loader2 className="h-3.5 w-3.5 flex-shrink-0 animate-spin text-muted-foreground" aria-label="Lendo o projeto" role="img" />
+          )}
           {total !== null && (
             <span
               className={cn(
-                'flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums',
+                'flex flex-shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums',
                 divergent ? 'bg-warning-subtle text-warning' : 'bg-primary-subtle text-primary-subtle-foreground',
               )}
               title={divergent ? 'Planta e quadro resumo não batem' : undefined}
             >
+              {divergent && <AlertTriangle className="mr-1 inline h-3 w-3 -translate-y-px" aria-hidden="true" />}
               {total} {total === 1 ? 'item' : 'itens'}
+              {divergent && <span className="sr-only">, planta e quadro resumo não batem</span>}
             </span>
           )}
         </span>
@@ -387,13 +446,13 @@ const ProjectRow: React.FC<{
   );
 };
 
-const HeaderAction: React.FC<{ label: string; onClick: () => void; icon: React.ComponentType<{ className?: string }> }> = ({ label, onClick, icon: Icon }) => (
+const HeaderAction: React.FC<{ label: string; onClick: () => void; icon: React.ComponentType<{ className?: string }>; className?: string }> = ({ label, onClick, icon: Icon, className }) => (
   <button
     type="button"
     onClick={onClick}
     title={label}
     aria-label={label}
-    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-icon transition-colors hover:bg-accent"
+    className={cn('flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-icon transition-colors hover:bg-accent', className)}
   >
     <Icon className="h-5 w-5" aria-hidden="true" />
   </button>

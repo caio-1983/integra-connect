@@ -44,6 +44,8 @@ export interface ProjectScanEntry {
   isProject: boolean;
   total: number;
   divergent: boolean;
+  /** Download or parse failed: "not a project" for now, but worth asking again. */
+  failed?: boolean;
 }
 
 // A lighting project has several luminaire codes tagged on its plan; an
@@ -66,8 +68,9 @@ export function isLightingProject(r: LightingProjectAnalysis): boolean {
 /** Tells which of the given chat PDFs are lighting projects. Unreadable or
  * failing files are simply "not a project" — the scan never fails as a whole. */
 export async function scanMessageAttachments(messageIds: string[]): Promise<Record<string, ProjectScanEntry>> {
-  const out: Record<string, ProjectScanEntry> = {};
-  const queue = [...new Set(messageIds)];
+  const out: Record<string, ProjectScanEntry> = await loadStoredScans(messageIds);
+  const queue = [...new Set(messageIds)].filter((id) => !out[id]);
+  const fresh: Array<[string, ProjectScanEntry]> = [];
   const worker = async () => {
     for (let id = queue.shift(); id; id = queue.shift()) {
       try {
@@ -77,13 +80,38 @@ export async function scanMessageAttachments(messageIds: string[]): Promise<Reco
           total: r.total,
           divergent: r.lines.some((l) => l.divergent),
         };
+        fresh.push([id, out[id]]);
       } catch {
-        out[id] = { isProject: false, total: 0, divergent: false };
+        out[id] = { isProject: false, total: 0, divergent: false, failed: true };
       }
     }
   };
   await Promise.all(Array.from({ length: SCAN_CONCURRENCY }, worker));
+  await storeScans(fresh);
   return out;
+}
+
+// Stored verdicts (table lighting_project_scans). Storage is an optimization:
+// if the table is missing or the query fails, the scan just reads the PDFs.
+async function loadStoredScans(messageIds: string[]): Promise<Record<string, ProjectScanEntry>> {
+  const { data, error } = await getSupabase()
+    .from('lighting_project_scans')
+    .select('message_id, is_project, total, divergent')
+    .in('message_id', messageIds);
+  if (error) return {};
+  return Object.fromEntries((data ?? []).map((row) => [
+    row.message_id as string,
+    { isProject: row.is_project as boolean, total: row.total as number, divergent: row.divergent as boolean },
+  ]));
+}
+
+async function storeScans(entries: Array<[string, ProjectScanEntry]>): Promise<void> {
+  if (entries.length === 0) return;
+  const { error } = await getSupabase().from('lighting_project_scans').upsert(
+    entries.map(([id, e]) => ({ message_id: id, is_project: e.isProject, total: e.total, divergent: e.divergent })),
+    { onConflict: 'message_id' },
+  );
+  if (error) console.warn('[projects] scan cache not stored:', error.message);
 }
 
 export async function analyzePdf(data: Uint8Array, fileName: string | null): Promise<LightingProjectResult> {

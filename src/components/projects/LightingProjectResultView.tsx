@@ -1,7 +1,7 @@
-import React from 'react';
-import { AlertTriangle, FileWarning } from 'lucide-react';
+import React, { useState } from 'react';
+import { AlertTriangle, ChevronDown, FileWarning } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { lineQuantity, projectCsv, projectSummaryText, type LightingProjectResult } from '@/services/lightingProjectService';
+import { lineQuantity, projectXlsx, splitDescription, type LuminaireLine, projectSummaryText, type LightingProjectResult } from '@/services/lightingProjectService';
 import { toast } from 'sonner';
 
 /**
@@ -55,23 +55,7 @@ export const LightingProjectResultView: React.FC<{ result: LightingProjectResult
       <div className="overflow-hidden rounded-lg bg-card">
         <ul className="divide-y divide-border">
           {[...divergent, ...result.lines.filter((l) => !l.divergent)].map((line) => (
-            <li key={line.code} className={cn('flex items-start gap-4 px-4 py-3', line.divergent && 'bg-warning-subtle')}>
-              <span className="w-14 shrink-0 pt-0.5 text-sm font-semibold text-primary tabular-nums">{line.code}</span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[15px] leading-5 text-foreground">{titleCase(line.ambiente) || 'Sem ambiente no quadro'}</p>
-                {line.description && (
-                  <p className="mt-0.5 line-clamp-2 text-[13px] leading-[18px] text-muted-foreground" title={line.description}>
-                    {line.description}
-                  </p>
-                )}
-              </div>
-              <div className="shrink-0 text-right">
-                <span className="text-xl font-semibold leading-6 text-foreground tabular-nums">{lineQuantity(line)}</span>
-                {line.divergent && (
-                  <p className="text-xs text-warning tabular-nums">planta: {line.counted}</p>
-                )}
-              </div>
-            </li>
+            <LuminaireRow key={line.code} line={line} />
           ))}
         </ul>
       </div>
@@ -83,6 +67,64 @@ export const LightingProjectResultView: React.FC<{ result: LightingProjectResult
         {result.views > 1 && ` A planta aparece ${result.views} vezes na folha e foi contada uma vez só.`}
       </p>
     </div>
+  );
+};
+
+const DETAIL_FIELDS: Array<[keyof ReturnType<typeof splitDescription>, string]> = [
+  ['produto', 'Produto'], ['fabricante', 'Fabricante'], ['modelo', 'Modelo'], ['specs', 'Especificações'], ['instalacao', 'Instalação'],
+];
+
+/** One code of the summary table. Collapsed it reads like the table; opened it
+ * splits the run-on description into the fields the attendant quotes from. */
+const LuminaireRow: React.FC<{ line: LuminaireLine }> = ({ line }) => {
+  const [open, setOpen] = useState(false);
+  const detail = splitDescription(line.description);
+  const fields = DETAIL_FIELDS.filter(([key]) => detail[key]);
+  const quantity = (
+    <div className="shrink-0 text-right">
+      <span className="text-xl font-semibold leading-6 text-foreground tabular-nums">{lineQuantity(line)}</span>
+      {line.divergent && <p className="text-xs text-warning tabular-nums">planta: {line.counted}</p>}
+    </div>
+  );
+  const heading = (
+    <>
+      <span className="w-14 shrink-0 pt-0.5 text-sm font-semibold text-primary tabular-nums">{line.code}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] leading-5 text-foreground">{titleCase(line.ambiente) || 'Sem ambiente no quadro'}</span>
+        {line.description && !open && (
+          <span className="mt-0.5 line-clamp-2 text-[13px] leading-[18px] text-muted-foreground">{detail.produto || line.description}</span>
+        )}
+      </span>
+    </>
+  );
+
+  return (
+    <li className={cn(line.divergent && 'bg-warning-subtle')}>
+      {fields.length === 0 ? (
+        <div className="flex items-start gap-4 px-4 py-3">{heading}{quantity}</div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex w-full items-start gap-4 px-4 py-3 text-left transition-colors hover:bg-accent/60"
+        >
+          {heading}
+          {quantity}
+          <ChevronDown className={cn('mt-1 h-4 w-4 shrink-0 text-icon transition-transform', open && 'rotate-180')} aria-hidden="true" />
+        </button>
+      )}
+      {open && (
+        <dl className="grid grid-cols-1 gap-x-4 gap-y-1.5 px-4 pb-4 sm:grid-cols-[minmax(88px,auto)_1fr] sm:pl-[88px] text-[13px] leading-[18px]">
+          {fields.map(([key, label]) => (
+            <React.Fragment key={key}>
+              <dt className="text-muted-foreground">{label}</dt>
+              <dd className="mb-1 text-foreground sm:mb-0">{detail[key]}</dd>
+            </React.Fragment>
+          ))}
+        </dl>
+      )}
+    </li>
   );
 };
 
@@ -111,11 +153,18 @@ export async function copyProjectSummary(result: LightingProjectResult): Promise
   }
 }
 
-export function downloadProjectCsv(result: LightingProjectResult): void {
-  const url = URL.createObjectURL(new Blob([projectCsv(result)], { type: 'text/csv;charset=utf-8' }));
+export async function downloadProjectSpreadsheet(result: LightingProjectResult): Promise<void> {
+  let blob: Blob;
+  try {
+    blob = await projectXlsx(result);
+  } catch {
+    toast.error('Não foi possível gerar a planilha.');
+    return;
+  }
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${(result.fileName ?? 'projeto').replace(/\.pdf$/i, '')}-luminarias.csv`;
+  a.download = `${(result.fileName ?? 'projeto').replace(/\.pdf$/i, '')}-luminarias.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 }
