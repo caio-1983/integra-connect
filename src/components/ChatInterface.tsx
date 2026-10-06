@@ -363,7 +363,7 @@ const ChatInterface: React.FC = () => {
           />
 
           <div className="chat-wall flex-1 min-h-0 z-0">
-          <div ref={timelineScrollRef} className="absolute inset-0 overflow-y-auto px-3 md:px-6 lg:px-12 xl:px-16 py-4 custom-scrollbar">
+          <div ref={timelineScrollRef} className="absolute inset-0 overflow-y-auto overscroll-contain px-3 md:px-6 lg:px-12 xl:px-16 py-4 custom-scrollbar">
             <ConversationTimeline
               messages={activeChat.messages}
               messagesEndRef={messagesEndRef}

@@ -50,6 +50,13 @@ const ThemedToaster: React.FC = () => {
 
 // Componente de Layout que envolve a aplicação principal
 const AppLayout: React.FC = () => {
+  // A janela nunca rola: só os painéis internos. Sem isso, no celular o fim de
+  // uma rolagem "vazava" para a página, cortando o topo e abrindo um vão embaixo.
+  React.useEffect(() => {
+    const els = [document.documentElement, document.body];
+    els.forEach(el => { el.style.overflow = 'hidden'; el.style.overscrollBehavior = 'none'; });
+    return () => els.forEach(el => { el.style.overflow = ''; el.style.overscrollBehavior = ''; });
+  }, []);
   return (
     <NotificationsProvider>
       <div className="flex flex-col md:flex-row h-[100dvh] w-full bg-background text-foreground overflow-hidden">
