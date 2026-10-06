@@ -21,6 +21,7 @@ import ChannelManagement from './components/ChannelManagement';
 import CampaignSettings from './components/campaigns/CampaignSettings';
 import CampaignsLayout from './components/campaigns/CampaignsLayout';
 import CampaignScoreboard from './components/campaigns/CampaignScoreboard';
+import LightingProjects from './components/projects/LightingProjects';
 import ResultsLayout from './components/results/ResultsLayout';
 import ResultsOverview from './components/results/ResultsOverview';
 import ResultsCampaigns from './components/results/ResultsCampaigns';
@@ -99,6 +100,7 @@ const App: React.FC = () => {
               <Route path="/chat" element={<ChatInterface />} />
               <Route path="/contacts" element={<Contacts />} />
               <Route path="/scheduling" element={<Scheduling />} />
+              <Route path="/projetos" element={<LightingProjects />} />
               {/* Equipe/Usuários — RBAC: só admin/gestor (Route element={<RoleRoute />}) */}
               <Route element={<RoleRoute />}>
                 <Route path="/team" element={<Team />} />

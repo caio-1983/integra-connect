@@ -12,6 +12,7 @@ import { whatsappInstanceRoutes } from './routes/whatsappInstances.js';
 import { conversationReplyRoutes } from './routes/conversationReply.js';
 import { metaAccountRoutes } from './routes/metaAccounts.js';
 import { smartPixRoutes } from './routes/smartPix.js';
+import { lightingProjectRoutes } from './routes/lightingProjects.js';
 // Side-effect imports: each subscribes its handlers to the EventBus at boot.
 import './telemetry/TelemetryService.js';
 import './channels/ChannelOrchestrator.js';
@@ -65,6 +66,7 @@ async function main(): Promise<void> {
   await app.register(conversationReplyRoutes);
   await app.register(metaAccountRoutes);
   await app.register(smartPixRoutes);
+  await app.register(lightingProjectRoutes);
 
   const port = configService.getNumber('PORT', 8787);
   await app.listen({ port, host: '0.0.0.0' });

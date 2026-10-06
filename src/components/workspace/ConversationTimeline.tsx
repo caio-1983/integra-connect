@@ -1,9 +1,11 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Pencil, Sparkles, Camera, Mic, FileText, Video, Diamond, type LucideIcon } from 'lucide-react';
+import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Pencil, Sparkles, Camera, Mic, FileText, Video, Diamond, Lightbulb, type LucideIcon } from 'lucide-react';
 import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn, contactDisplayName } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { PixCard } from './PixCard';
+import { LightingProjectSheet } from '@/components/projects/LightingProjectSheet';
+import { isPdfAttachment } from '@/services/lightingProjectService';
 
 const WAVE_BARS = 40;
 
@@ -240,6 +242,8 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({});
   /** Videos the browser could not play (e.g. a codec it lacks) — shown as the download chip instead. */
   const [unplayableVideos, setUnplayableVideos] = useState<Set<string>>(() => new Set());
+  /** PDF whose luminaires are being counted in the side sheet. */
+  const [projectMessage, setProjectMessage] = useState<UIMessage | null>(null);
 
   const SPEED_LABEL: Record<number, string> = { 1: '1×', 1.5: '1,5×', 2: '2×' };
 
@@ -410,7 +414,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
     // A document, or a video the browser cannot play, reaches here with a
     // mediaUrl but no player — render a downloadable attachment chip.
     if (msg.mediaUrl) {
-      return (
+      const chip = (
         <a
           href={msg.mediaUrl}
           target="_blank"
@@ -421,6 +425,19 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
           <span className="text-sm truncate flex-1 min-w-0">{msg.content || 'Arquivo'}</span>
           <Download className="w-3.5 h-3.5 shrink-0 opacity-70" />
         </a>
+      );
+      if (!isPdfAttachment(msg.mediaUrl)) return chip;
+      return (
+        <div className="flex flex-col gap-1.5 max-w-full">
+          {chip}
+          <button
+            type="button"
+            onClick={() => setProjectMessage(msg)}
+            className="inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+          >
+            <Lightbulb className="w-3.5 h-3.5" /> Contar luminárias
+          </button>
+        </div>
       );
     }
 
@@ -613,6 +630,12 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
       })}
 
       <div ref={messagesEndRef} />
+
+      <LightingProjectSheet
+        messageId={projectMessage?.id ?? null}
+        fileLabel={projectMessage?.content}
+        onOpenChange={(open) => { if (!open) setProjectMessage(null); }}
+      />
     </>
   );
 };

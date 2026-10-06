@@ -18,6 +18,7 @@ import {
   Wrench,
   FlaskConical,
   SlidersHorizontal,
+  Lightbulb,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -79,6 +80,7 @@ export const sidebarNavigation: SidebarSectionConfig[] = [
       { id: 'scheduling', label: 'Agenda',       href: '/scheduling', icon: CalendarDays  },
       { id: 'dashboard',  label: 'Resultados',  href: '/dashboard',  icon: TrendingUp    },
       { id: 'campaigns',  label: 'Campanhas',   href: '/campanhas',  icon: Megaphone     },
+      { id: 'projects',   label: 'Projetos',    href: '/projetos',   icon: Lightbulb     },
     ],
   },
   {
