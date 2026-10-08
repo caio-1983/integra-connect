@@ -437,7 +437,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
             onClick={() => setProjectMessage(msg)}
             className="inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-xs font-medium text-primary hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
           >
-            <Lightbulb className="w-3.5 h-3.5" /> Contar luminárias
+            <Lightbulb className="w-3.5 h-3.5" /> Analisar Projeto
           </button>
         </div>
       );

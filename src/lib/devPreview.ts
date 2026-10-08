@@ -13,7 +13,7 @@ const DEV_PREVIEW_USER_IDS = new Set<string>([
 ]);
 
 const DEV_PREVIEW_FEATURES = new Set<string>([
-  'projects', // Projetos luminotécnicos — /projetos + "Contar luminárias" no chat
+  // 'projects' (Projetos luminotécnicos) liberado para todos em 2026-10-08
 ]);
 
 export function isDevPreviewFeature(feature: string): boolean {
