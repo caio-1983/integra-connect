@@ -330,3 +330,91 @@ export async function fetchUnmappedSignals(): Promise<UnmappedSignal[]> {
 
   return [...counts.values()].sort((a, b) => b.leadCount - a.leadCount);
 }
+
+// ============= Meta campaign blocks =============
+
+export interface BlockAd {
+  adId: string;
+  adName: string | null;
+  leadCount: number;
+}
+
+/**
+ * The ads inside one Meta campaign (a "block"), with how many leads each
+ * brought. A `meta_campaign_name` rule silently covers every one of them, so
+ * this is what a manager must see before mapping — or splitting — a block.
+ * Ads come from the catalog plus any lead-carried ad id the catalog resolved
+ * to this campaign, so an ad with zero leads still shows up.
+ */
+export async function fetchBlockAds(campaignName: string): Promise<BlockAd[]> {
+  const [catalog, leads] = await Promise.all([
+    (supabase as any).from('meta_ad_catalog').select('ad_id, ad_name').eq('campaign_name', campaignName),
+    supabase
+      .from('lead_attribution_resolved')
+      .select('source_raw, catalog_ad_name')
+      .eq('catalog_campaign_name', campaignName),
+  ]);
+  if (catalog.error) console.error('[attribution] Error fetching block catalog:', catalog.error);
+  if (leads.error) console.error('[attribution] Error fetching block leads:', leads.error);
+
+  const ads = new Map<string, BlockAd>();
+  for (const row of (catalog.data ?? []) as { ad_id: string; ad_name: string | null }[]) {
+    ads.set(row.ad_id, { adId: row.ad_id, adName: row.ad_name, leadCount: 0 });
+  }
+  for (const row of leads.data ?? []) {
+    const adId = ((row.source_raw ?? {}) as Record<string, string>).ad_id;
+    if (!adId) continue;
+    const ad = ads.get(adId) ?? { adId, adName: row.catalog_ad_name ?? null, leadCount: 0 };
+    ad.leadCount += 1;
+    ads.set(adId, ad);
+  }
+  return [...ads.values()].sort((a, b) => b.leadCount - a.leadCount || (a.adName ?? '').localeCompare(b.adName ?? ''));
+}
+
+/**
+ * Replaces a block-level rule with one rule per ad. Ad rules are written
+ * before the block rule is removed so no lead falls to "Não mapeado" in
+ * between. An ad rule that already exists is repointed rather than duplicated;
+ * ads assigned to no campaign get no rule (and lose an existing one).
+ */
+export async function splitBlockIntoAds(
+  assignments: { adId: string; campaignId: string | null }[],
+  blockRuleId: string | null,
+): Promise<void> {
+  const { data: session } = await supabase.auth.getSession();
+  const adIds = assignments.map((a) => a.adId);
+  const { data: existing, error: readError } = await supabase
+    .from('campaign_mappings')
+    .select('id, match_value, campaign_id')
+    .eq('match_type', 'meta_ad_id')
+    .in('match_value', adIds);
+  if (readError) throw readError;
+  const existingByAd = new Map((existing ?? []).map((r) => [r.match_value, r]));
+
+  const inserts = [];
+  for (const { adId, campaignId } of assignments) {
+    const current = existingByAd.get(adId);
+    if (current) {
+      if (!campaignId) {
+        const { error } = await supabase.from('campaign_mappings').delete().eq('id', current.id);
+        if (error) throw error;
+      } else if (current.campaign_id !== campaignId) {
+        const { error } = await supabase.from('campaign_mappings').update({ campaign_id: campaignId }).eq('id', current.id);
+        if (error) throw error;
+      }
+    } else if (campaignId) {
+      inserts.push({
+        campaign_id: campaignId,
+        match_type: 'meta_ad_id',
+        match_value: adId,
+        priority: MATCH_TYPE_PRIORITY.meta_ad_id,
+        created_by: session.session?.user?.id ?? null,
+      });
+    }
+  }
+  if (inserts.length) {
+    const { error } = await supabase.from('campaign_mappings').insert(inserts);
+    if (error) throw error;
+  }
+  if (blockRuleId) await deleteCampaignMapping(blockRuleId);
+}

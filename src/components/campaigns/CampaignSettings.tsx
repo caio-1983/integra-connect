@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Megaphone, Link2, Plus, Trash2, AlertCircle, Loader2, Power } from 'lucide-react';
+import { Megaphone, Link2, Plus, Trash2, AlertCircle, Loader2, Power, Split } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageContainer, PageHeader, SectionBlock } from '@/components/layout';
 import { Button } from '@/components/Button';
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
+import { BlockAdsDialog } from './BlockAdsDialog';
 import {
   createCampaign,
   createCampaignMapping,
@@ -54,6 +55,7 @@ export const CampaignSettings: React.FC<{ embedded?: boolean }> = ({ embedded = 
   const [ruleType, setRuleType] = useState<CampaignMatchType>('meta_ad_id');
   const [ruleValue, setRuleValue] = useState('');
   const [savingRule, setSavingRule] = useState(false);
+  const [block, setBlock] = useState<{ name: string; campaignId: string; ruleId: string | null } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -200,7 +202,11 @@ export const CampaignSettings: React.FC<{ embedded?: boolean }> = ({ embedded = 
                         <td className="py-2 pr-4">
                           <Select
                             value=""
-                            onValueChange={(campaignId) => void handleCreateRule(campaignId, signal.matchType, signal.value)}
+                            onValueChange={(campaignId) => {
+                              // A block covers many ads: show them before mapping it blind.
+                              if (signal.matchType === 'meta_campaign_name') setBlock({ name: signal.value, campaignId, ruleId: null });
+                              else void handleCreateRule(campaignId, signal.matchType, signal.value);
+                            }}
                             disabled={savingRule || campaigns.length === 0}
                           >
                             <SelectTrigger className="h-8 w-56">
@@ -309,10 +315,22 @@ export const CampaignSettings: React.FC<{ embedded?: boolean }> = ({ embedded = 
                               <Link2 className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                               <span className="text-muted-foreground text-xs">{CAMPAIGN_MATCH_TYPE_LABEL[rule.matchType]}</span>
                               <span className="font-mono text-xs text-foreground break-all">{rule.matchValue}</span>
+                              {rule.matchType === 'meta_campaign_name' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="ml-auto h-7 px-2 text-muted-foreground"
+                                  onClick={() => setBlock({ name: rule.matchValue, campaignId: campaign.id, ruleId: rule.id })}
+                                  title="Abrir o bloco em anúncios"
+                                >
+                                  <Split className="w-3.5 h-3.5" />
+                                  <span className="ml-1 text-xs">Abrir bloco</span>
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="ml-auto h-7 px-2 text-muted-foreground hover:text-destructive"
+                                className={`${rule.matchType === 'meta_campaign_name' ? '' : 'ml-auto '}h-7 px-2 text-muted-foreground hover:text-destructive`}
                                 onClick={() => handleDeleteRule(rule.id)}
                                 title="Remover mapeamento"
                               >
@@ -404,6 +422,15 @@ export const CampaignSettings: React.FC<{ embedded?: boolean }> = ({ embedded = 
           </SectionBlock>
         </>
       )}
+
+      <BlockAdsDialog
+        blockName={block?.name ?? null}
+        campaignId={block?.campaignId ?? ''}
+        blockRuleId={block?.ruleId ?? null}
+        campaigns={campaigns}
+        onClose={() => setBlock(null)}
+        onDone={() => { setBlock(null); void load(); }}
+      />
     </Shell>
   );
 };
