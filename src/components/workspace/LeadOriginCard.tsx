@@ -157,10 +157,18 @@ export const LeadOriginCard: React.FC<LeadOriginCardProps> = ({ contactId, chann
           )}
           {/* An ad-sourced lead with no campaign yet is actionable information for
               a manager, so it says so instead of silently showing nothing. */}
-          {!attribution.campaignName && attribution.rawCampaignSignal && (
+          {!attribution.campaignName && attribution.rawCampaignSignal && attribution.rawCampaignSignal !== attribution.sourceRaw.ad_id && (
             <p className="text-[11px] text-muted-foreground">
               Sinal não mapeado:{' '}
               <span className="font-mono text-[10px] text-foreground break-all">{attribution.rawCampaignSignal}</span>
+            </p>
+          )}
+          {/* Kept after mapping too: the ad id is what the team checks against
+              Ads Manager when a campaign looks wrong. */}
+          {attribution.sourceRaw.ad_id && (
+            <p className="text-[11px] text-muted-foreground">
+              ID do anúncio{!attribution.campaignName && ' (não mapeado)'}:{' '}
+              <span className="font-mono text-[10px] text-foreground break-all select-all">{attribution.sourceRaw.ad_id}</span>
             </p>
           )}
           {/* Names from the Meta ad catalog: what the team called the campaign in
