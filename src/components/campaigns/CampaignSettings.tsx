@@ -428,7 +428,7 @@ export const CampaignSettings: React.FC<{ embedded?: boolean }> = ({ embedded = 
         campaignId={block?.campaignId ?? ''}
         blockRuleId={block?.ruleId ?? null}
         campaigns={campaigns}
-        onClose={() => setBlock(null)}
+        onClose={() => { setBlock(null); void load(); }}
         onDone={() => { setBlock(null); void load(); }}
       />
     </Shell>

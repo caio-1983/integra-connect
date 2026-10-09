@@ -10,8 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
+  createCampaign,
   createCampaignMapping,
   fetchBlockAds,
   splitBlockIntoAds,
@@ -21,6 +23,7 @@ import type { Campaign } from '@/types';
 
 // Radix Select rejects an empty value, so "no campaign" needs its own token.
 const NONE = '__none';
+const NEW = '__new';
 
 interface BlockAdsDialogProps {
   /** Meta campaign name — the block. Null keeps the dialog closed. */
@@ -45,6 +48,11 @@ export const BlockAdsDialog: React.FC<BlockAdsDialogProps> = ({
   const [ads, setAds] = useState<BlockAd[] | null>(null);
   const [choice, setChoice] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  // Campaigns created from inside the dialog, until the parent reloads.
+  const [created, setCreated] = useState<Campaign[]>([]);
+  // Ad waiting for the campaign being typed in "+ Nova campanha…".
+  const [newFor, setNewFor] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
 
   useEffect(() => {
     if (!blockName) return;
@@ -56,7 +64,26 @@ export const BlockAdsDialog: React.FC<BlockAdsDialogProps> = ({
   }, [blockName, campaignId]);
 
   const campaignName = campaigns.find((c) => c.id === campaignId)?.name ?? 'esta campanha';
-  const activeCampaigns = campaigns.filter((c) => c.isActive || c.id === campaignId);
+  const activeCampaigns = [...campaigns, ...created].filter((c) => c.isActive || c.id === campaignId);
+
+  const handleCreateCampaign = async () => {
+    if (!newFor || !newName.trim()) return;
+    setSaving(true);
+    try {
+      const campaign = await createCampaign({ name: newName });
+      setCreated((prev) => [...prev, campaign]);
+      setChoice((prev) => ({ ...prev, [newFor]: campaign.id }));
+      setNewFor(null);
+      setNewName('');
+      toast.success('Campanha criada.');
+    } catch (error) {
+      toast.error((error as { code?: string }).code === '23505'
+        ? 'Já existe uma campanha com esse nome.'
+        : 'Não foi possível criar a campanha.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const run = async (action: () => Promise<void>, message: string) => {
     setSaving(true);
@@ -98,6 +125,22 @@ export const BlockAdsDialog: React.FC<BlockAdsDialogProps> = ({
           </DialogDescription>
         </DialogHeader>
 
+        {newFor && (
+          <div className="flex items-center gap-2 rounded-md border border-border p-2">
+            <Input
+              autoFocus
+              className="h-8"
+              placeholder="Nome da nova campanha"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void handleCreateCampaign(); }}
+              disabled={saving}
+            />
+            <Button size="sm" onClick={handleCreateCampaign} disabled={saving || !newName.trim()}>Criar</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setNewFor(null); setNewName(''); }} disabled={saving}>Cancelar</Button>
+          </div>
+        )}
+
         {ads === null ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
             <Loader2 className="w-4 h-4 animate-spin" /> Carregando anúncios…
@@ -127,7 +170,10 @@ export const BlockAdsDialog: React.FC<BlockAdsDialogProps> = ({
                     <td className="py-2">
                       <Select
                         value={choice[ad.adId] ?? campaignId}
-                        onValueChange={(v) => setChoice((prev) => ({ ...prev, [ad.adId]: v }))}
+                        onValueChange={(v) => {
+                          if (v === NEW) { setNewFor(ad.adId); setNewName(''); }
+                          else setChoice((prev) => ({ ...prev, [ad.adId]: v }));
+                        }}
                         disabled={saving}
                       >
                         <SelectTrigger className="h-8 w-48">
@@ -138,6 +184,7 @@ export const BlockAdsDialog: React.FC<BlockAdsDialogProps> = ({
                             <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                           ))}
                           <SelectItem value={NONE}>Sem campanha</SelectItem>
+                          <SelectItem value={NEW}>+ Nova campanha…</SelectItem>
                         </SelectContent>
                       </Select>
                     </td>
