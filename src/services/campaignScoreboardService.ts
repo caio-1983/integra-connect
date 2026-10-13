@@ -31,7 +31,20 @@ export interface CampaignLead {
   campaignName: string | null;
   /** Ad the lead clicked, when known: catalog name first, then the ad headline. */
   adName: string | null;
+  /** Lu's read of the conversation (scripts/detectSales.ts), when it ran on this deal. */
+  lu: LuSaleRead | null;
 }
+
+export interface LuSaleRead {
+  /** Lu moved this deal to Ganho — the "marcado pela Lu" seal. */
+  applied: boolean;
+  /** Not sure enough to mark it: worth a human look at the conversation. */
+  doubt: boolean;
+  evidence: string | null;
+}
+
+/** Same default as the script's --min-confidence. */
+const LU_MIN_CONFIDENCE = 85;
 
 const PAGE = 1000;
 const IN_CHUNK = 150;
@@ -98,6 +111,30 @@ async function fetchOrigins(contactIds: string[]): Promise<Map<string, ResolvedO
 }
 
 /**
+ * Lu's verdicts for these deals. Best effort: before the
+ * deal_sale_detections migration is applied the table is missing, and the
+ * scoreboard must still load.
+ */
+async function fetchLuReads(dealIds: string[]): Promise<Map<string, LuSaleRead>> {
+  const result = new Map<string, LuSaleRead>();
+  for (let i = 0; i < dealIds.length; i += IN_CHUNK) {
+    const { data, error } = await (supabase as any)
+      .from('deal_sale_detections')
+      .select('deal_id, verdict, confidence, evidence, applied_at')
+      .in('deal_id', dealIds.slice(i, i + IN_CHUNK));
+    if (error) return result;
+    for (const row of (data ?? []) as Array<{ deal_id: string; verdict: string; confidence: number; evidence: string | null; applied_at: string | null }>) {
+      result.set(row.deal_id, {
+        applied: !!row.applied_at,
+        doubt: row.verdict === 'unclear' || (row.verdict === 'sold' && row.confidence < LU_MIN_CONFIDENCE),
+        evidence: row.evidence,
+      });
+    }
+  }
+  return result;
+}
+
+/**
  * Leads created in the period that came from a campaign — mapped, or carrying a
  * campaign signal no rule maps yet. Organic and untracked leads are left out:
  * they are not any campaign's result.
@@ -108,7 +145,7 @@ export async function fetchCampaignLeads(
 ): Promise<CampaignLead[]> {
   const deals = await fetchDealsCreatedIn(period);
   const contactIds = [...new Set(deals.map((d) => d.contact_id).filter((id): id is string => !!id))];
-  const origins = await fetchOrigins(contactIds);
+  const [origins, luReads] = await Promise.all([fetchOrigins(contactIds), fetchLuReads(deals.map((d) => d.id))]);
 
   const leads: CampaignLead[] = [];
   for (const d of deals) {
@@ -130,6 +167,7 @@ export async function fetchCampaignLeads(
       campaignId,
       campaignName: campaignId ? (campaignNames.get(campaignId) ?? origin?.campaignName ?? null) : null,
       adName: origin?.adName ?? null,
+      lu: luReads.get(d.id) ?? null,
     });
   }
   return leads;

@@ -412,6 +412,7 @@ const SelectedCampaign: React.FC<SelectedCampaignProps> = ({ group, lossLabels, 
     return reason ? `Não fechou: ${reason.toLowerCase()}` : 'Não fechou';
   };
 
+  const luDoubts = group.leads.filter((l) => l.outcome === 'open' && l.lu?.doubt).length;
   const canEnd = group.verdict === 'bad' && !!group.campaign && !isEnded(group.campaign);
 
   return (
@@ -422,6 +423,7 @@ const SelectedCampaign: React.FC<SelectedCampaignProps> = ({ group, lossLabels, 
           <p className="text-sm text-muted-foreground">
             {total} {total === 1 ? 'pessoa chamou' : 'pessoas chamaram'}. {group.won === 0 ? 'Nenhuma comprou' : `${group.won} ${group.won === 1 ? 'comprou' : 'compraram'}`}
             {group.open > 0 && `, ${group.open} ${group.open === 1 ? 'ainda está' : 'ainda estão'} em negociação`}.
+            {luDoubts > 0 && ` A Lu ficou em dúvida em ${luDoubts}: vale abrir a conversa.`}
           </p>
           {reasons.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5">
@@ -464,8 +466,20 @@ const SelectedCampaign: React.FC<SelectedCampaignProps> = ({ group, lossLabels, 
                 </td>
                 <td className="hidden md:table-cell py-2.5 pr-4 text-muted-foreground">{l.adName ?? '—'}</td>
                 <td className="py-2.5 pr-4">
-                  <span className={`inline-block whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full ${OUTCOME_CLASS[l.outcome]}`}>
-                    {outcomeText(l)}
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={`inline-block whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full ${OUTCOME_CLASS[l.outcome]}`}>
+                      {outcomeText(l)}
+                    </span>
+                    {l.outcome === 'won' && l.lu?.applied && (
+                      <span title={l.lu.evidence ?? undefined} className="whitespace-nowrap text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground cursor-help">
+                        Marcado pela Lu
+                      </span>
+                    )}
+                    {l.outcome === 'open' && l.lu?.doubt && (
+                      <span title={l.lu.evidence ?? undefined} className="whitespace-nowrap text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground cursor-help">
+                        Lu em dúvida
+                      </span>
+                    )}
                   </span>
                 </td>
                 <td className="py-2.5 pr-4 text-right font-semibold tabular-nums">
