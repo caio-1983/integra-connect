@@ -68,6 +68,8 @@ class OpenAIProvider extends BaseAIProvider {
     return {
       content: message?.content ?? '',
       tokensUsed: completion.usage?.total_tokens,
+      inputTokens: completion.usage?.prompt_tokens,
+      outputTokens: completion.usage?.completion_tokens,
       latencyMs,
       toolCalls: toolCalls && toolCalls.length > 0 ? toolCalls : undefined,
     };

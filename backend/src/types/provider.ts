@@ -30,6 +30,9 @@ export interface AIChatRequest {
 export interface AIChatResponse {
   content: string;
   tokensUsed?: number;
+  /** Prompt vs completion split — they are priced differently. */
+  inputTokens?: number;
+  outputTokens?: number;
   latencyMs: number;
   toolCalls?: AIToolCallRequest[];
 }
