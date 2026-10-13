@@ -17,6 +17,7 @@
  *
  * Flags: --since YYYY-MM-DD (2026-10-01)  --until YYYY-MM-DD (2026-11-01)
  *        --min-confidence N (85)  --limit N  --reclassify (ignore saved verdicts)
+ *        --sem-campanha (leads whose origin maps to no campaign, instead of campaign leads)
  *
  * It only calls the model directly — it never goes through the reply pipeline,
  * so no message is ever sent to a customer.
@@ -39,6 +40,7 @@ const flag = (name: string): string | undefined => {
 };
 const dryRun = args.includes('--dry-run');
 const reclassify = args.includes('--reclassify');
+const origin = args.includes('--sem-campanha') ? 'other' : 'campaign';
 const since = flag('--since') ?? '2026-10-01';
 const until = flag('--until') ?? '2026-11-01';
 const minConfidence = Number(flag('--min-confidence') ?? 85);
@@ -53,7 +55,7 @@ const PRICE_OUT = 1.6;
 const SPEAKER: Record<TranscriptLine['fromType'], string> = { user: 'Cliente', nina: 'Lu (IA)', human: 'Atendente' };
 
 const SYSTEM_PROMPT = [
-  'Você analisa conversas de WhatsApp da Lumina, loja de iluminação LED, com clientes que chegaram por anúncio.',
+  'Você analisa conversas de WhatsApp da Lumina, loja de iluminação LED, com clientes.',
   'Sua única tarefa: dizer se a VENDA FECHOU nesta conversa. Não responda o cliente.',
   '',
   'Conta como venda fechada (sold):',
@@ -120,7 +122,7 @@ async function classify(lead: CampaignLeadDeal): Promise<SaleDetection> {
     temperature: 0,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: `Campanha: ${lead.campaignName}\n\nConversa (mais antiga → mais recente):\n${buildTranscript(lines)}` },
+      { role: 'user', content: `Conversa (mais antiga → mais recente):\n${buildTranscript(lines)}` },
     ],
   });
   usage.calls++;
@@ -141,9 +143,9 @@ async function classify(lead: CampaignLeadDeal): Promise<SaleDetection> {
 }
 
 async function main(): Promise<void> {
-  let leads = await saleDetectionRepository.listCampaignLeadsWithOpenDeal(`${since}T00:00:00-03:00`, `${until}T00:00:00-03:00`);
+  let leads = await saleDetectionRepository.listLeadsWithOpenDeal(`${since}T00:00:00-03:00`, `${until}T00:00:00-03:00`, origin);
   if (limit) leads = leads.slice(0, limit);
-  console.log(`${leads.length} lead(s) de campanha com oportunidade aberta (${since} → ${until})${dryRun ? ' — DRY-RUN, nenhuma oportunidade será movida' : ''}`);
+  console.log(`${leads.length} lead(s) ${origin === 'campaign' ? 'de campanha' : 'sem campanha'} com oportunidade aberta (${since} → ${until})${dryRun ? ' — DRY-RUN, nenhuma oportunidade será movida' : ''}`);
 
   const saved = reclassify ? new Map<string, SaleDetection>() : await saleDetectionRepository.getDetections(leads.map((l) => l.dealId));
   const ganhoId = dryRun ? null : await saleDetectionRepository.getGanhoStageId();

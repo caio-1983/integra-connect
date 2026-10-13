@@ -43,10 +43,11 @@ function chunks<T>(items: T[]): T[][] {
 export const saleDetectionRepository = {
   /**
    * Contacts with a conversation created in [since, until) whose origin resolves
-   * to a campaign, paired with their open deal (most recent one if several).
-   * Contacts whose deals are all won or lost are left out — nothing to decide.
+   * to a campaign — or, with `origin: 'other'`, to none — paired with their open
+   * deal (most recent one if several). Contacts whose deals are all won or lost
+   * are left out — nothing to decide.
    */
-  async listCampaignLeadsWithOpenDeal(sinceIso: string, untilIso: string): Promise<CampaignLeadDeal[]> {
+  async listLeadsWithOpenDeal(sinceIso: string, untilIso: string, origin: 'campaign' | 'other'): Promise<CampaignLeadDeal[]> {
     const supabase = getSupabase();
 
     const contactIds = new Set<string>();
@@ -74,8 +75,11 @@ export const saleDetectionRepository = {
       for (const row of data ?? []) campaignByContact.set(row.contact_id, row.campaign_name);
     }
 
+    const targets = origin === 'campaign'
+      ? [...campaignByContact.keys()]
+      : [...contactIds].filter((id) => !campaignByContact.has(id));
     const leads: CampaignLeadDeal[] = [];
-    for (const ids of chunks([...campaignByContact.keys()])) {
+    for (const ids of chunks(targets)) {
       const { data, error } = await supabase
         .from('deals')
         .select('id, contact_id, created_at, contact:contacts(name, call_name)')
@@ -93,7 +97,7 @@ export const saleDetectionRepository = {
           dealId: row.id,
           contactId: row.contact_id,
           contactName: contact?.name || contact?.call_name || null,
-          campaignName: campaignByContact.get(row.contact_id)!,
+          campaignName: campaignByContact.get(row.contact_id) ?? 'Sem campanha',
         });
       }
     }
