@@ -470,8 +470,12 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
         const day = messageDay(msg);
         const newDay = !prev || messageDay(prev).toDateString() !== day.toDateString();
         // WhatsApp groups a side's consecutive messages: only the first gets the
-        // tail and the larger gap above it. A new day starts a new run.
-        const firstOfRun = newDay || (prev.direction === MessageDirection.OUTGOING) !== isOutgoing;
+        // tail and the larger gap above it. A new day starts a new run, and so
+        // does a different participant in a group (else everyone reads as one).
+        const senderKey = (m: UIMessage) => m.senderPhone || m.senderName || '';
+        const firstOfRun = newDay
+          || (prev.direction === MessageDirection.OUTGOING) !== isOutgoing
+          || (isGroup && !isOutgoing && senderKey(prev) !== senderKey(msg));
         const msgChannel = msg.channel ?? primaryChannel;
         const showChannelHint = msgChannel !== primaryChannel;
         const channelCfg = CHANNEL_CONFIG[msgChannel];
