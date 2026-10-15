@@ -3,6 +3,7 @@
 import type { MessageDeliveryStatus } from '../../types/messageStatus.js';
 import type { ChannelName, InboundAttribution } from '../channelEvents.js';
 import type { PixMessageMeta } from '../pix.js';
+import type { SharedContact } from '../sharedContact.js';
 
 export type EvolutionMajor = 1 | 2;
 
@@ -160,6 +161,8 @@ export interface NormalizedInbound {
   quotedProviderMessageId?: string;
   /** Set when the message is a Pix card; `text` then holds its plain-text form. */
   pix?: PixMessageMeta;
+  /** Set when the message shares contact cards; `text` then holds their plain-text form. */
+  contacts?: SharedContact[];
 }
 
 /**
@@ -180,6 +183,7 @@ export interface NormalizedOutboundEcho {
   isGroup?: boolean;
   quotedProviderMessageId?: string;
   pix?: PixMessageMeta;
+  contacts?: SharedContact[];
 }
 
 /** Channel-agnostic delivery-status change (Evolution's messages.update). */

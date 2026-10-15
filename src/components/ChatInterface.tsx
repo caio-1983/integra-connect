@@ -12,7 +12,7 @@ import { useMyTasks } from '@/hooks/useMyTasks';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { api } from '@/services/api';
-import { transcribeConversationAudio } from '@/services/whatsappConnectionService';
+import { startConversation, transcribeConversationAudio } from '@/services/whatsappConnectionService';
 import { toast } from 'sonner';
 import { ContactFormDialog, type ContactFormValues } from './contact/ContactFormDialog';
 import {
@@ -64,6 +64,7 @@ const ChatInterface: React.FC = () => {
     && msg.type === MessageType.TEXT
     && !msg.mediaUrl
     && !msg.pix
+    && !msg.contacts
     && !!msg.whatsappMessageId
     && (msg.channel ?? 'whatsapp') === 'whatsapp'
     && !!msg.sentAt
@@ -284,6 +285,30 @@ const ChatInterface: React.FC = () => {
     setSelectedChatId(conversationId);
   };
 
+  // "Conversar" on a shared contact card: through the same WhatsApp number as
+  // the conversation it was shared in. Without a known number, the
+  // "Nova conversa" dialog opens pre-filled so the attendant picks one.
+  const handleMessageSharedContact = async (digits: string, name?: string) => {
+    const instance = activeChat?.instance;
+    const existing = conversations.find(c =>
+      !c.isGroup && c.contactPhone.replace(/\D/g, '') === digits && (!instance || c.instance === instance));
+    if (existing) {
+      setSelectedChatId(existing.id);
+      return;
+    }
+    if (!instance) {
+      setNewConversationSearch(digits);
+      setNewConversationOpen(true);
+      return;
+    }
+    try {
+      const result = await startConversation(instance, digits, name);
+      await handleConversationStarted(result.conversationId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao iniciar conversa');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-full bg-card items-center justify-center">
@@ -373,6 +398,7 @@ const ChatInterface: React.FC = () => {
               onReply={setReplyingTo}
               onEdit={setEditingMessage}
               canEdit={canEditMessage}
+              onMessageContact={handleMessageSharedContact}
               onTranscribe={async (msg) => {
                 try {
                   const status = await transcribeConversationAudio(activeChat.id, msg.id);

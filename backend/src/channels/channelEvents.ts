@@ -1,5 +1,6 @@
 import type { MessageDeliveryStatus } from '../types/messageStatus.js';
 import type { PixMessageMeta } from './pix.js';
+import type { SharedContact } from './sharedContact.js';
 
 /** Channel event names + payloads, all carried over the Sprint 010 EventBus (Ajuste 6). */
 
@@ -89,6 +90,8 @@ export interface InboundMessageReceivedPayload {
   quotedProviderMessageId?: string;
   /** A Pix card (e.g. a supplier sending theirs) — `text` holds its plain form. */
   pix?: PixMessageMeta;
+  /** Shared contact cards — `text` holds their plain form. */
+  contacts?: SharedContact[];
 }
 
 /**
@@ -114,6 +117,8 @@ export interface OutboundEchoReceivedPayload {
   quotedProviderMessageId?: string;
   /** The WhatsApp Business app's own Pix card, sent from the phone. */
   pix?: PixMessageMeta;
+  /** Contact cards the team shared from the phone. */
+  contacts?: SharedContact[];
 }
 
 export interface OutboundMessageRequestedPayload {

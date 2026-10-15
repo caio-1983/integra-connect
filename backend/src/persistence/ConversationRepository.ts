@@ -1,6 +1,7 @@
 import type { ConversationMode, IncomingMessage, MessageDeliveryStatus } from '../types/index.js';
 import type { InboundAttribution, InboundMedia } from '../channels/channelEvents.js';
 import type { PixDetails, PixKeyType, PixMessageMeta } from '../channels/pix.js';
+import type { SharedContact } from '../channels/sharedContact.js';
 import { getSupabase } from './supabaseClient.js';
 import { logger } from '../logger/Logger.js';
 import { configService } from '../config/ConfigService.js';
@@ -679,6 +680,8 @@ class ConversationRepository {
     quotedProviderMessageId?: string;
     /** A Pix card the other side sent — drawn as a card in the timeline. */
     pix?: PixMessageMeta;
+    /** Contact cards the other side shared — drawn as a card in the timeline. */
+    contacts?: SharedContact[];
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
     const replyToId = await this.resolveReplyToId(input.conversationId, input);
@@ -691,6 +694,12 @@ class ConversationRepository {
     const sender = input.sender && (input.sender.name || input.sender.phone)
       ? { name: input.sender.name ?? null, phone: input.sender.phone ?? null }
       : null;
+
+    const metadata = {
+      ...(sender ? { sender } : {}),
+      ...(input.pix ? { pix: input.pix } : {}),
+      ...(input.contacts ? { contacts: input.contacts } : {}),
+    };
 
     const type = mediaUrl ? mediaKindToDbType(input.media!.kind) : 'text';
     const { data: row, error } = await supabase.from('messages').insert({
@@ -705,7 +714,7 @@ class ConversationRepository {
       status: 'sent',
       sent_at: sentAt,
       reply_to_id: replyToId,
-      ...(sender || input.pix ? { metadata: { ...(sender ? { sender } : {}), ...(input.pix ? { pix: input.pix } : {}) } } : {}),
+      ...(Object.keys(metadata).length ? { metadata } : {}),
     }).select('id').single();
 
     if (error) {

@@ -3,6 +3,7 @@ export * from './channel';
 import type { ChannelType, ChannelIdentity, TimelineSource } from './channel';
 import { contactDisplayName } from '@/lib/utils';
 import { pixFromMetadata, type PixCardData } from '@/lib/pix';
+import { sharedContactsFromMetadata, type SharedContact } from '@/lib/sharedContact';
 
 // ============= WhatsApp Instance Types (Sprint 012) =============
 export * from './whatsappInstance';
@@ -449,6 +450,9 @@ export interface UIMessage {
   /** Set when the message is a Pix card (messages.metadata.pix); `content` then
    *  holds its plain-text form, for previews and search. */
   pix?: PixCardData | null;
+  /** Set when the message shares contact cards (messages.metadata.contacts);
+   *  `content` then holds their plain-text form. */
+  contacts?: SharedContact[] | null;
   /** Customer voice note → text (backend TranscriptionService). */
   transcription?: string | null;
   transcriptionStatus?: 'pending' | 'done' | 'failed' | 'skipped' | null;
@@ -519,6 +523,7 @@ export function transformDBToUIMessage(msg: DBMessage): UIMessage {
     replyToId: msg.reply_to_id ?? null,
     editedAt: (msg.metadata as { edited_at?: string } | null)?.edited_at ?? null,
     pix: pixFromMetadata(msg.metadata),
+    contacts: sharedContactsFromMetadata(msg.metadata),
     transcription: msg.transcription ?? null,
     transcriptionStatus: msg.transcription_status ?? null,
   };

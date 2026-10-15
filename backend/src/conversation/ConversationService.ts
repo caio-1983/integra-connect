@@ -58,6 +58,7 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
     sender: msg.isGroup ? { name: msg.senderName, phone: msg.senderParticipant } : undefined,
     quotedProviderMessageId: msg.quotedProviderMessageId,
     pix: msg.pix,
+    contacts: msg.contacts,
   });
   if (!inserted) return; // duplicate delivery — already handled
 
@@ -223,7 +224,7 @@ export async function requestMessageEdit(
   if (message.fromType !== 'human' || message.sentBy !== operatorId) {
     throw new Error('Só é possível editar as suas próprias mensagens.');
   }
-  if (message.type !== 'text' || message.mediaUrl || message.metadata.pix) {
+  if (message.type !== 'text' || message.mediaUrl || message.metadata.pix || message.metadata.contacts) {
     throw new Error('Só mensagens de texto podem ser editadas.');
   }
   if (!message.providerMessageId) {
@@ -507,8 +508,8 @@ async function onOutboundEcho(event: AppEvent): Promise<void> {
       fromType: 'human',
       tsSec: echo.tsSec,
       quotedProviderMessageId: echo.quotedProviderMessageId,
-      // The Pix card the Business app sends from the phone.
-      metadata: echo.pix ? { pix: echo.pix } : undefined,
+      // The Pix card the Business app sends from the phone, or contact cards.
+      metadata: echo.pix ? { pix: echo.pix } : echo.contacts ? { contacts: echo.contacts } : undefined,
     });
   }
 

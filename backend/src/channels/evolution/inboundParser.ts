@@ -10,6 +10,7 @@ import type { InboundAttribution } from '../channelEvents.js';
 import { extractRefToken } from '../attributionToken.js';
 import { MEDIA_PLACEHOLDER } from '../mediaPlaceholder.js';
 import { pixKeyTypeFromWire, pixMessageText, type PixMessageMeta } from '../pix.js';
+import { extractSharedContacts, sharedContactsText } from '../sharedContact.js';
 import { logger } from '../../logger/Logger.js';
 
 /** Default mimetype per kind when Evolution omits it. */
@@ -194,11 +195,15 @@ function parseMessageEnvelope(rawBody: unknown): ParsedEnvelope | null {
     ? pixMessageText(pix)
     : (typeof interactive?.body?.text === 'string' ? interactive.body.text.trim() || undefined : undefined);
 
+  // Shared contact cards: plain-text form plus `contacts` (the timeline draws the card).
+  const contacts = extractSharedContacts(msg);
+
   const rawText: string | undefined =
     msg.conversation ??
     msg.extendedTextMessage?.text ??
     caption ??
     interactiveText ??
+    (contacts ? sharedContactsText(contacts) : undefined) ??
     (mediaNode ? MEDIA_PLACEHOLDER[mediaNode.kind] : undefined);
 
   // Origin signals, resolved before the text is normalized. A Meta ad reply wins
@@ -276,6 +281,7 @@ function parseMessageEnvelope(rawBody: unknown): ParsedEnvelope | null {
       attribution,
       quotedProviderMessageId: extractQuotedId(data, msg),
       pix,
+      contacts,
     },
   };
 }
@@ -307,9 +313,9 @@ export function parseOutboundEcho(rawBody: unknown): NormalizedOutboundEcho | nu
   const parsed = parseMessageEnvelope(rawBody);
   if (!parsed || !parsed.fromMe) return null;
 
-  const { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId, pix } =
+  const { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId, pix, contacts } =
     parsed.message;
-  return { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId, pix };
+  return { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId, pix, contacts };
 }
 
 // Evolution forwards Baileys' numeric WAMessageStatus ack levels in some

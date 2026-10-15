@@ -1,9 +1,11 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Pencil, Sparkles, Camera, Mic, FileText, Video, Diamond, Lightbulb, type LucideIcon } from 'lucide-react';
+import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Pencil, Sparkles, Camera, Mic, FileText, Video, Diamond, Lightbulb, UserRound, type LucideIcon } from 'lucide-react';
 import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn, contactDisplayName } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
 import { PixCard } from './PixCard';
+import { SharedContactCard } from './SharedContactCard';
+import { sharedContactsSummary } from '@/lib/sharedContact';
 import { LightingProjectSheet } from '@/components/projects/LightingProjectSheet';
 import { isPdfAttachment } from '@/services/lightingProjectService';
 import { useFeatureVisible } from '@/lib/devPreview';
@@ -66,12 +68,13 @@ function formatWhatsApp(text: string, keyBase: number): React.ReactNode {
 
 /** Leading emoji the backend stores as a media placeholder, mapped to a drawn icon. */
 const MEDIA_PREFIX: Array<[RegExp, LucideIcon]> = [
-  [/^📷\s*/u, Camera], [/^(🎵|🎤)\s*/u, Mic], [/^📄\s*/u, FileText], [/^🎥\s*/u, Video],
+  [/^📷\s*/u, Camera], [/^(🎵|🎤)\s*/u, Mic], [/^📄\s*/u, FileText], [/^🎥\s*/u, Video], [/^📇\s*/u, UserRound],
 ];
 
 /** Icon for a message preview (quote, reply bar, queue row), or null for plain text. */
 export function previewIcon(msg: UIMessage | undefined, fallbackText = ''): LucideIcon | null {
   if (msg?.pix) return Diamond;
+  if (msg?.contacts) return UserRound;
   if (msg?.type === MessageType.IMAGE) return Camera;
   if (msg?.type === MessageType.AUDIO) return Mic;
   if (msg?.type === MessageType.VIDEO) return Video;
@@ -142,6 +145,8 @@ interface ConversationTimelineProps {
   luNote?: { messageId: string; text: string; onOpen?: () => void } | null;
   /** Transcribes a customer voice note on demand (old audio or a failed one). */
   onTranscribe?: (msg: UIMessage) => Promise<void>;
+  /** "Conversar" on a shared contact card: opens a conversation with that number. */
+  onMessageContact?: (digits: string, name?: string) => void;
 }
 
 /** Text of a customer voice note under its player: the transcript (collapsed
@@ -208,6 +213,7 @@ export function mediaCaption(msg: UIMessage): string {
 /** One-line preview of a message, as shown inside a quote or the reply bar. */
 export function messagePreview(msg: UIMessage): string {
   if (msg.pix) return 'Chave Pix';
+  if (msg.contacts) return sharedContactsSummary(msg.contacts);
   switch (msg.type) {
     case MessageType.IMAGE: return mediaCaption(msg) || 'Foto';
     case MessageType.VIDEO: return mediaCaption(msg) || 'Vídeo';
@@ -224,7 +230,7 @@ export function messageAuthor(msg: UIMessage, contactName?: string, isGroup?: bo
 }
 
 const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
-  messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply, onEdit, canEdit, luNote, onTranscribe,
+  messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply, onEdit, canEdit, luNote, onTranscribe, onMessageContact,
 }) => {
   const messagesById = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages]);
   const [flashId, setFlashId] = useState<string | null>(null);
@@ -476,7 +482,8 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
         const caption = isVisual ? mediaCaption(msg) : '';
         // Time over the picture only for a photo: a video's controls sit there.
         const bareImage = msg.type === MessageType.IMAGE && !msg.replyToId && !caption;
-        const isText = !msg.pix && !isVisual && msg.type !== MessageType.AUDIO && !msg.mediaUrl;
+        const isCard = !!msg.pix || !!msg.contacts;
+        const isText = !isCard && !isVisual && msg.type !== MessageType.AUDIO && !msg.mediaUrl;
         const hoverAction = 'self-center p-1.5 rounded-full text-[var(--wa-meta)] hover:bg-black/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0';
         const replyButton = canReply && (
           <button
@@ -547,7 +554,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                 'relative rounded-lg text-[14.2px] leading-[19px] text-[var(--wa-text)] shadow-wa-bubble',
                 isOutgoing ? 'bg-[var(--wa-out)]' : 'bg-[var(--wa-in)]',
                 firstOfRun && (isOutgoing ? 'rounded-tr-none wa-tail-out' : 'rounded-tl-none wa-tail-in'),
-                isVisual || msg.pix ? 'p-1' : 'px-2 pt-1.5 pb-2',
+                isVisual || isCard ? 'p-1' : 'px-2 pt-1.5 pb-2',
               )}>
                 {!isOutgoing && isGroup && firstOfRun && (msg.senderName || msg.senderPhone) && (
                   <span className={cn('block mb-0.5 text-[12.8px] font-semibold', senderColorClass(msg.senderPhone || msg.senderName || ''))}>
@@ -579,6 +586,8 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                 )}
                 {msg.pix ? (
                   <PixCard card={msg.pix} meta={meta} />
+                ) : msg.contacts ? (
+                  <SharedContactCard contacts={msg.contacts} meta={meta} onMessage={onMessageContact} outgoing={isOutgoing} />
                 ) : isText ? (
                   <p className="whitespace-pre-wrap break-words">
                     {linkify(msg.content)}
