@@ -33,6 +33,12 @@ function aiAutoreplyEnabled(): boolean {
  * status literals — persistence and status↔mode translation live entirely in
  * `ConversationRepository`. Wiring is via events, not direct calls (Ajuste 6).
  */
+/** First-message text worth matching against phrases: trimmed, capped, never empty. */
+function firstMessageSignal(text?: string | null): string | undefined {
+  const trimmed = text?.trim();
+  return trimmed ? trimmed.slice(0, 500) : undefined;
+}
+
 async function onInboundMessage(event: AppEvent): Promise<void> {
   const msg = event.payload as unknown as InboundMessageReceivedPayload;
 
@@ -79,11 +85,19 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
   // calling it whenever signals are present costs nothing and means a lead whose
   // very first message was in a group — or whose conversation was reopened — is
   // still attributed. Groups do carry ad clicks in practice.
-  if (msg.attribution) {
-    await conversationRepository.recordAttribution(contactId, msg.channel, msg.attribution, msg.instance);
+  //
+  // The first text of a new 1:1 conversation rides along: when no ad referral
+  // came, a pre-filled phrase can still name the campaign (`first_message`
+  // rules). Alone it is recorded as 'unknown', which a later ad click replaces.
+  const firstMessage = created && !msg.isGroup ? firstMessageSignal(msg.text) : undefined;
+  const attribution = msg.attribution
+    ? { ...msg.attribution, firstMessage }
+    : firstMessage ? { kind: 'unknown' as const, firstMessage } : undefined;
+  if (attribution) {
+    await conversationRepository.recordAttribution(contactId, msg.channel, attribution, msg.instance);
     // Fire-and-forget: resolving the ad id to campaign names is a Graph round
     // trip the message path should not wait on.
-    if (msg.attribution.adId) void ensureAdCataloged(msg.attribution.adId);
+    if (attribution.adId) void ensureAdCataloged(attribution.adId);
   }
 
   // Lead is created only when a real person makes contact (first inbound → new

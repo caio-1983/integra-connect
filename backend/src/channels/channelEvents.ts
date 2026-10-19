@@ -65,6 +65,12 @@ export interface InboundAttribution {
   utmMedium?: string;
   utmCampaign?: string;
   landingPath?: string;
+  /**
+   * Text of the first inbound message of a new 1:1 conversation. A pre-filled
+   * phrase ("Olá! Vim pelo Instagram...") names the campaign through a
+   * `first_message` rule when no ad referral came (migration 20261019150000).
+   */
+  firstMessage?: string;
   /** Decided by which signals are present, not asserted by the channel. */
   kind: 'paid_ad' | 'website' | 'direct_social' | 'organic' | 'unknown';
 }

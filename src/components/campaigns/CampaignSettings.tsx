@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { PageContainer, PageHeader, SectionBlock } from '@/components/layout';
 import { Button } from '@/components/Button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
@@ -360,13 +361,24 @@ export const CampaignSettings: React.FC<{ embedded?: boolean }> = ({ embedded = 
                         </div>
                         <div className="space-y-1.5 flex-1 min-w-[12rem]">
                           <Label className="text-xs" htmlFor={`rule-value-${campaign.id}`}>Valor</Label>
-                          <Input
-                            id={`rule-value-${campaign.id}`}
-                            className="h-8"
-                            placeholder="Ex: 120400123456789 ou lp-planos"
-                            value={ruleCampaign === campaign.id ? ruleValue : ''}
-                            onChange={(e) => { setRuleCampaign(campaign.id); setRuleValue(e.target.value); }}
-                          />
+                          {ruleCampaign === campaign.id && ruleType === 'first_message' ? (
+                            <Textarea
+                              id={`rule-value-${campaign.id}`}
+                              rows={2}
+                              className="text-sm"
+                              placeholder="A frase exata que o link preenche, ex: Olá! Vim pelo Instagram e quero um orçamento."
+                              value={ruleValue}
+                              onChange={(e) => setRuleValue(e.target.value)}
+                            />
+                          ) : (
+                            <Input
+                              id={`rule-value-${campaign.id}`}
+                              className="h-8"
+                              placeholder="Ex: 120400123456789 ou lp-planos"
+                              value={ruleCampaign === campaign.id ? ruleValue : ''}
+                              onChange={(e) => { setRuleCampaign(campaign.id); setRuleValue(e.target.value); }}
+                            />
+                          )}
                         </div>
                         <Button
                           variant="secondary"
@@ -402,6 +414,17 @@ export const CampaignSettings: React.FC<{ embedded?: boolean }> = ({ embedded = 
                   </code>{' '}
                   — um token por página. O token é lido e removido antes da mensagem aparecer na
                   conversa. Mapeie o token para a campanha.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-medium text-foreground">Frase pré-preenchida</dt>
+                <dd className="text-muted-foreground">
+                  Para o que chega sem anúncio — botão do WhatsApp no perfil do Instagram ou na página do
+                  Facebook, link na bio, site, QR code, panfleto —, use uma mensagem pré-preenchida diferente
+                  por origem (ex.: <span className="italic">Olá! Vim pelo Instagram e quero um orçamento.</span>)
+                  e mapeie a frase exata. Maiúsculas e espaços extras não importam; qualquer outra mudança
+                  no texto, sim. Frases repetidas que ainda não têm campanha aparecem em “Sinais ainda não
+                  mapeados”.
                 </dd>
               </div>
               <div>

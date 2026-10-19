@@ -250,7 +250,8 @@ export type CampaignMatchType =
   | 'meta_campaign_name'
   | 'utm_campaign'
   | 'ref_token'
-  | 'whatsapp_instance';
+  | 'whatsapp_instance'
+  | 'first_message';
 
 export const CAMPAIGN_MATCH_TYPE_LABEL: Record<CampaignMatchType, string> = {
   meta_ad_id: 'ID do anúncio (Meta)',
@@ -258,6 +259,7 @@ export const CAMPAIGN_MATCH_TYPE_LABEL: Record<CampaignMatchType, string> = {
   utm_campaign: 'utm_campaign',
   ref_token: 'Token [ref:] do site',
   whatsapp_instance: 'Número de WhatsApp',
+  first_message: 'Frase pré-preenchida',
 };
 
 export interface Campaign {

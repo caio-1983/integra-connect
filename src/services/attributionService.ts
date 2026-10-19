@@ -120,6 +120,9 @@ const MATCH_TYPE_PRIORITY: Record<CampaignMatchType, number> = {
   meta_campaign_name: 30,
   utm_campaign: 30,
   ref_token: 20,
+  // A phrase is shared by every lead that used the same link, so it ranks with
+  // the ref token's kind of signal but below it: the token is unambiguous.
+  first_message: 15,
   whatsapp_instance: 10,
 };
 
@@ -295,6 +298,7 @@ export async function fetchUnmappedSignals(): Promise<UnmappedSignal[]> {
     ['ad_id', 'meta_ad_id'],
     ['utm_campaign', 'utm_campaign'],
     ['ref', 'ref_token'],
+    ['first_message', 'first_message'],
     ['instance', 'whatsapp_instance'],
   ];
 
@@ -304,8 +308,16 @@ export async function fetchUnmappedSignals(): Promise<UnmappedSignal[]> {
     // Same precedence as the view: a typed campaign name wins over the catalog's.
     if (!raw.meta_campaign_name && row.catalog_campaign_name) raw.meta_campaign_name = row.catalog_campaign_name;
     for (const [key, matchType] of KEY_TO_TYPE) {
-      const value = raw[key];
+      let value = raw[key];
       if (!value) continue;
+      // A first message is offered only when it looks like a pre-filled phrase
+      // (long enough, and repeated — filtered below). Either way it stops the
+      // loop: a lead with nothing but its first message must not offer the
+      // WhatsApp number, or one click would pin every organic lead on a campaign.
+      if (key === 'first_message') {
+        value = normalizePhrase(value);
+        if (value.length < MIN_PHRASE_LENGTH) break;
+      }
       const id = `${matchType}::${value.toLowerCase()}`;
       const existing = counts.get(id);
       if (existing) {
@@ -328,7 +340,18 @@ export async function fetchUnmappedSignals(): Promise<UnmappedSignal[]> {
     }
   }
 
-  return [...counts.values()].sort((a, b) => b.leadCount - a.leadCount);
+  return [...counts.values()]
+    // One person typing a sentence is not a phrase; a link pre-filling it is.
+    .filter((s) => s.matchType !== 'first_message' || s.leadCount >= 2)
+    .sort((a, b) => b.leadCount - a.leadCount);
+}
+
+/** Shortest first message worth offering as a phrase: "Bom dia" and "Oi" never name a source. */
+const MIN_PHRASE_LENGTH = 20;
+
+/** Same normalization as the view's `first_message` match: trimmed, single spaces. */
+function normalizePhrase(text: string): string {
+  return text.trim().replace(/\s+/g, ' ');
 }
 
 // ============= Meta campaign blocks =============

@@ -474,9 +474,10 @@ class ConversationRepository {
     put('utm_medium', attribution.utmMedium);
     put('utm_campaign', attribution.utmCampaign);
     put('landing_path', attribution.landingPath);
+    put('first_message', attribution.firstMessage);
     put('instance', instance);
 
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from('contact_attribution')
       .upsert({
         contact_id: contactId,
@@ -484,9 +485,39 @@ class ConversationRepository {
         source_kind: attribution.kind,
         source_raw: sourceRaw,
         set_manually: false,
-      }, { onConflict: 'contact_id', ignoreDuplicates: true });
+      }, { onConflict: 'contact_id', ignoreDuplicates: true })
+      .select('contact_id');
 
-    if (error) logger.warn({ contactId, err: error.message }, '[repo] failed to record lead attribution');
+    if (error) {
+      logger.warn({ contactId, err: error.message }, '[repo] failed to record lead attribution');
+      return;
+    }
+
+    // A row holding only the first message ('unknown') is not a real origin:
+    // a later ad click or ref link replaces it, exactly as it would have found
+    // no row before first messages were recorded. The phrase is kept alongside.
+    if ((inserted ?? []).length > 0 || attribution.kind === 'unknown') return;
+    const { data: current } = await supabase
+      .from('contact_attribution')
+      .select('source_raw')
+      .eq('contact_id', contactId)
+      .eq('source_kind', 'unknown')
+      .eq('set_manually', false)
+      .maybeSingle();
+    if (!current) return;
+
+    const previousPhrase = (current.source_raw as Record<string, string> | null)?.first_message;
+    const { error: upgradeError } = await supabase
+      .from('contact_attribution')
+      .update({
+        source_channel: channel,
+        source_kind: attribution.kind,
+        source_raw: previousPhrase && !sourceRaw.first_message ? { ...sourceRaw, first_message: previousPhrase } : sourceRaw,
+      })
+      .eq('contact_id', contactId)
+      .eq('source_kind', 'unknown')
+      .eq('set_manually', false);
+    if (upgradeError) logger.warn({ contactId, err: upgradeError.message }, '[repo] failed to upgrade first-message attribution');
   }
 
   /** Whether this Meta ad id already has a row in `meta_ad_catalog` (resolved or failed). */
