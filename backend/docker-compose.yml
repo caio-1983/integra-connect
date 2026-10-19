@@ -20,6 +20,9 @@ services:
       EVOLUTION_WEBHOOK_SECRET: ${EVOLUTION_WEBHOOK_SECRET}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      # Marketing API (System User token with ads_read): ad id → campaign / ad
+      # set / ad names in meta_ad_catalog. Without it leads keep only the raw id.
+      META_ADS_TOKEN: ${META_ADS_TOKEN:-}
       # How "Chave Pix" goes out: native | branded | plain | smart. Empty = native.
       PIX_CARD_STYLE: ${PIX_CARD_STYLE:-}
       # Customer voice notes → text (OpenAI). Off unless "true".
