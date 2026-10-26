@@ -19,6 +19,7 @@ import { fetchCampaigns, updateCampaign } from '@/services/attributionService';
 import { PERIOD_PRESETS, resolvePeriod, type Period, type PeriodPreset } from '@/services/analyticsService';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchCampaignLeads, fetchCampaignWins, type CampaignLead, type LeadOutcome } from '@/services/campaignScoreboardService';
+import { invalidateReport, loadReport } from '@/components/results/useReport';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { CampaignWonDetails } from '@/components/campaigns/CampaignWonDetails';
 import type { Campaign } from '@/types';
@@ -120,6 +121,27 @@ const Mark: React.FC<{ outcome: LeadOutcome }> = ({ outcome }) => {
   return <span className="w-2.5 h-2.5 rounded-sm bg-warning/40" />;
 };
 
+/**
+ * Everything the scoreboard needs for one period, fetched in parallel. The
+ * campaign list only supplies display names, so leads and wins don't wait on
+ * it — names are applied once everything is back.
+ */
+async function fetchScoreboard(period: Period) {
+  const noNames = new Map<string, string>();
+  const [c, reasons, l, w] = await Promise.all([
+    fetchCampaigns(), api.fetchLossReasons(), fetchCampaignLeads(period, noNames), fetchCampaignWins(period, noNames),
+  ]);
+  const names = new Map(c.map((x) => [x.id, x.name]));
+  const named = (lead: CampaignLead): CampaignLead =>
+    lead.campaignId && names.has(lead.campaignId) ? { ...lead, campaignName: names.get(lead.campaignId)! } : lead;
+  return {
+    campaigns: c,
+    lossLabels: new Map(reasons.map((r) => [r.key, r.label])),
+    leads: l.map(named),
+    wins: w.map(named),
+  };
+}
+
 export const CampaignScoreboard: React.FC = () => {
   // Starts with no period: the question is which campaign brings the most
   // money overall. Over all time the cohort count and the sales-date count are
@@ -144,17 +166,16 @@ export const CampaignScoreboard: React.FC = () => {
     return map;
   }, [wins]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (force = false) => {
+    if (force) invalidateReport('scoreboard');
     setLoading(true);
     setFailed(false);
     try {
-      const [c, reasons] = await Promise.all([fetchCampaigns(), api.fetchLossReasons()]);
-      setCampaigns(c);
-      setLossLabels(new Map(reasons.map((r) => [r.key, r.label])));
-      const names = new Map(c.map((x) => [x.id, x.name]));
-      const [l, w] = await Promise.all([fetchCampaignLeads(period, names), fetchCampaignWins(period, names)]);
-      setLeads(l);
-      setWins(w);
+      const data = await loadReport('scoreboard', fetchScoreboard, period);
+      setCampaigns(data.campaigns);
+      setLossLabels(data.lossLabels);
+      setLeads(data.leads);
+      setWins(data.wins);
     } catch (error) {
       console.error('[campaigns] Error loading scoreboard:', error);
       setFailed(true);
@@ -237,6 +258,7 @@ export const CampaignScoreboard: React.FC = () => {
       await updateCampaign(confirmEnd.id, { endedAt: todayLocal() });
       toast.success(`${confirmEnd.name} encerrada.`);
       setConfirmEnd(null);
+      invalidateReport('scoreboard');
       setCampaigns(await fetchCampaigns());
     } catch {
       toast.error('Não foi possível encerrar a campanha.');
@@ -276,7 +298,7 @@ export const CampaignScoreboard: React.FC = () => {
       ) : failed ? (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4 text-sm">
           <span className="text-foreground">Não foi possível carregar os contatos das campanhas.</span>
-          <Button variant="outline" size="sm" onClick={() => void load()}>Tentar de novo</Button>
+          <Button variant="outline" size="sm" onClick={() => void load(true)}>Tentar de novo</Button>
         </div>
       ) : groups.length === 0 ? (
         <EmptyState

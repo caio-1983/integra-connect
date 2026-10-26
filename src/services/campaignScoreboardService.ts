@@ -52,6 +52,12 @@ const LU_MIN_CONFIDENCE = 85;
 const PAGE = 1000;
 const IN_CHUNK = 150;
 
+const chunks = <T,>(items: T[]): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += IN_CHUNK) out.push(items.slice(i, i + IN_CHUNK));
+  return out;
+};
+
 interface DealRow {
   id: string;
   contact_id: string | null;
@@ -94,13 +100,16 @@ const CAMPAIGN_SIGNAL_KEYS = ['ad_id', 'meta_campaign_name', 'utm_campaign', 're
 
 async function fetchOrigins(contactIds: string[]): Promise<Map<string, ResolvedOrigin>> {
   const result = new Map<string, ResolvedOrigin>();
-  for (let i = 0; i < contactIds.length; i += IN_CHUNK) {
+  const pages = await Promise.all(chunks(contactIds).map(async (ids) => {
     const { data, error } = await supabase
       .from('lead_attribution_resolved')
       .select('contact_id, campaign_id, campaign_name, catalog_ad_name, catalog_campaign_name, source_raw')
-      .in('contact_id', contactIds.slice(i, i + IN_CHUNK));
+      .in('contact_id', ids);
     if (error) throw error;
-    for (const row of data ?? []) {
+    return data ?? [];
+  }));
+  for (const data of pages) {
+    for (const row of data) {
       if (!row.contact_id) continue;
       const raw = (row.source_raw ?? {}) as Record<string, string>;
       result.set(row.contact_id, {
@@ -121,13 +130,16 @@ async function fetchOrigins(contactIds: string[]): Promise<Map<string, ResolvedO
  */
 async function fetchLuReads(dealIds: string[]): Promise<Map<string, LuSaleRead>> {
   const result = new Map<string, LuSaleRead>();
-  for (let i = 0; i < dealIds.length; i += IN_CHUNK) {
+  const pages = await Promise.all(chunks(dealIds).map(async (ids) => {
     const { data, error } = await (supabase as any)
       .from('deal_sale_detections')
       .select('deal_id, verdict, confidence, evidence, applied_at')
-      .in('deal_id', dealIds.slice(i, i + IN_CHUNK));
-    if (error) return result;
-    for (const row of (data ?? []) as Array<{ deal_id: string; verdict: string; confidence: number; evidence: string | null; applied_at: string | null }>) {
+      .in('deal_id', ids);
+    return error ? null : (data ?? []);
+  }));
+  if (pages.some((p) => p === null)) return result;
+  for (const data of pages) {
+    for (const row of data as Array<{ deal_id: string; verdict: string; confidence: number; evidence: string | null; applied_at: string | null }>) {
       result.set(row.deal_id, {
         applied: !!row.applied_at,
         doubt: row.verdict === 'unclear' || (row.verdict === 'sold' && row.confidence < LU_MIN_CONFIDENCE),

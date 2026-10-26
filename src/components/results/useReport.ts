@@ -43,6 +43,11 @@ export function loadReport<T, W extends Window>(name: string, fetcher: (w: W) =>
   return entry.promise;
 }
 
+/** Drops every cached window of a report, e.g. after the data behind it changed. */
+export function invalidateReport(name: string): void {
+  for (const key of cache.keys()) if (key.startsWith(`${name}|`)) cache.delete(key);
+}
+
 export function useReport<T, W extends Window>(name: string, fetcher: (w: W) => Promise<T>, w: W | null) {
   const cached = w ? (fresh(keyOf(name, w))?.value as T | undefined) : undefined;
   const [data, setData] = useState<T | undefined>(cached);
