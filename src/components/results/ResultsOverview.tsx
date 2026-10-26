@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CircleDollarSign, Users, Percent, Receipt } from 'lucide-react';
 import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
@@ -6,11 +6,12 @@ import { KPIStrip } from '@/components/operations/KPIStrip';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  fetchDailyContacts, fetchRevenueKpis, formatPercentDelta, type DailyContactsPoint, type KpiComparison,
+  fetchDailyContacts, fetchRevenueKpis, formatPercentDelta, type DailyContactsPoint,
 } from '@/services/analyticsService';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { useResultsPeriod } from './ResultsLayout';
 import { ReportError, ReportLoading, pct } from './ResultsUi';
+import { useReport } from './useReport';
 
 /** `YYYY-MM-DD` of today on the Brasília calendar. */
 const todayBrt = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
@@ -30,51 +31,21 @@ const plural =(n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
  */
 export const ResultsOverview: React.FC = () => {
   const period = useResultsPeriod();
-  const [kpis, setKpis] = useState<KpiComparison | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [kpiFailed, setKpiFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setKpiFailed(false);
-
-    fetchRevenueKpis(period)
-      .then((k) => { if (!cancelled) setKpis(k); })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error('[results] KPIs:', err); setKpis(null); setKpiFailed(true);
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-
-    return () => { cancelled = true; };
-  }, [period]);
+  const { data: kpis, loading, failed: kpiFailed } = useReport('kpis', fetchRevenueKpis, period);
 
   // The daily chart has its own window, independent of the page period: it
   // always opens on the last 30 days and the user narrows it with its own dates.
   const [range, setRange] = useState(() => ({ from: shiftDay(todayBrt(), -29), to: todayBrt() }));
-  const [chartData, setChartData] = useState<DailyContactsPoint[]>([]);
-  const [chartLoading, setChartLoading] = useState(true);
-  const [chartFailed, setChartFailed] = useState(false);
-
-  useEffect(() => {
-    if (!range.from || !range.to || range.from > range.to) return;
-    let cancelled = false;
-    setChartLoading(true);
-    setChartFailed(false);
-
-    const from = brtMidnight(range.from);
-    const to = brtMidnight(shiftDay(range.to, 1));
-    fetchDailyContacts({ from, to })
-      .then((points) => { if (!cancelled) setChartData(points); })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error('[results] gráfico:', err); setChartFailed(true);
-      })
-      .finally(() => { if (!cancelled) setChartLoading(false); });
-
-    return () => { cancelled = true; };
-  }, [range]);
+  const chartWindow = useMemo(
+    () => (!range.from || !range.to || range.from > range.to
+      ? null
+      : { from: brtMidnight(range.from), to: brtMidnight(shiftDay(range.to, 1)) }),
+    [range],
+  );
+  const chart = useReport('daily', fetchDailyContacts, chartWindow);
+  const chartData: DailyContactsPoint[] = chart.data ?? [];
+  const chartLoading = chart.loading;
+  const chartFailed = chart.failed;
 
   const current = kpis?.current;
   const previous = kpis?.previous;

@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Headset, TriangleAlert } from 'lucide-react';
 import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
 import { ContactAvatar } from '@/components/workspace/ContactAvatar';
 import { fetchAttendantPerformance, formatDuration, type AttendantRow } from '@/services/analyticsService';
 import { cn } from '@/lib/utils';
 import { useResultsPeriod } from './ResultsLayout';
+import { useReport } from './useReport';
 import { ReportEmpty, ReportError, ReportLoading, ReportNotice, td, th, tableWrap } from './ResultsUi';
 
 /**
@@ -22,20 +23,8 @@ import { ReportEmpty, ReportError, ReportLoading, ReportNotice, td, th, tableWra
  */
 export const ResultsAttendance: React.FC = () => {
   const period = useResultsPeriod();
-  const [rows, setRows] = useState<AttendantRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setFailed(false);
-    fetchAttendantPerformance(period)
-      .then((data) => { if (!cancelled) setRows(data); })
-      .catch(() => { if (!cancelled) { setRows([]); setFailed(true); } })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [period]);
+  const { data, loading, failed } = useReport('attendance', fetchAttendantPerformance, period);
+  const rows: AttendantRow[] = data ?? [];
 
   const totalAwaiting = rows.reduce((sum, r) => sum + r.awaitingCount, 0);
 

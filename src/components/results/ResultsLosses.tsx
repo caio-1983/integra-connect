@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { TrendingDown, Filter } from 'lucide-react';
 import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
 import { fetchFunnel, fetchLossReport, type FunnelRow, type LossRow } from '@/services/analyticsService';
 import { formatCurrency } from '@/lib/formatCurrency';
 import { cn } from '@/lib/utils';
 import { useResultsPeriod } from './ResultsLayout';
+import { useReport } from './useReport';
 import { ReportEmpty, ReportError, ReportLoading } from './ResultsUi';
 
 /**
@@ -16,26 +17,13 @@ import { ReportEmpty, ReportError, ReportLoading } from './ResultsUi';
  */
 export const ResultsLosses: React.FC = () => {
   const period = useResultsPeriod();
-  const [losses, setLosses] = useState<LossRow[]>([]);
-  const [funnel, setFunnel] = useState<FunnelRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [lossFailed, setLossFailed] = useState(false);
-  const [funnelFailed, setFunnelFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    Promise.allSettled([fetchLossReport(period), fetchFunnel(period)])
-      .then(([l, f]) => {
-        if (cancelled) return;
-        setLosses(l.status === 'fulfilled' ? l.value : []);
-        setLossFailed(l.status === 'rejected');
-        setFunnel(f.status === 'fulfilled' ? f.value : []);
-        setFunnelFailed(f.status === 'rejected');
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [period]);
+  const lossReport = useReport('losses', fetchLossReport, period);
+  const funnelReport = useReport('funnel', fetchFunnel, period);
+  const losses: LossRow[] = lossReport.data ?? [];
+  const funnel: FunnelRow[] = funnelReport.data ?? [];
+  const loading = lossReport.loading || funnelReport.loading;
+  const lossFailed = lossReport.failed;
+  const funnelFailed = funnelReport.failed;
 
   const totalLost = losses.reduce((sum, r) => sum + r.count, 0);
   const totalValueLost = losses.reduce((sum, r) => sum + r.valueLost, 0);

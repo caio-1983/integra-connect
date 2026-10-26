@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Megaphone, ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
@@ -6,6 +6,7 @@ import { fetchCampaignPerformance, type CampaignPerformanceRow } from '@/service
 import { formatCurrency, formatCurrencyDelta } from '@/lib/formatCurrency';
 import { cn } from '@/lib/utils';
 import { useResultsPeriod } from './ResultsLayout';
+import { useReport } from './useReport';
 import { ReportEmpty, ReportError, ReportLoading, ReportNotice, td, th, tableWrap } from './ResultsUi';
 
 /**
@@ -22,20 +23,8 @@ import { ReportEmpty, ReportError, ReportLoading, ReportNotice, td, th, tableWra
  */
 export const ResultsCampaigns: React.FC = () => {
   const period = useResultsPeriod();
-  const [rows, setRows] = useState<CampaignPerformanceRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setFailed(false);
-    fetchCampaignPerformance(period)
-      .then((data) => { if (!cancelled) setRows(data); })
-      .catch(() => { if (!cancelled) { setRows([]); setFailed(true); } })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [period]);
+  const { data, loading, failed } = useReport('campaigns', fetchCampaignPerformance, period);
+  const rows: CampaignPerformanceRow[] = data ?? [];
 
   const unmapped = rows.find((r) => r.campaignId === null);
   const totalRevenue = rows.reduce((sum, r) => sum + r.revenue, 0);

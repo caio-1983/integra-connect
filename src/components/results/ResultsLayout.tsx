@@ -1,9 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useOutletContext } from 'react-router-dom';
 import { PageContainer, PageHeader } from '@/components/layout';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
-import { PERIOD_PRESETS, resolvePeriod, type Period, type PeriodPreset } from '@/services/analyticsService';
+import {
+  PERIOD_PRESETS, resolvePeriod, fetchRevenueKpis, fetchCampaignPerformance, fetchOriginPerformance,
+  fetchLossReport, fetchFunnel, fetchAttendantPerformance, type Period, type PeriodPreset,
+} from '@/services/analyticsService';
+import { loadReport } from './useReport';
 import { cn } from '@/lib/utils';
 
 /**
@@ -46,6 +50,18 @@ export const ResultsLayout: React.FC = () => {
   // exact same boundaries (`new Date()` on each tab would drift).
   const period = useMemo(() => resolvePeriod(preset), [preset]);
   const visibleTabs = TABS.filter((tab) => !tab.managerOnly || canManageUsers);
+
+  // Warm every tab for this period in the background, so switching tabs
+  // renders from memory instead of waiting on its RPC. Errors surface in the tab.
+  useEffect(() => {
+    const ignore = () => {};
+    loadReport('kpis', fetchRevenueKpis, period).catch(ignore);
+    loadReport('campaigns', fetchCampaignPerformance, period).catch(ignore);
+    loadReport('origin', fetchOriginPerformance, period).catch(ignore);
+    loadReport('losses', fetchLossReport, period).catch(ignore);
+    loadReport('funnel', fetchFunnel, period).catch(ignore);
+    if (canManageUsers) loadReport('attendance', fetchAttendantPerformance, period).catch(ignore);
+  }, [period, canManageUsers]);
 
   return (
     <PageContainer>

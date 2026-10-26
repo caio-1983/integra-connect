@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { Globe, Hand } from 'lucide-react';
 import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
@@ -8,6 +8,7 @@ import { formatCurrency } from '@/lib/formatCurrency';
 import type { ChannelType } from '@/types/channel';
 import { cn } from '@/lib/utils';
 import { useResultsPeriod } from './ResultsLayout';
+import { useReport } from './useReport';
 import { ReportEmpty, ReportError, ReportLoading, ReportNotice, pct, td, th, tableWrap } from './ResultsUi';
 
 /** Channel label from the shared registry, falling back to the raw value for
@@ -28,20 +29,8 @@ function channelLabel(channel: string): string {
  */
 export const ResultsOrigin: React.FC = () => {
   const period = useResultsPeriod();
-  const [rows, setRows] = useState<OriginRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setFailed(false);
-    fetchOriginPerformance(period)
-      .then((data) => { if (!cancelled) setRows(data); })
-      .catch(() => { if (!cancelled) { setRows([]); setFailed(true); } })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [period]);
+  const { data, loading, failed } = useReport('origin', fetchOriginPerformance, period);
+  const rows: OriginRow[] = data ?? [];
 
   const totalLeads = rows.reduce((sum, r) => sum + r.leads, 0);
   const untracked = rows.filter((r) => r.kind === 'unknown').reduce((sum, r) => sum + r.leads, 0);
