@@ -31,7 +31,7 @@ export const NotificationBell: React.FC = () => {
           aria-label={pendingCount ? `Lembretes, ${pendingCount} novos` : 'Lembretes'}
           className={cn(
             'group/item relative flex min-h-[44px] w-full items-center gap-3.5 rounded-lg px-3 text-left text-[15px] text-foreground transition-colors duration-150',
-            'focus-visible:ring-offset-0 hover:bg-sidebar-accent data-[state=open]:bg-secondary',
+            'focus-visible:ring-offset-0 hover:bg-foreground/5 data-[state=open]:bg-foreground/5',
           )}
         >
           <span className="relative flex-shrink-0">

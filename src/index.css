@@ -183,13 +183,14 @@
   position: relative;
   background-color: #efeae2;
   --wa-in: #ffffff;
-  --wa-out: #d9fdd3;
+  /* --palette-wa-* come from the user's palette (themeConfigService). */
+  --wa-out: var(--palette-wa-out, #d9fdd3);
   --wa-text: #111b21;
   --wa-meta: #667781;
   --wa-wave: #b4bcc1;
   --wa-quote: #06cf9c;
   /* Tappable text inside a bubble (a card's "Copiar chave Pix"). */
-  --wa-action: #008069;
+  --wa-action: var(--palette-wa-action, #008069);
 }
 .chat-wall::before {
   content: '';
@@ -205,12 +206,12 @@
 .dark .chat-wall {
   background-color: #0b141a;
   --wa-in: #202c33;
-  --wa-out: #005c4b;
+  --wa-out: var(--palette-wa-out, #005c4b);
   --wa-text: #e9edef;
   --wa-meta: #8696a0;
   --wa-wave: #6a7a84;
   /* Lighter than the app's dark primary, which fades into the green outgoing bubble. */
-  --wa-action: #7ae3c3;
+  --wa-action: var(--palette-wa-action, #7ae3c3);
 }
 .dark .chat-wall::before {
   background-color: #141f26;

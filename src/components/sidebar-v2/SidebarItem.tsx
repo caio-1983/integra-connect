@@ -16,8 +16,9 @@ interface SidebarItemProps {
  * Item de navegação — linguagem do WhatsApp Web.
  *
  * 44px de altura, ícone 20px na cor `icon`, rótulo 15px em `foreground`.
- *   Hover:  fundo `sidebar-accent` (#f5f6f6 / #202c33).
- *   Active: fundo `secondary` (#f0f2f5 / #2a3942), ícone e texto em `foreground`.
+ *   Hover:  véu de 5% do `foreground`, que funciona sobre o fundo tingido pela paleta.
+ *   Active: fundo `primary-subtle`, ícone e texto em `primary-subtle-foreground`,
+ *           para que o item atual siga a paleta do usuário.
  *   Badge:  contador verde como o de não lidas do WhatsApp — à direita com o
  *           menu aberto, no canto do ícone com o menu recolhido.
  */
@@ -37,13 +38,13 @@ export const SidebarItem: React.FC<SidebarItemProps> = ({ item, isActive, badgeC
       className={cn(
         'group/item relative flex min-h-[44px] items-center gap-3.5 rounded-lg px-3 text-[15px] text-foreground transition-colors duration-150',
         'focus-visible:ring-offset-0',
-        isActive ? 'bg-secondary font-medium' : 'hover:bg-sidebar-accent',
+        isActive ? 'bg-primary-subtle text-primary-subtle-foreground font-medium' : 'hover:bg-foreground/5',
       )}
     >
       <span className="relative flex-shrink-0">
         <Icon
           aria-hidden="true"
-          className={cn('h-5 w-5 transition-colors', isActive ? 'text-foreground' : 'text-icon group-hover/item:text-foreground')}
+          className={cn('h-5 w-5 transition-colors', isActive ? 'text-primary-subtle-foreground' : 'text-icon group-hover/item:text-foreground')}
         />
         {showBadge && !labelVisible && (
           <span

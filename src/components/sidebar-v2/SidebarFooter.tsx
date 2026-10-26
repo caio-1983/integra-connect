@@ -97,7 +97,7 @@ export const SidebarFooter: React.FC = () => {
             type="button"
             title="Conta"
             aria-label="Abrir menu da conta"
-            className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-sidebar-accent focus-visible:ring-offset-0 data-[state=open]:bg-sidebar-accent"
+            className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-foreground/5 focus-visible:ring-offset-0 data-[state=open]:bg-foreground/5"
           >
             {/* Avatar */}
             <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-foreground">
