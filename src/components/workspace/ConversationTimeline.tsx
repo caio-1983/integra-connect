@@ -50,7 +50,7 @@ function linkify(text: string): React.ReactNode {
  *  reads here as the customer sees it (e.g. the `*Nome*` attendant signature).
  *  Markers only count at word edges, as in WhatsApp. */
 const FORMAT_RE = /(?<![\w*_~`])(\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~|`[^`\n]+`)(?![\w*_~`])/g;
-function formatWhatsApp(text: string, keyBase: number): React.ReactNode {
+export function formatWhatsApp(text: string, keyBase: number): React.ReactNode {
   return text.split(FORMAT_RE).map((part, i) => {
     const key = `${keyBase}-${i}`;
     if (i % 2 === 1) { // split() puts the captured markers at odd indexes
