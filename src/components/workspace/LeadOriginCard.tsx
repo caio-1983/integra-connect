@@ -3,7 +3,7 @@ import { Globe, Hand, Loader2, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { fetchLeadAttribution, setManualAttribution } from '@/services/attributionService';
+import { fetchCatalogAds, fetchLeadAttribution, setManualAttribution, type CatalogAd } from '@/services/attributionService';
 import { LEAD_SOURCE_KIND_LABEL, type LeadAttribution, type LeadSourceKind } from '@/types';
 
 interface LeadOriginCardProps {
@@ -25,10 +25,11 @@ interface LeadOriginCardProps {
  * when this panel is open.
  */
 
-/** Kinds an operator can pick. `paid_ad` and `website` are excluded on purpose:
- *  those are only trustworthy when measured, and letting someone assert "came
- *  from an ad" by hand would corrupt the paid-media numbers. */
-const MANUAL_KINDS: LeadSourceKind[] = ['organic', 'referral', 'offline', 'direct_social', 'unknown'];
+/** Kinds an operator can pick. `website` stays out: it is only trustworthy when
+ *  measured. `paid_ad` is allowed only together with a catalog ad, for leads
+ *  that came from an ad through a wa.me link (WhatsApp sends no ad data then);
+ *  `set_manually` keeps it distinguishable from a measured ad lead. */
+const MANUAL_KINDS: LeadSourceKind[] = ['paid_ad', 'organic', 'referral', 'offline', 'direct_social', 'unknown'];
 
 export const LeadOriginCard: React.FC<LeadOriginCardProps> = ({ contactId, channel }) => {
   const [attribution, setAttribution] = useState<LeadAttribution | null>(null);
@@ -37,6 +38,13 @@ export const LeadOriginCard: React.FC<LeadOriginCardProps> = ({ contactId, chann
   const [kind, setKind] = useState<LeadSourceKind>('organic');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [adId, setAdId] = useState('');
+  const [ads, setAds] = useState<CatalogAd[] | null>(null);
+
+  // Catalog loaded only once someone picks "anúncio": most edits never need it.
+  useEffect(() => {
+    if (editing && kind === 'paid_ad' && ads === null) fetchCatalogAds().then(setAds);
+  }, [editing, kind, ads]);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,18 +54,26 @@ export const LeadOriginCard: React.FC<LeadOriginCardProps> = ({ contactId, chann
       .then((data) => {
         if (cancelled) return;
         setAttribution(data);
-        if (data) setKind(data.sourceKind);
+        if (data) {
+          setKind(data.sourceKind);
+          setAdId(data.sourceRaw.ad_id ?? '');
+        }
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [contactId]);
 
   const handleSave = async () => {
+    if (kind === 'paid_ad' && !adId) {
+      toast.error('Escolha o anúncio.');
+      return;
+    }
     setSaving(true);
     try {
       await setManualAttribution(contactId, {
         sourceChannel: channel || 'manual',
         sourceKind: kind,
+        adId: kind === 'paid_ad' ? adId : undefined,
         note: note || undefined,
       });
       const refreshed = await fetchLeadAttribution(contactId);
@@ -104,6 +120,24 @@ export const LeadOriginCard: React.FC<LeadOriginCardProps> = ({ contactId, chann
               ))}
             </SelectContent>
           </Select>
+          {kind === 'paid_ad' && (
+            ads === null ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+            ) : (
+              <Select value={adId} onValueChange={setAdId}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder={ads.length ? 'Qual anúncio?' : 'Nenhum anúncio no catálogo'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {ads.map((ad) => (
+                    <SelectItem key={ad.adId} value={ad.adId}>
+                      {[ad.campaignName, ad.adName ?? ad.adId].filter(Boolean).join(' › ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )
+          )}
           <Input
             className="h-8 text-xs"
             placeholder="Detalhe (ex: indicação do Carlos)"

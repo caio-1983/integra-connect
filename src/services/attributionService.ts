@@ -227,7 +227,30 @@ export interface ManualAttributionInput {
   sourceKind: LeadSourceKind;
   /** Optional campaign override, written as a mapping-independent raw signal. */
   campaignName?: string;
+  /** Meta ad id picked from the catalog; the view resolves its names and mapping from it. */
+  adId?: string;
   note?: string;
+}
+
+export interface CatalogAd {
+  adId: string;
+  adName: string | null;
+  campaignName: string | null;
+}
+
+/** Ads the Meta catalog knows, for linking a lead to an ad by hand. */
+export async function fetchCatalogAds(): Promise<CatalogAd[]> {
+  const { data, error } = await (supabase as any)
+    .from('meta_ad_catalog')
+    .select('ad_id, ad_name, campaign_name')
+    .order('campaign_name')
+    .order('ad_name');
+  if (error) {
+    console.error('[attribution] Error fetching ad catalog:', error);
+    return [];
+  }
+  return ((data ?? []) as { ad_id: string; ad_name: string | null; campaign_name: string | null }[])
+    .map((r) => ({ adId: r.ad_id, adName: r.ad_name, campaignName: r.campaign_name }));
 }
 
 /**
@@ -244,6 +267,7 @@ export async function setManualAttribution(contactId: string, input: ManualAttri
 
   const sourceRaw: Record<string, string> = {};
   if (input.campaignName?.trim()) sourceRaw.meta_campaign_name = input.campaignName.trim();
+  if (input.adId?.trim()) sourceRaw.ad_id = input.adId.trim();
   if (input.note?.trim()) sourceRaw.note = input.note.trim();
 
   const { error } = await supabase
