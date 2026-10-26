@@ -22,12 +22,10 @@ interface AttendantTagProps {
 /**
  * Tag showing which attendant a conversation was routed to.
  *
- * DERIVED from `assigned_user_id` rather than written into
- * `conversations.tags`. That array is currently dead data, and the UI merges
- * `conversations.tags` with `contacts.tags` into one list which is then written
- * back to `contacts.tags` (see ChatInterface.handleToggleTag) — so storing an
- * attendant tag there would leak it onto the contact and drift the moment
- * someone transfers the conversation. Deriving keeps `assigned_user_id` the
+ * DERIVED from `assigned_user_id` rather than stored as a tag. Tags live in
+ * `contact_tags` (per contact, per author — see ChatInterface.handleToggleTag),
+ * so storing an attendant tag there would leak it onto the contact and drift
+ * the moment someone transfers the conversation. Deriving keeps `assigned_user_id` the
  * single source of truth, per docs/integra-connect/architecture/01-dominio.md.
  * Removing the tag therefore means unassigning the conversation.
  *

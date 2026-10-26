@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { api, MAX_PINNED_CONVERSATIONS } from '@/services/api';
+import { api, CONVERSATION_WITH_CONTACT, currentAuthUserId, isForeignEmptyConversation, MAX_PINNED_CONVERSATIONS } from '@/services/api';
 import { sendConversationReply, sendConversationMediaReply, sendConversationPix, editConversationMessage } from '@/services/whatsappConnectionService';
 import {
   UIConversation,
@@ -118,7 +118,7 @@ export function useConversations() {
     try {
       const { data: convData, error: convError } = await supabase
         .from('conversations')
-        .select(`*, contact:contacts(*)`)
+        .select(CONVERSATION_WITH_CONTACT)
         .eq('id', conversationId)
         .maybeSingle();
       
@@ -136,6 +136,8 @@ export function useConversations() {
       if (msgError) {
         console.error('[Realtime] Error fetching messages:', msgError);
       }
+      // Another operator's unsent "Nova Conversa": it joins this queue with its first message.
+      if (!msgError && isForeignEmptyConversation(convData, messages?.length ?? 0, await currentAuthUserId())) return;
       
       const uiConversation = transformDBToUIConversation(
         convData as unknown as DBConversation,

@@ -308,6 +308,8 @@ export interface LossReason {
 
 export interface DBContact {
   id: string;
+  /** Embedded rows of contact_tags — RLS returns only the tags this user may see. */
+  contact_tags?: { tag: string }[];
   /** Null for channels that have no phone number (Instagram/Messenger). */
   phone_number: string | null;
   /** Identity within `channel`: phone digits (whatsapp), PSID (facebook), IGSID (instagram). */
@@ -494,7 +496,9 @@ export function transformDBToUIConversation(
     lastMessage: lastMsg?.content || '',
     lastMessageTime: formatRelativeTime(conv.last_message_at),
     unreadCount,
-    tags: [...(conv.tags || []), ...(conv.contact?.tags || [])],
+    // From contact_tags, never contacts.tags: that column mirrors every
+    // attendant's tags, and each one may only see their own (plus legacy ones).
+    tags: [...new Set((conv.contact?.contact_tags || []).map(t => t.tag))],
     messages: sortedMessages.map(transformDBToUIMessage),
     clientMemory: conv.contact?.client_memory || getDefaultClientMemory(),
     notes: conv.contact?.notes || null,

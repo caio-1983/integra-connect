@@ -441,7 +441,7 @@ export interface StartConversationResult { conversationId: string; contactId: st
  * an empty thread and type the first message (routed via the same
  * requestManualReply/OutboundMessageRequested pipeline once they send it).
  */
-export async function startConversation(instance: string, phone: string, name?: string): Promise<StartConversationResult> {
+export async function startConversation(instance: string, phone: string, name?: string, operatorId?: string): Promise<StartConversationResult> {
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 10) throw new Error('Número de telefone inválido.');
 
@@ -452,6 +452,7 @@ export async function startConversation(instance: string, phone: string, name?: 
   const { conversationId, created } = await conversationRepository.findOrCreateConversation(contactId, instance, {
     channel: 'whatsapp',
     provider: 'evolution',
+    assignedUserId: operatorId,
   });
   return { conversationId, contactId, created };
 }

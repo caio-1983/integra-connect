@@ -113,9 +113,12 @@ export interface ConversationPage {
   nextCursor: string | null;
 }
 
+/** Conversation row + contact + the contact's tags this user may see (contact_tags RLS). */
+export const CONVERSATION_WITH_CONTACT = '*, contact:contacts(*, contact_tags(tag))';
+
 const activeConversationsQuery = () => supabase
   .from('conversations')
-  .select('*, contact:contacts(*)')
+  .select(CONVERSATION_WITH_CONTACT)
   .eq('is_active', true)
   .order('last_message_at', { ascending: false, nullsFirst: false });
 
@@ -125,9 +128,25 @@ const inboxQuery = () => activeConversationsQuery().is('archived_at', null);
 const pageCursor = (rows: { last_message_at: string | null }[]): string | null =>
   rows.length < CONVERSATION_PAGE_SIZE ? null : rows[rows.length - 1].last_message_at;
 
+/**
+ * A thread with no messages yet is someone's draft — "Nova Conversa" opened
+ * and never sent. It belongs only in the queue of whoever it is assigned to
+ * (the operator who opened it); to everyone else on that number it is a
+ * contact with "Sem mensagens" they never talked to.
+ */
+export const isForeignEmptyConversation = (
+  conv: { assigned_user_id: string | null },
+  messageCount: number,
+  currentUserId: string | null,
+): boolean => messageCount === 0 && conv.assigned_user_id !== currentUserId;
+
+export const currentAuthUserId = async (): Promise<string | null> =>
+  (await supabase.auth.getSession()).data.session?.user.id ?? null;
+
 /** Attaches each conversation's most recent messages (oldest → newest, as the timeline expects). */
-const withRecentMessages = (conversations: unknown[]): Promise<UIConversation[]> =>
-  Promise.all(conversations.map(async (row) => {
+const withRecentMessages = async (conversations: unknown[]): Promise<UIConversation[]> => {
+  const userId = await currentAuthUserId();
+  const loaded = await Promise.all(conversations.map(async (row) => {
     const conv = row as DBConversation;
     const { data: messages, error } = await supabase
       .from('messages')
@@ -136,8 +155,12 @@ const withRecentMessages = (conversations: unknown[]): Promise<UIConversation[]>
       .order('sent_at', { ascending: false })
       .limit(MESSAGES_PER_CONVERSATION);
     if (error) console.error(`[API] Error fetching messages for ${conv.id}:`, error);
+    // A failed read is not proof of an empty thread — keep it.
+    if (!error && isForeignEmptyConversation(conv, messages?.length ?? 0, userId)) return null;
     return transformDBToUIConversation(conv, ((messages || []) as unknown as DBMessage[]).reverse());
   }));
+  return loaded.filter((c): c is UIConversation => c !== null);
+};
 
 export const api = {
   /**
@@ -1575,11 +1598,10 @@ export const api = {
   },
 
   /**
-   * Tags of every active conversation that has at least one (archived included),
-   * keyed by conversation id. Tags live on the contact (set from Detalhes) and,
-   * in older rows, on the conversation itself — the queue merges both the same
-   * way. Visibility follows the conversations RLS, so only threads the operator
-   * can open come back.
+   * Tags of every active conversation that has at least one visible to this
+   * user (archived included), keyed by conversation id. Tags live in
+   * contact_tags, whose RLS hides other attendants' tags; the conversations
+   * RLS keeps it to threads the operator can open.
    */
   fetchConversationTags: async (): Promise<Map<string, string[]>> => {
     const PAGE = 1000; // PostgREST row cap
@@ -1593,30 +1615,18 @@ export const api = {
       }
     };
 
-    const [byContact, byConversation] = await Promise.all([
-      fetchAll((from) => supabase
-        .from('conversations')
-        .select('id, contact:contacts!inner(tags)')
-        .eq('is_active', true)
-        .not('contact.tags', 'eq', '{}')
-        .order('id')
-        .range(from, from + PAGE - 1)),
-      fetchAll((from) => supabase
-        .from('conversations')
-        .select('id, tags')
-        .eq('is_active', true)
-        .not('tags', 'eq', '{}')
-        .order('id')
-        .range(from, from + PAGE - 1)),
-    ]);
+    const rows = await fetchAll((from) => supabase
+      .from('conversations')
+      .select('id, contact:contacts!inner(contact_tags!inner(tag))')
+      .eq('is_active', true)
+      .order('id')
+      .range(from, from + PAGE - 1));
 
     const tags = new Map<string, string[]>();
-    const add = (id: string, list: string[] | null | undefined) => {
-      if (!list?.length) return;
-      tags.set(id, [...new Set([...(tags.get(id) ?? []), ...list])]);
-    };
-    (byConversation as { id: string; tags: string[] | null }[]).forEach(r => add(r.id, r.tags));
-    (byContact as { id: string; contact: { tags: string[] | null } | null }[]).forEach(r => add(r.id, r.contact?.tags));
+    for (const r of rows as { id: string; contact: { contact_tags: { tag: string }[] } | null }[]) {
+      const list = [...new Set((r.contact?.contact_tags ?? []).map(t => t.tag))];
+      if (list.length) tags.set(r.id, list);
+    }
     return tags;
   },
 
@@ -2109,16 +2119,35 @@ export const api = {
   /**
    * Update contact tags
    */
-  updateContactTags: async (contactId: string, tags: string[]): Promise<void> => {
-    const { error } = await supabase
-      .from('contacts')
-      .update({ tags })
-      .eq('id', contactId);
-    
+  /** Tags the contact as the current user — only they, managers and admins see it. */
+  addContactTag: async (contactId: string, tag: string): Promise<void> => {
+    const { error } = await (supabase as any)
+      .from('contact_tags')
+      .upsert({ contact_id: contactId, tag, created_by: await currentAuthUserId() },
+        { onConflict: 'contact_id,tag,created_by', ignoreDuplicates: true });
     if (error) {
-      console.error('[API] Error updating contact tags:', error);
+      console.error('[API] Error adding contact tag:', error);
       throw error;
     }
+  },
+
+  /**
+   * Removes the tag from the contact. RLS lets an attendant delete only their
+   * own rows (managers/admins any), so zero rows deleted means the tag was
+   * put there by someone else.
+   */
+  removeContactTag: async (contactId: string, tag: string): Promise<void> => {
+    const { data, error } = await (supabase as any)
+      .from('contact_tags')
+      .delete()
+      .eq('contact_id', contactId)
+      .eq('tag', tag)
+      .select('id');
+    if (error) {
+      console.error('[API] Error removing contact tag:', error);
+      throw error;
+    }
+    if (!data?.length) throw new Error('Você só pode remover tags que você colocou.');
   },
 
   /**

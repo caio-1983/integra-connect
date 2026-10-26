@@ -292,10 +292,15 @@ class ConversationRepository {
     instance: string,
     /** `humanHandled`: a person is already talking on this thread (an echo from
      *  the phone), so it must not start in AI mode like a customer-opened one. */
-    opts: { channel: string; provider: string; isGroup?: boolean; humanHandled?: boolean },
+    opts: {
+      channel: string; provider: string; isGroup?: boolean; humanHandled?: boolean;
+      /** Who opened it ahead of any message ("Nova Conversa"): until the first
+       *  message, the empty thread shows only in that operator's queue. */
+      assignedUserId?: string;
+    },
   ): Promise<FindOrCreateConversationResult> {
     const supabase = getSupabase();
-    const { isGroup, channel, provider, humanHandled } = opts;
+    const { isGroup, channel, provider, humanHandled, assignedUserId } = opts;
     const existingId = await this.findActiveConversationForInstance(contactId, instance);
     if (existingId) return { conversationId: existingId, created: false };
 
@@ -306,6 +311,7 @@ class ConversationRepository {
         status: isGroup || humanHandled || !aiAutostart() ? 'human' : 'nina',
         is_active: true,
         user_id: null,
+        ...(assignedUserId ? { assigned_user_id: assignedUserId } : {}),
         channel,
         provider,
         // `channel`/`provider` are also kept on metadata so the shape stays

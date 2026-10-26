@@ -208,16 +208,16 @@ const ChatInterface: React.FC = () => {
   const handleToggleTag = async (tagKey: string) => {
     if (!activeChat) return;
     const current = activeChat.tags || [];
-    const updated = current.includes(tagKey)
-      ? current.filter(t => t !== tagKey)
-      : [...current, tagKey];
+    const removing = current.includes(tagKey);
+    const updated = removing ? current.filter(t => t !== tagKey) : [...current, tagKey];
     setConversationTags(activeChat.id, updated); // optimistic
     try {
-      await api.updateContactTags(activeChat.contactId, updated);
+      if (removing) await api.removeContactTag(activeChat.contactId, tagKey);
+      else await api.addContactTag(activeChat.contactId, tagKey);
       toast.success('Tag atualizada');
-    } catch {
+    } catch (err) {
       setConversationTags(activeChat.id, current); // revert
-      toast.error('Erro ao atualizar tag');
+      toast.error(err instanceof Error && err.message.startsWith('Você') ? err.message : 'Erro ao atualizar tag');
     }
   };
 
