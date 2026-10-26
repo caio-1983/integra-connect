@@ -38,7 +38,7 @@ export async function fetchMetaAccounts(): Promise<MetaAccountsResult> {
   // throws in that case, so it lives inside the try.
   try {
     const base = backendBaseUrl();
-    const response = await fetch(`${base}/v1/meta/accounts`, { headers: backendAuthOnlyHeaders() });
+    const response = await fetch(`${base}/v1/meta/accounts`, { headers: await backendAuthOnlyHeaders() });
     if (!response.ok) return { ...EMPTY, unreachable: true };
     return (await response.json()) as MetaAccountsResult;
   } catch {

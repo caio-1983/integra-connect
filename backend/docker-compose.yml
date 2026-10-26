@@ -3,6 +3,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Shown by GET /health as `commit`, e.g. BUILD_SHA=$(git rev-parse --short HEAD).
+        BUILD_SHA: ${BUILD_SHA:-}
     container_name: ai-runtime
     restart: unless-stopped
     environment:
@@ -12,7 +15,12 @@ services:
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
       AGENT_CHAT_RATE_LIMIT_MAX: ${AGENT_CHAT_RATE_LIMIT_MAX:-20}
-      GATEWAY_API_KEY: ${GATEWAY_API_KEY}
+      # Hops allowed to set X-Forwarded-For. Empty = loopback + private ranges
+      # (nginx-proxy-manager over the Docker network).
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      ENABLE_API_DOCS: ${ENABLE_API_DOCS:-}
+      # GATEWAY_API_KEY is gone: /v1/* is authenticated with the user's Supabase
+      # session token, verified against SUPABASE_URL below.
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       EVOLUTION_API_URL: ${EVOLUTION_API_URL}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
@@ -20,6 +28,12 @@ services:
       EVOLUTION_WEBHOOK_SECRET: ${EVOLUTION_WEBHOOK_SECRET}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      # Meta (Messenger/Instagram). Without META_WEBHOOK_SECRET and
+      # META_APP_SECRET every Meta webhook delivery is refused.
+      META_PAGE_TOKENS: ${META_PAGE_TOKENS:-}
+      META_WEBHOOK_SECRET: ${META_WEBHOOK_SECRET:-}
+      META_WEBHOOK_VERIFY_TOKEN: ${META_WEBHOOK_VERIFY_TOKEN:-}
+      META_APP_SECRET: ${META_APP_SECRET:-}
       # Marketing API (System User token with ads_read): ad id → campaign / ad
       # set / ad names in meta_ad_catalog. Without it leads keep only the raw id.
       META_ADS_TOKEN: ${META_ADS_TOKEN:-}
@@ -34,5 +48,10 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    # Loopback only: the public entry is the reverse proxy. Published on
+    # 0.0.0.0, the backend answered straight from the internet on :8787,
+    # bypassing the proxy (and its client IP). If the proxy runs in another
+    # container, join it to this one's network and point it at ai-runtime:8787;
+    # set BACKEND_BIND=0.0.0.0 only as a stopgap.
     ports:
-      - "8787:8787"
+      - "${BACKEND_BIND:-127.0.0.1}:8787:8787"

@@ -44,7 +44,7 @@ export const ResultsCampaigns: React.FC = () => {
     <>
       <Panel
         title="Faturamento por campanha"
-        description="Comparado com o período anterior. A primeira linha é a campanha em que a receita mais caiu."
+        description="Vendas fechadas no período, mesmo de quem chamou antes; leads conta quem chamou no período. Comparado com o período anterior, a primeira linha é a campanha em que a receita mais caiu."
         action={<Link to="/campanhas/configurar" className="text-sm text-primary hover:underline underline-offset-4 rounded-sm">Gerenciar campanhas</Link>}
       >
         {loading ? (

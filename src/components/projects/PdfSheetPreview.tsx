@@ -19,7 +19,7 @@ export const PdfSheetPreview: React.FC<{ url: string; name: string }> = ({ url, 
 
   useEffect(() => {
     let cancelled = false;
-    let loaded: PDFDocumentProxy | null = null;
+    let task: { destroy: () => Promise<void> } | null = null;
     setDoc(null);
     setFailed(false);
     setZoom(0);
@@ -27,13 +27,17 @@ export const PdfSheetPreview: React.FC<{ url: string; name: string }> = ({ url, 
       const pdfjs = await import('pdfjs-dist');
       const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
       pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-      loaded = await pdfjs.getDocument(url).promise;
-      if (cancelled) loaded.destroy();
+      // The PDF comes from a customer over WhatsApp: no XFA forms (pdfjs 6
+      // already dropped eval-based font rendering).
+      const loadingTask = pdfjs.getDocument({ url, enableXfa: false });
+      task = loadingTask;
+      const loaded: PDFDocumentProxy = await loadingTask.promise;
+      if (cancelled) loadingTask.destroy();
       else setDoc(loaded);
     })().catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
-      loaded?.destroy();
+      task?.destroy();
     };
   }, [url]);
 

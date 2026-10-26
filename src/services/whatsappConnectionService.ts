@@ -1,8 +1,8 @@
 /**
  * Single service responsible for all WhatsApp/Evolution communication
  * between the frontend and the Sprint 010/011/012 backend. It depends only on
- * the neutral backend-gateway connection (VITE_BACKEND_URL/KEY) — never on any
- * AI configuration. The frontend never talks to Evolution directly, only to our
+ * the neutral backend-gateway connection (VITE_BACKEND_URL + the user's
+ * session token) — never on any AI configuration. The frontend never talks to Evolution directly, only to our
  * own backend.
  */
 import {
@@ -19,19 +19,19 @@ export interface ConnectionStateResult { state: 'open' | 'connecting' | 'close' 
 export async function createWhatsappInstance(instanceName: string): Promise<CreateInstanceResult> {
   const res = await fetch(`${base()}/v1/whatsapp/instances`, {
     method: 'POST',
-    headers: headers(),
+    headers: await headers(),
     body: JSON.stringify({ instanceName }),
   });
   return handle<CreateInstanceResult>(res);
 }
 
 export async function fetchWhatsappQr(instanceName: string): Promise<QrResult> {
-  const res = await fetch(`${base()}/v1/whatsapp/instances/${encodeURIComponent(instanceName)}/qr`, { headers: headers() });
+  const res = await fetch(`${base()}/v1/whatsapp/instances/${encodeURIComponent(instanceName)}/qr`, { headers: await headers() });
   return handle<QrResult>(res);
 }
 
 export async function fetchWhatsappState(instanceName: string): Promise<ConnectionStateResult> {
-  const res = await fetch(`${base()}/v1/whatsapp/instances/${encodeURIComponent(instanceName)}/state`, { headers: headers() });
+  const res = await fetch(`${base()}/v1/whatsapp/instances/${encodeURIComponent(instanceName)}/state`, { headers: await headers() });
   return handle<ConnectionStateResult>(res);
 }
 
@@ -47,14 +47,14 @@ export interface WhatsappInstanceSummary {
 }
 
 export async function listWhatsappInstances(): Promise<WhatsappInstanceSummary[]> {
-  const res = await fetch(`${base()}/v1/whatsapp/instances`, { headers: headers() });
+  const res = await fetch(`${base()}/v1/whatsapp/instances`, { headers: await headers() });
   return handle<WhatsappInstanceSummary[]>(res);
 }
 
 export async function disconnectWhatsappInstance(instanceName: string): Promise<void> {
   const res = await fetch(`${base()}/v1/whatsapp/instances/${encodeURIComponent(instanceName)}/disconnect`, {
     method: 'POST',
-    headers: authOnlyHeaders(),
+    headers: await authOnlyHeaders(),
   });
   await handle<{ ok: true }>(res);
 }
@@ -62,7 +62,7 @@ export async function disconnectWhatsappInstance(instanceName: string): Promise<
 export async function removeWhatsappInstance(instanceName: string): Promise<void> {
   const res = await fetch(`${base()}/v1/whatsapp/instances/${encodeURIComponent(instanceName)}`, {
     method: 'DELETE',
-    headers: authOnlyHeaders(),
+    headers: await authOnlyHeaders(),
   });
   await handle<{ ok: true }>(res);
 }
@@ -70,7 +70,7 @@ export async function removeWhatsappInstance(instanceName: string): Promise<void
 export async function reconnectWhatsappInstance(instanceName: string): Promise<{ qr?: string }> {
   const res = await fetch(`${base()}/v1/whatsapp/instances/${encodeURIComponent(instanceName)}/reconnect`, {
     method: 'POST',
-    headers: authOnlyHeaders(),
+    headers: await authOnlyHeaders(),
   });
   return handle<{ qr?: string }>(res);
 }
@@ -80,7 +80,7 @@ export interface ImportContactsResult { imported: number; updated: number; }
 export async function importWhatsappContacts(instanceName: string): Promise<ImportContactsResult> {
   const res = await fetch(`${base()}/v1/whatsapp/instances/${encodeURIComponent(instanceName)}/contacts/import`, {
     method: 'POST',
-    headers: authOnlyHeaders(),
+    headers: await authOnlyHeaders(),
   });
   return handle<ImportContactsResult>(res);
 }
@@ -90,36 +90,34 @@ export async function importWhatsappContacts(instanceName: string): Promise<Impo
 /** Sends a human operator's reply through the backend's channel-agnostic
  * outbound pipeline (resolves the right connector/instance server-side).
  *
- * `operatorId` is the current user's auth id and lands on `messages.sent_by` —
- * without it the reply is anonymous and the per-attendant report cannot count
- * it. The backend gateway has no per-user identity of its own (shared bearer
- * token), so the frontend is the only thing that knows who is typing. */
+ * The author (`messages.sent_by`, the `*Nome*` signature) is whoever owns the
+ * session token the request carries — the backend reads it from there, so no
+ * operator id is sent. */
 export async function sendConversationReply(
   conversationId: string,
   content: string,
-  operatorId?: string,
   replyToMessageId?: string,
 ): Promise<void> {
   const res = await fetch(`${base()}/v1/conversations/${encodeURIComponent(conversationId)}/reply`, {
     method: 'POST',
-    headers: headers(),
-    body: JSON.stringify({ content, operatorId, replyToMessageId }),
+    headers: await headers(),
+    body: JSON.stringify({ content, replyToMessageId }),
   });
   await handle<{ accepted: true }>(res);
 }
 
 /** Edits the text of the operator's own message (WhatsApp, up to 15 minutes
- * after sending). A refusal throws the backend's own reason (e.g. the window
- * has passed), which is meant to be shown to the attendant as is. */
+ * after sending; "own" = the session user's). A refusal throws the backend's
+ * own reason (e.g. the window has passed), which is meant to be shown to the
+ * attendant as is. */
 export async function editConversationMessage(
   conversationId: string,
   messageId: string,
   content: string,
-  operatorId: string,
 ): Promise<void> {
   const res = await fetch(
     `${base()}/v1/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/edit`,
-    { method: 'POST', headers: headers(), body: JSON.stringify({ content, operatorId }) },
+    { method: 'POST', headers: await headers(), body: JSON.stringify({ content }) },
   );
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -133,7 +131,7 @@ export async function transcribeConversationAudio(conversationId: string, messag
   const res = await fetch(
     `${base()}/v1/conversations/${encodeURIComponent(conversationId)}/messages/${encodeURIComponent(messageId)}/transcribe`,
     // '{}' body: Fastify rejects an empty body sent as application/json.
-    { method: 'POST', headers: headers(), body: '{}' },
+    { method: 'POST', headers: await headers(), body: '{}' },
   );
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -142,26 +140,28 @@ export async function transcribeConversationAudio(conversationId: string, messag
   return ((await res.json()) as { status: 'done' | 'skipped' | 'failed' }).status;
 }
 
-export interface SendMediaReplyInput { base64: string; mimeType: string; fileName?: string; caption?: string; operatorId?: string; }
+export interface SendMediaReplyInput { base64: string; mimeType: string; fileName?: string; caption?: string; }
 
 /** Sends a human operator's media reply (attachment). base64 has no data: prefix. */
 export async function sendConversationMediaReply(conversationId: string, media: SendMediaReplyInput): Promise<void> {
   const res = await fetch(`${base()}/v1/conversations/${encodeURIComponent(conversationId)}/reply-media`, {
     method: 'POST',
-    headers: headers(),
+    headers: await headers(),
     body: JSON.stringify(media),
   });
   await handle<{ accepted: true }>(res);
 }
 
 /** Sends the company's registered Pix key as a card ("Copiar chave Pix"). The
- * key is read server-side from Configurações — only the operator goes here. A
- * refusal throws the backend's own reason (e.g. no key registered yet). */
-export async function sendConversationPix(conversationId: string, operatorId?: string): Promise<void> {
+ * key is read server-side from Configurações and the operator from the session
+ * token, so the body is empty. A refusal throws the backend's own reason (e.g.
+ * no key registered yet). */
+export async function sendConversationPix(conversationId: string): Promise<void> {
   const res = await fetch(`${base()}/v1/conversations/${encodeURIComponent(conversationId)}/reply-pix`, {
     method: 'POST',
-    headers: headers(),
-    body: JSON.stringify({ operatorId }),
+    headers: await headers(),
+    // '{}' body: Fastify rejects an empty body sent as application/json.
+    body: '{}',
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -175,7 +175,7 @@ export interface StartConversationResult { conversationId: string; contactId: st
 export async function startConversation(instance: string, phone: string, name?: string): Promise<StartConversationResult> {
   const res = await fetch(`${base()}/v1/conversations/start`, {
     method: 'POST',
-    headers: headers(),
+    headers: await headers(),
     body: JSON.stringify({ instance, phone, name }),
   });
   return handle<StartConversationResult>(res);
@@ -187,7 +187,7 @@ export interface GroupInfoResult { subject?: string; participants: GroupParticip
 /** Lists a WhatsApp group conversation's current members. */
 export async function fetchGroupParticipants(conversationId: string): Promise<GroupInfoResult> {
   const res = await fetch(`${base()}/v1/conversations/${encodeURIComponent(conversationId)}/group-participants`, {
-    headers: headers(),
+    headers: await headers(),
   });
   return handle<GroupInfoResult>(res);
 }

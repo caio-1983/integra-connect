@@ -58,6 +58,29 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const serviceClient = createClient(supabaseUrl, serviceKey);
 
+    // The upsert below runs with the service role, so RLS can't stop it from
+    // overwriting an existing row. Refuse rows already linked to an account
+    // (e.g. an admin whose auth email changed) and admin rows for managers.
+    const { data: existingMember } = await serviceClient
+      .from('team_members')
+      .select('user_id, role')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (existingMember?.user_id) {
+      return new Response(
+        JSON.stringify({ error: 'Já existe uma conta com este email' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (callerCheck.role === 'manager' && existingMember?.role === 'admin') {
+      return new Response(
+        JSON.stringify({ error: 'Gestores não podem criar contas de administrador' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const temporaryPassword = generateTemporaryPassword();
 
     const { data: created, error: createError } = await serviceClient.auth.admin.createUser({

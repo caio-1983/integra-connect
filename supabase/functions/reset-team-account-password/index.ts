@@ -42,15 +42,29 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const serviceClient = createClient(supabaseUrl, serviceKey);
 
+    // Only accounts that belong to the visible team can be reset from the app;
+    // this keeps arbitrary auth users and the hidden maintenance account out.
+    const { data: targetMember } = await serviceClient
+      .from('team_members')
+      .select('role, hidden')
+      .eq('user_id', user_id)
+      .maybeSingle();
+
+    if (!targetMember || targetMember.hidden) {
+      return new Response(
+        JSON.stringify({ error: 'Conta não encontrada na equipe' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (callerCheck.role === 'manager') {
-      const { data: targetRole } = await serviceClient
+      const { data: targetAdminRoles } = await serviceClient
         .from('user_roles')
         .select('role')
         .eq('user_id', user_id)
-        .eq('role', 'admin')
-        .maybeSingle();
+        .eq('role', 'admin');
 
-      if (targetRole) {
+      if (targetMember.role === 'admin' || (targetAdminRoles?.length ?? 0) > 0) {
         return new Response(
           JSON.stringify({ error: 'Gestores não podem redefinir a senha de um administrador' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

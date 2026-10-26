@@ -326,6 +326,18 @@ const Kanban: React.FC = () => {
     setDropTarget(null);
     const dealId = dragItem.current;
     if (!dealId) return;
+    // Dropping on Ganho/Perdido goes through the same modals as the buttons:
+    // moveDealStage alone never sets won_at/lost_at, so a dragged sale used to
+    // stay "open" in every report.
+    const target = stages.find(s => s.id === targetStageId);
+    if (target?.title === 'Ganho' || target?.title === 'Perdido') {
+      const deal = deals.find(d => d.id === dealId);
+      if (!deal || deal.stageId === targetStageId) return;
+      setSelectedDeal(deal);
+      if (target.title === 'Ganho') setIsWonModalOpen(true);
+      else setIsLostModalOpen(true);
+      return;
+    }
     const updatedDeals = deals.map(deal =>
       deal.id === dealId ? { ...deal, stageId: targetStageId } : deal
     );

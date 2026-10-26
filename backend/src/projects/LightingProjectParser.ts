@@ -179,25 +179,48 @@ function compareCodes(a: string, b: string): number {
 const A4_LONG_SIDE_PT = 842;
 const LARGE_FORMAT_MARGIN = 1.15;
 
-export async function extractPdfText(data: Uint8Array): Promise<{ items: PositionedText[]; pages: number; largeFormat: boolean }> {
-  const doc = await getDocument({ data, useSystemFonts: true, verbosity: 0 }).promise;
+// A CAD project is a handful of sheets. These caps bound what one hostile
+// upload (thousands of pages, or a file crafted to parse slowly) can cost:
+// pages past the cap are not read, and a parse past the deadline is abandoned.
+export const MAX_PDF_PAGES = 60;
+const PARSE_TIMEOUT_MS = 30_000;
+
+type PdfText = { items: PositionedText[]; pages: number; largeFormat: boolean };
+
+export async function extractPdfText(data: Uint8Array): Promise<PdfText> {
+  // pdfjs-dist 6 no longer evaluates code taken from the PDF (the option
+  // `isEvalSupported` is gone with it), which is what the 5.x advisory was about.
+  const task = getDocument({ data, useSystemFonts: true, verbosity: 0 });
+  let timer: NodeJS.Timeout | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('PDF parse timed out')), PARSE_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([readPages(task.promise), deadline]);
+  } finally {
+    clearTimeout(timer);
+    // pdfjs 6 dropped PDFDocumentProxy.destroy(); destroying the loading task
+    // frees the document and also stops a parse the deadline gave up on.
+    await task.destroy();
+  }
+}
+
+async function readPages(loading: ReturnType<typeof getDocument>['promise']): Promise<PdfText> {
+  const doc = await loading;
   const items: PositionedText[] = [];
   let largeFormat = false;
-  try {
-    for (let page = 1; page <= doc.numPages; page++) {
-      const pdfPage = await doc.getPage(page);
-      const { width, height } = pdfPage.getViewport({ scale: 1 });
-      if (Math.max(width, height) > A4_LONG_SIDE_PT * LARGE_FORMAT_MARGIN) largeFormat = true;
-      const content = await pdfPage.getTextContent();
-      for (const item of content.items) {
-        if (!('str' in item)) continue;
-        items.push({ str: item.str, x: item.transform[4], y: item.transform[5], page });
-      }
+  const lastPage = Math.min(doc.numPages, MAX_PDF_PAGES);
+  for (let page = 1; page <= lastPage; page++) {
+    const pdfPage = await doc.getPage(page);
+    const { width, height } = pdfPage.getViewport({ scale: 1 });
+    if (Math.max(width, height) > A4_LONG_SIDE_PT * LARGE_FORMAT_MARGIN) largeFormat = true;
+    const content = await pdfPage.getTextContent();
+    for (const item of content.items) {
+      if (!('str' in item)) continue;
+      items.push({ str: item.str, x: item.transform[4], y: item.transform[5], page });
     }
-    return { items, pages: doc.numPages, largeFormat };
-  } finally {
-    await doc.destroy();
   }
+  return { items, pages: doc.numPages, largeFormat };
 }
 
 export async function analyzeLightingProject(data: Uint8Array): Promise<LightingProjectAnalysis> {

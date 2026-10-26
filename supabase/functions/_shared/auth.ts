@@ -84,14 +84,15 @@ export async function requireRole(
   const { data: userData, error: userError } = await serviceClient.auth.getUser(token);
   if (userError || !userData?.user) return unauthorized();
 
-  const { data: roleRow } = await serviceClient
+  const { data: roleRows } = await serviceClient
     .from('user_roles')
     .select('role')
     .eq('user_id', userData.user.id)
-    .in('role', allowedRoles)
-    .maybeSingle();
+    .in('role', allowedRoles);
 
-  if (!roleRow) return forbidden();
+  // A user may hold more than one row; the most privileged one wins.
+  const role = (['admin', 'manager', 'agent'] as const).find((r) => roleRows?.some((row) => row.role === r));
+  if (!role) return forbidden();
 
-  return { userId: userData.user.id, role: roleRow.role };
+  return { userId: userData.user.id, role };
 }

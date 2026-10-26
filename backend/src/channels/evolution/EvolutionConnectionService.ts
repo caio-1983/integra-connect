@@ -8,16 +8,45 @@ const WEBHOOK_EVENTS = ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE
 
 /** Instance lifecycle used by the admin route (Fase 2): create + auto-register webhook, fetch QR, poll state. */
 export const evolutionConnectionService = {
+  /** The real callback URL, secret included. Only ever sent to Evolution, never to a client. */
   webhookUrl(): string {
     const base = configService.require('PUBLIC_BASE_URL').replace(/\/$/, '');
     const secret = configService.require('EVOLUTION_WEBHOOK_SECRET');
     return `${base}/webhooks/evolution/${secret}`;
   },
 
+  /** What a client may see: the same URL with the secret replaced by a placeholder. */
+  maskedWebhookUrl(): string {
+    const base = configService.require('PUBLIC_BASE_URL').replace(/\/$/, '');
+    return `${base}/webhooks/evolution/{EVOLUTION_WEBHOOK_SECRET}`;
+  },
+
   async createInstance(instanceName: string): Promise<{ qr: QrResult; major: number; webhookUrl: string }> {
-    const webhookUrl = this.webhookUrl();
-    const { qr, major } = await getEvolutionClient().createInstance({ instanceName, webhookUrl, events: WEBHOOK_EVENTS });
-    return { qr, major, webhookUrl };
+    const { qr, major } = await getEvolutionClient().createInstance({ instanceName, webhookUrl: this.webhookUrl(), events: WEBHOOK_EVENTS });
+    return { qr, major, webhookUrl: this.maskedWebhookUrl() };
+  },
+
+  /**
+   * Re-points every instance's webhook at the current URL — run after rotating
+   * EVOLUTION_WEBHOOK_SECRET or changing PUBLIC_BASE_URL (src/scripts/
+   * syncEvolutionWebhooks.ts). Returns per-instance results; one failure does
+   * not stop the rest.
+   */
+  async syncAllWebhooks(): Promise<Array<{ instance: string; ok: boolean; error?: string }>> {
+    const client = getEvolutionClient();
+    const url = this.webhookUrl();
+    const instances = await this.listInstances();
+    const results: Array<{ instance: string; ok: boolean; error?: string }> = [];
+    for (const { name } of instances) {
+      if (!name) continue;
+      try {
+        await client.setWebhook(name, url, WEBHOOK_EVENTS, { throwOnError: true });
+        results.push({ instance: name, ok: true });
+      } catch (error) {
+        results.push({ instance: name, ok: false, error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    return results;
   },
 
   async getQr(instanceName: string): Promise<QrResult> {

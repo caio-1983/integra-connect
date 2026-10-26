@@ -47,6 +47,16 @@ function failedOnDeadSocket(error: unknown): boolean {
 }
 
 /**
+ * An instance name as one URL path segment. Every Evolution route takes the
+ * name in the path, and names reach here from routes, the database and webhook
+ * payloads; unencoded, a `/`, `?` or `..` in one would address a different
+ * Evolution endpoint with our global apikey.
+ */
+function seg(instanceName: string): string {
+  return encodeURIComponent(instanceName);
+}
+
+/**
  * Thin HTTP client to a running Evolution API. Auto-detects the installed
  * major version once (`GET /` → `version`) and delegates version-specific
  * payload shaping to the matching adapter, so callers never branch on version
@@ -106,7 +116,7 @@ export class EvolutionClient {
       // Instance was already created in a prior attempt — reconnect to it
       // instead of failing, so retrying with the same name is idempotent.
       logger.info({ instanceName: params.instanceName }, '[evolution] instance already exists — reusing it');
-      response = await this.request<unknown>('GET', `/instance/connect/${params.instanceName}`);
+      response = await this.request<unknown>('GET', `/instance/connect/${seg(params.instanceName)}`);
     }
     // belt-and-suspenders: also (re)register the webhook explicitly
     await this.setWebhook(params.instanceName, params.webhookUrl, params.events);
@@ -117,21 +127,23 @@ export class EvolutionClient {
    * createInstance (belt-and-suspenders) and by reconnect, so that changing
    * PUBLIC_BASE_URL (e.g. a new ngrok tunnel) takes effect without having to
    * delete and recreate the instance. */
-  async setWebhook(instanceName: string, webhookUrl: string, events: string[]): Promise<void> {
+  async setWebhook(instanceName: string, webhookUrl: string, events: string[], opts: { throwOnError?: boolean } = {}): Promise<void> {
     const adapter = await this.getAdapter();
-    await this.request<unknown>('POST', `/webhook/set/${instanceName}`, adapter.setWebhookBody({ url: webhookUrl, events })).catch((e) => {
+    await this.request<unknown>('POST', `/webhook/set/${seg(instanceName)}`, adapter.setWebhookBody({ url: webhookUrl, events })).catch((e) => {
+      // The error text can echo the request; never log the URL (it carries the secret).
       logger.warn({ err: String(e), instanceName }, '[evolution] webhook/set failed');
+      if (opts.throwOnError) throw e;
     });
   }
 
   async connect(instanceName: string): Promise<QrResult> {
     const adapter = await this.getAdapter();
-    const response = await this.request<unknown>('GET', `/instance/connect/${instanceName}`);
+    const response = await this.request<unknown>('GET', `/instance/connect/${seg(instanceName)}`);
     return adapter.parseQr(response);
   }
 
   async connectionState(instanceName: string): Promise<ConnectionStateResult> {
-    const response = await this.request<{ instance?: { state?: string } }>('GET', `/instance/connectionState/${instanceName}`);
+    const response = await this.request<{ instance?: { state?: string } }>('GET', `/instance/connectionState/${seg(instanceName)}`);
     const state = response?.instance?.state;
     if (state === 'open' || state === 'connecting' || state === 'close') return { state };
     return { state: 'unknown' };
@@ -139,7 +151,7 @@ export class EvolutionClient {
 
   async sendText(instanceName: string, number: string, text: string, quotedId?: string): Promise<SendTextResult> {
     const adapter = await this.getAdapter();
-    const response = await this.request<unknown>('POST', `/message/sendText/${instanceName}`, adapter.sendTextBody({ number, text, quotedId }));
+    const response = await this.request<unknown>('POST', `/message/sendText/${seg(instanceName)}`, adapter.sendTextBody({ number, text, quotedId }));
     return adapter.parseSendResult(response);
   }
 
@@ -148,7 +160,7 @@ export class EvolutionClient {
    *  are handled by the adapter. */
   async sendMedia(instanceName: string, params: Omit<SendMediaParams, 'number'> & { number: string }): Promise<SendTextResult> {
     const adapter = await this.getAdapter();
-    const response = await this.request<unknown>('POST', `/message/sendMedia/${instanceName}`, adapter.sendMediaBody(params));
+    const response = await this.request<unknown>('POST', `/message/sendMedia/${seg(instanceName)}`, adapter.sendMediaBody(params));
     return adapter.parseSendResult(response);
   }
 
@@ -168,7 +180,7 @@ export class EvolutionClient {
     if (adapter.major !== 2) {
       throw new Error('Enviar cartões interativos (Pix) requer Evolution API v2.');
     }
-    const response = await this.request<unknown>('POST', `/message/sendButtons/${encodeURIComponent(instanceName)}`, body);
+    const response = await this.request<unknown>('POST', `/message/sendButtons/${seg(instanceName)}`, body);
     return adapter.parseSendResult(response);
   }
 
@@ -194,7 +206,7 @@ export class EvolutionClient {
     if (!remoteJid || stored?.key?.fromMe !== true) {
       throw new Error('Mensagem não encontrada no WhatsApp deste número, não dá para editar.');
     }
-    await this.request<unknown>('POST', `/chat/updateMessage/${encodeURIComponent(instanceName)}`, {
+    await this.request<unknown>('POST', `/chat/updateMessage/${seg(instanceName)}`, {
       number: remoteJid,
       key: { id: messageId, remoteJid, fromMe: true },
       text,
@@ -221,7 +233,7 @@ export class EvolutionClient {
    */
   async logout(instanceName: string): Promise<void> {
     try {
-      await this.request<unknown>('DELETE', `/instance/logout/${instanceName}`);
+      await this.request<unknown>('DELETE', `/instance/logout/${seg(instanceName)}`);
       return;
     } catch (error) {
       if (!failedOnDeadSocket(error)) throw error;
@@ -253,7 +265,7 @@ export class EvolutionClient {
    */
   async deleteInstance(instanceName: string): Promise<void> {
     try {
-      await this.request<unknown>('DELETE', `/instance/delete/${instanceName}`);
+      await this.request<unknown>('DELETE', `/instance/delete/${seg(instanceName)}`);
       return;
     } catch (error) {
       if (!failedOnDeadSocket(error)) throw error;
@@ -277,7 +289,7 @@ export class EvolutionClient {
    * "ver participantes" flow, where a failure should surface as an error
    * rather than be silently swallowed. */
   async fetchGroupInfo(instanceName: string, groupJid: string): Promise<RawGroupInfo> {
-    return this.request<RawGroupInfo>('GET', `/group/findGroupInfos/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`);
+    return this.request<RawGroupInfo>('GET', `/group/findGroupInfos/${seg(instanceName)}?groupJid=${encodeURIComponent(groupJid)}`);
   }
 
   /** Same endpoint as fetchGroupInfo, but for the inbound-parsing path (naming
@@ -304,7 +316,7 @@ export class EvolutionClient {
     try {
       const res = await this.request<{ base64?: string; mimetype?: string }>(
         'POST',
-        `/chat/getBase64FromMediaMessage/${instanceName}`,
+        `/chat/getBase64FromMediaMessage/${seg(instanceName)}`,
         { message: { key: { id: messageId } } },
       );
       return res?.base64 ? { base64: res.base64, mimetype: res.mimetype } : null;
@@ -320,7 +332,7 @@ export class EvolutionClient {
   async findMessageById(instanceName: string, messageId: string): Promise<Record<string, any> | null> {
     const res = await this.request<{ messages?: { records?: Record<string, any>[] } }>(
       'POST',
-      `/chat/findMessages/${encodeURIComponent(instanceName)}`,
+      `/chat/findMessages/${seg(instanceName)}`,
       { where: { key: { id: messageId } } },
     );
     return res?.messages?.records?.[0] ?? null;
@@ -334,7 +346,7 @@ export class EvolutionClient {
     if (adapter.major !== 2) {
       throw new Error('Importação de contatos requer Evolution API v2.');
     }
-    return this.request<RawContact[]>('POST', `/chat/findContacts/${instanceName}`, { where: {} });
+    return this.request<RawContact[]>('POST', `/chat/findContacts/${seg(instanceName)}`, { where: {} });
   }
 
   /** Current WhatsApp profile picture URL for a number (same route on v1/v2).
@@ -343,7 +355,7 @@ export class EvolutionClient {
    * persist the link. */
   async fetchProfilePictureUrl(instanceName: string, number: string): Promise<string | null> {
     const res = await this.request<{ profilePictureUrl?: string | null } | undefined>(
-      'POST', `/chat/fetchProfilePictureUrl/${instanceName}`, { number },
+      'POST', `/chat/fetchProfilePictureUrl/${seg(instanceName)}`, { number },
     );
     return res?.profilePictureUrl || null;
   }

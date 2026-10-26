@@ -11,7 +11,7 @@ full architecture rationale).
 ```bash
 cd backend
 npm install
-cp .env.example .env   # fill in OPENAI_API_KEY and a GATEWAY_API_KEY
+cp .env.example .env   # fill in OPENAI_API_KEY and the SUPABASE_* values
 npm run dev            # Fastify on http://localhost:8787, Swagger UI at /docs
 ```
 
@@ -20,7 +20,7 @@ clean error, not a crash):
 
 ```bash
 curl -X POST http://localhost:8787/v1/agents/atendimento/chat \
-  -H "Authorization: Bearer <your GATEWAY_API_KEY>" \
+  -H "Authorization: Bearer <a Supabase session access_token>" \
   -H "Content-Type: application/json" \
   -d '{"conversationId":"conv1","contactId":"ct1","channel":"whatsapp","messages":[{"fromType":"user","content":"oi"}]}'
 ```
@@ -75,9 +75,12 @@ Then `sudo certbot --nginx -d ai.yourdomain.com` for TLS.
 Finally, point the frontend's `.env` at the deployed URL:
 
 ```
-VITE_AI_GATEWAY_URL=https://ai.yourdomain.com
-VITE_AI_GATEWAY_KEY=<same GATEWAY_API_KEY as backend/.env>
+VITE_BACKEND_URL=https://ai.yourdomain.com
 ```
+
+No key goes to the frontend: each request carries the signed-in user's
+Supabase session token, which the backend verifies (role from `user_roles`,
+per-number access via `can_access_conversation`).
 
 ## What's implemented (Sprint 010)
 

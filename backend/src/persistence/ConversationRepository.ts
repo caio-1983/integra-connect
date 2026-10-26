@@ -5,6 +5,7 @@ import type { SharedContact } from '../channels/sharedContact.js';
 import { getSupabase } from './supabaseClient.js';
 import { logger } from '../logger/Logger.js';
 import { configService } from '../config/ConfigService.js';
+import { randomUUID } from 'node:crypto';
 
 // Reuses the existing public `audio-messages` bucket for ALL inbound media
 // (audio/image/video/document) — it's already public and provisioned, so no new
@@ -33,10 +34,27 @@ export interface MetaAdCatalogRow {
 const OPERATOR_NAME_TTL_MS = 10 * 60 * 1000;
 const operatorNameCache = new Map<string, { name?: string; expiresAt: number }>();
 
-/** File extension for a stored media blob, from its mimetype (falls back to the
- *  document's own file name extension, then 'bin'). */
-function mediaExtension(mimeType: string, fileName?: string): string {
-  const mt = mimeType.toLowerCase();
+/** Documents stored under their own type (and so opened inline by the browser). */
+const SAFE_DOCUMENT_TYPES: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'application/msword': 'doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+  'application/vnd.ms-excel': 'xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+  'application/vnd.ms-powerpoint': 'ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
+  'application/vnd.oasis.opendocument.text': 'odt',
+  'application/vnd.oasis.opendocument.spreadsheet': 'ods',
+  'application/zip': 'zip',
+  'text/plain': 'txt',
+  'text/csv': 'csv',
+};
+
+/** Extensions that make a browser (or the storage CDN) treat a file as a page or script. */
+const ACTIVE_EXTENSIONS = new Set(['html', 'htm', 'xhtml', 'xht', 'shtml', 'svg', 'svgz', 'xml', 'xsl', 'js', 'mjs', 'php', 'swf']);
+
+/** Extension for an allowed image/audio/video type (checked in this order so audio 'mpeg' wins over video). */
+function avExtension(mt: string): string {
   // audio
   if (mt.includes('ogg')) return 'ogg';
   if (mt.includes('mpeg') || mt.includes('mp3')) return 'mp3';
@@ -47,15 +65,36 @@ function mediaExtension(mimeType: string, fileName?: string): string {
   if (mt.includes('png')) return 'png';
   if (mt.includes('webp')) return 'webp';
   if (mt.includes('gif')) return 'gif';
-  // video (checked after audio/mp3 so audio 'mpeg' wins; 'mp4' can be either —
-  // callers pass the right mimetype per kind, and mp4 as a container is fine as .mp4)
+  // video ('mp4' can be either — callers pass the right mimetype per kind, and
+  // mp4 as a container is fine as .mp4)
   if (mt.includes('mp4')) return 'mp4';
   if (mt.includes('3gpp') || mt.includes('3gp')) return '3gp';
   if (mt.includes('quicktime') || mt.includes('mov')) return 'mov';
-  // document
-  if (mt.includes('pdf')) return 'pdf';
-  const fromName = fileName?.includes('.') ? fileName.split('.').pop() : undefined;
-  return (fromName && fromName.length <= 5 ? fromName.toLowerCase() : 'bin');
+  const subtype = mt.split('/')[1] ?? '';
+  return /^[a-z0-9]{1,5}$/.test(subtype) ? subtype : 'bin';
+}
+
+/**
+ * How a media blob is stored in the PUBLIC bucket: the Content-Type it is
+ * served with and its file extension. Both come from the mimetype, which comes
+ * from the client or the webhook payload, so it is never trusted as-is:
+ * images (except SVG), audio, video and the common documents keep their type;
+ * anything else (text/html, SVG, XML, unknown) is stored as an opaque
+ * `application/octet-stream` download, so no upload can become a page served
+ * from our storage domain. The extension never comes from the client except as
+ * a label for such opaque downloads, and never an active one.
+ */
+export function storageMedia(mimeType: string, fileName?: string): { contentType: string; ext: string } {
+  const mt = (mimeType.split(';')[0] ?? '').trim().toLowerCase();
+  if (/^(image|audio|video)\/[a-z0-9.+-]+$/.test(mt) && !mt.includes('svg')) {
+    return { contentType: mt, ext: avExtension(mt) };
+  }
+  const documentExt = SAFE_DOCUMENT_TYPES[mt];
+  if (documentExt) return { contentType: mt, ext: documentExt };
+
+  const fromName = fileName?.includes('.') ? fileName.split('.').pop()?.toLowerCase() : undefined;
+  const ext = fromName && /^[a-z0-9]{1,5}$/.test(fromName) && !ACTIVE_EXTENSIONS.has(fromName) ? fromName : 'bin';
+  return { contentType: 'application/octet-stream', ext };
 }
 
 /** Maps our media kind to the DB `messages.type` literal. */
@@ -687,14 +726,18 @@ class ConversationRepository {
    * every other write here. Returns null (never throws) on failure, so a
    * storage hiccup degrades to a text-only placeholder instead of dropping
    * the whole inbound message. */
-  private async uploadInboundMedia(conversationId: string, providerMessageId: string, media: InboundMedia): Promise<string | null> {
+  private async uploadInboundMedia(conversationId: string, media: InboundMedia): Promise<string | null> {
     const supabase = getSupabase();
-    const path = `${conversationId}/${providerMessageId}.${mediaExtension(media.mimeType, media.fileName)}`;
+    // Server-generated name, never the provider's message id (payload data),
+    // and never overwriting: a duplicate delivery leaves a harmless orphan file
+    // (the message row itself is deduplicated) instead of replacing one.
+    const { contentType, ext } = storageMedia(media.mimeType, media.fileName);
+    const path = `${conversationId}/${randomUUID()}.${ext}`;
     const buffer = Buffer.from(media.base64, 'base64');
 
     const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, buffer, {
-      contentType: media.mimeType,
-      upsert: true,
+      contentType,
+      upsert: false,
     });
     if (error) {
       logger.warn({ err: error.message, path, kind: media.kind }, '[repo] failed to upload inbound media');
@@ -725,7 +768,7 @@ class ConversationRepository {
     const sentAt = input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString();
 
     const mediaUrl = input.media
-      ? await this.uploadInboundMedia(input.conversationId, input.providerMessageId, input.media)
+      ? await this.uploadInboundMedia(input.conversationId, input.media)
       : null;
 
     const sender = input.sender && (input.sender.name || input.sender.phone)
@@ -973,11 +1016,11 @@ class ConversationRepository {
    *  error should surface rather than silently degrade. */
   async storeOutboundMedia(conversationId: string, base64: string, mimeType: string, fileName?: string): Promise<string> {
     const supabase = getSupabase();
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-    const path = `${conversationId}/out-${unique}.${mediaExtension(mimeType, fileName)}`;
+    const { contentType, ext } = storageMedia(mimeType, fileName);
+    const path = `${conversationId}/out-${randomUUID()}.${ext}`;
     const buffer = Buffer.from(base64, 'base64');
 
-    const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, buffer, { contentType: mimeType, upsert: true });
+    const { error } = await supabase.storage.from(MEDIA_BUCKET).upload(path, buffer, { contentType, upsert: false });
     if (error) throw new Error(`[repo] failed to upload outbound media: ${error.message}`);
     return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
   }

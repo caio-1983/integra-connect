@@ -32,6 +32,71 @@ const DEFAULT_MIME: Record<string, string> = {
 };
 
 /**
+ * Hosts Meta serves attachment downloads from (Messenger/Instagram CDN). The URL
+ * comes from the webhook payload, so without this a forged event could make the
+ * server fetch any address it can reach: Evolution, Supabase, cloud metadata.
+ */
+const META_CDN_HOST_SUFFIXES = ['.fbcdn.net', '.fbsbx.com', '.cdninstagram.com'];
+const META_CDN_HOSTS = new Set(['lookaside.fbsbx.com', 'lookaside.facebook.com']);
+const MAX_REDIRECTS = 3;
+
+export function isAllowedMetaMediaUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:' || url.username || url.password) return false;
+  if (url.port && url.port !== '443') return false;
+  const host = url.hostname.toLowerCase();
+  return META_CDN_HOSTS.has(host) || META_CDN_HOST_SUFFIXES.some((suffix) => host.endsWith(suffix));
+}
+
+/**
+ * fetch() that follows redirects by hand, re-checking every hop against the
+ * CDN allowlist — an allowed host must not be able to bounce the request to an
+ * internal address.
+ */
+async function fetchFromMetaCdn(url: string): Promise<Response | null> {
+  let current = url;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    if (!isAllowedMetaMediaUrl(current)) {
+      logger.warn({ hop }, '[meta] attachment URL outside the Meta CDN allowlist — skipped');
+      return null;
+    }
+    const response = await fetch(current, { redirect: 'manual' });
+    const location = response.headers.get('location');
+    if (response.status >= 300 && response.status < 400 && location) {
+      current = new URL(location, current).toString();
+      continue;
+    }
+    return response;
+  }
+  logger.warn('[meta] attachment download exceeded the redirect limit');
+  return null;
+}
+
+/** Reads a body up to `limit` bytes; null (and the stream cancelled) past it. */
+async function readCapped(response: Response, limit: number): Promise<Buffer | null> {
+  if (!response.body) return Buffer.alloc(0);
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > limit) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
+}
+
+/**
  * Downloads an inbound attachment to base64.
  *
  * Must happen on receipt: Meta's attachment URLs are signed and expire, so
@@ -41,23 +106,25 @@ const DEFAULT_MIME: Record<string, string> = {
  */
 async function downloadAttachment(url: string, kind: string): Promise<{ base64: string; mimeType: string } | null> {
   try {
-    const response = await fetch(url);
+    const response = await fetchFromMetaCdn(url);
+    if (!response) return null;
     if (!response.ok) {
       logger.warn({ status: response.status, kind }, '[meta] attachment download failed');
       return null;
     }
 
-    // Trust the declared length when present, but still measure after reading —
+    // Trust the declared length when present, but still count while reading —
     // a missing or lying Content-Length must not bypass the cap.
     const declared = Number(response.headers.get('content-length') ?? 0);
     if (declared > MAX_INBOUND_MEDIA_BYTES) {
       logger.warn({ declared, kind }, '[meta] attachment exceeds size cap — skipped');
+      await response.body?.cancel().catch(() => undefined);
       return null;
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.byteLength > MAX_INBOUND_MEDIA_BYTES) {
-      logger.warn({ bytes: buffer.byteLength, kind }, '[meta] attachment exceeds size cap after download — skipped');
+    const buffer = await readCapped(response, MAX_INBOUND_MEDIA_BYTES);
+    if (!buffer) {
+      logger.warn({ kind }, '[meta] attachment exceeds size cap while downloading — skipped');
       return null;
     }
 

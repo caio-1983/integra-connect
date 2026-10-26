@@ -1,7 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { runAgentChat } from '../runtime/AgentRuntime.js';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, authUserOf, BEARER_SECURITY } from '../middleware/auth.js';
+import { accessRepository, isUuid } from '../persistence/AccessRepository.js';
 import { configService } from '../config/ConfigService.js';
 
 const AGENT_IDS = ['atendimento', 'comercial', 'financeiro', 'suporte', 'recepcao'] as const;
@@ -39,7 +40,7 @@ export async function agentChatRoutes(app: FastifyInstance): Promise<void> {
       tags: ['agents'],
       summary: 'Chat with an agent',
       description: 'Runs the AI Runtime pipeline (context, memory, knowledge, prompt, model, tools, handoff) for the given agent and returns the final answer.',
-      security: [{ bearerAuth: [] }],
+      security: BEARER_SECURITY,
     },
   }, async (request, reply) => {
     const paramsResult = paramsSchema.safeParse(request.params);
@@ -53,12 +54,20 @@ export async function agentChatRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
+      // A real conversation id must be one this user can see: the runtime's
+      // memory and tools are scoped by it. Non-UUID ids are the playground's
+      // synthetic threads (/ia/testes), which no stored conversation can match.
+      const { conversationId } = bodyResult.data;
+      if (isUuid(conversationId) && !(await accessRepository.canAccessConversation(conversationId, authUserOf(request).id))) {
+        return reply.code(404).send({ error: 'Conversa não encontrada.' });
+      }
+
       const organizationId = (request.headers['x-organization-id'] as string | undefined) ?? 'default-org';
       const response = await runAgentChat(paramsResult.data.agentId, bodyResult.data, organizationId);
       return reply.send(response);
     } catch (error) {
       request.log.error(error);
-      return reply.code(502).send({ error: error instanceof Error ? error.message : 'Erro ao processar a mensagem.' });
+      return reply.code(502).send({ error: 'Erro ao processar a mensagem.' });
     }
   });
 }

@@ -33,6 +33,9 @@ export interface CampaignLead {
   adName: string | null;
   /** Lu's read of the conversation (scripts/detectSales.ts), when it ran on this deal. */
   lu: LuSaleRead | null;
+  wonAt: string | null;
+  /** deals.owner_id → team_members.id */
+  ownerId: string | null;
 }
 
 export interface LuSaleRead {
@@ -58,6 +61,7 @@ interface DealRow {
   lost_at: string | null;
   lost_reason_code: string | null;
   campaign_id: string | null;
+  owner_id: string | null;
   contact: { name: string | null; call_name: string | null; phone_number: string | null } | null;
 }
 
@@ -66,7 +70,7 @@ async function fetchDealsCreatedIn(period: Period): Promise<DealRow[]> {
   for (let offset = 0; ; offset += PAGE) {
     const { data, error } = await supabase
       .from('deals')
-      .select('id, contact_id, created_at, value, won_at, lost_at, lost_reason_code, campaign_id, contact:contacts(name, call_name, phone_number)')
+      .select('id, contact_id, created_at, value, won_at, lost_at, lost_reason_code, campaign_id, owner_id, contact:contacts(name, call_name, phone_number)')
       .gte('created_at', period.from.toISOString())
       .lt('created_at', period.to.toISOString())
       .order('created_at', { ascending: false })
@@ -168,7 +172,210 @@ export async function fetchCampaignLeads(
       campaignName: campaignId ? (campaignNames.get(campaignId) ?? origin?.campaignName ?? null) : null,
       adName: origin?.adName ?? null,
       lu: luReads.get(d.id) ?? null,
+      wonAt: d.won_at,
+      ownerId: d.owner_id,
     });
   }
   return leads;
+}
+
+/**
+ * Sales CLOSED in the period (by won_at), whenever the lead arrived — the
+ * same rule as "Faturamento por campanha" and the one prizes are paid on.
+ * The scoreboard above is a cohort view and answers a different question.
+ */
+export async function fetchCampaignWins(
+  period: Period,
+  campaignNames: Map<string, string>,
+): Promise<CampaignLead[]> {
+  const deals: DealRow[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase
+      .from('deals')
+      .select('id, contact_id, created_at, value, won_at, lost_at, lost_reason_code, campaign_id, owner_id, contact:contacts(name, call_name, phone_number)')
+      .gte('won_at', period.from.toISOString())
+      .lt('won_at', period.to.toISOString())
+      .order('won_at', { ascending: false })
+      .range(offset, offset + PAGE - 1);
+    if (error) throw error;
+    deals.push(...((data ?? []) as unknown as DealRow[]));
+    if (!data || data.length < PAGE) break;
+  }
+  const contactIds = [...new Set(deals.map((d) => d.contact_id).filter((id): id is string => !!id))];
+  const [origins, luReads] = await Promise.all([fetchOrigins(contactIds), fetchLuReads(deals.map((d) => d.id))]);
+
+  const wins: CampaignLead[] = [];
+  for (const d of deals) {
+    const origin = d.contact_id ? origins.get(d.contact_id) : undefined;
+    const campaignId = d.campaign_id ?? origin?.campaignId ?? null;
+    if (!campaignId) continue;
+    wins.push({
+      dealId: d.id,
+      contactId: d.contact_id,
+      contactName: d.contact?.call_name || d.contact?.name || d.contact?.phone_number || 'Contato sem nome',
+      phone: d.contact?.phone_number ?? null,
+      createdAt: d.created_at ?? '',
+      value: d.value ?? 0,
+      outcome: 'won',
+      lostReasonCode: null,
+      campaignId,
+      campaignName: campaignNames.get(campaignId) ?? origin?.campaignName ?? null,
+      adName: origin?.adName ?? null,
+      lu: luReads.get(d.id) ?? null,
+      wonAt: d.won_at,
+      ownerId: d.owner_id,
+    });
+  }
+  return wins;
+}
+
+export interface Attendant {
+  /** team_members.id, or null for phone replies on a number with no known owner. */
+  memberId: string | null;
+  name: string;
+  messages: number;
+  /** Of `messages`, how many were typed on the phone and credited by number. */
+  phoneMessages: number;
+  firstAt: string;
+  lastAt: string;
+}
+
+export interface TeamMemberRef {
+  id: string;
+  userId: string | null;
+  name: string;
+  hidden: boolean;
+}
+
+export async function fetchTeamMembers(): Promise<TeamMemberRef[]> {
+  const { data, error } = await (supabase as any)
+    .from('team_members')
+    .select('id, user_id, name, hidden');
+  if (error) throw error;
+  return ((data ?? []) as Array<{ id: string; user_id: string | null; name: string; hidden: boolean | null }>)
+    .map((m) => ({ id: m.id, userId: m.user_id, name: m.name, hidden: !!m.hidden }));
+}
+
+/**
+ * Owner of each WhatsApp number. Each attendant works a single number, so a
+ * number granted to exactly one visible member is hers; otherwise (admins
+ * with several grants, no grants yet) the member who sends the most app
+ * replies on it in the last 90 days.
+ */
+async function fetchInstanceOwners(members: TeamMemberRef[]): Promise<Map<string, TeamMemberRef>> {
+  const byUser = new Map(members.filter((m) => m.userId && !m.hidden).map((m) => [m.userId as string, m]));
+  const owners = new Map<string, TeamMemberRef>();
+
+  const { data: grants } = await supabase.from('whatsapp_instance_access').select('instance_name, user_id');
+  const grantedTo = new Map<string, TeamMemberRef[]>();
+  for (const g of grants ?? []) {
+    const m = byUser.get(g.user_id);
+    if (!m) continue;
+    grantedTo.set(g.instance_name, [...(grantedTo.get(g.instance_name) ?? []), m]);
+  }
+  for (const [instance, list] of grantedTo) if (list.length === 1) owners.set(instance, list[0]);
+
+  const since = new Date(Date.now() - 90 * 86_400_000).toISOString();
+  const tally = new Map<string, Map<string, number>>();
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('sent_by, conversation:conversations(metadata)')
+      .not('sent_by', 'is', null)
+      .gte('sent_at', since)
+      .range(offset, offset + PAGE - 1);
+    if (error) break;
+    for (const row of (data ?? []) as unknown as Array<{ sent_by: string; conversation: { metadata: { instance?: string } | null } | null }>) {
+      const instance = row.conversation?.metadata?.instance;
+      if (!instance || owners.has(instance) || !byUser.has(row.sent_by)) continue;
+      const t = tally.get(instance) ?? new Map<string, number>();
+      tally.set(instance, t);
+      t.set(row.sent_by, (t.get(row.sent_by) ?? 0) + 1);
+    }
+    if (!data || data.length < PAGE) break;
+  }
+  for (const [instance, t] of tally) {
+    if (owners.has(instance)) continue;
+    const [top] = [...t.entries()].sort((a, b) => b[1] - a[1]);
+    if (top) owners.set(instance, byUser.get(top[0]) as TeamMemberRef);
+  }
+  return owners;
+}
+
+/**
+ * Who answered each contact, from the human replies in all of its
+ * conversations (one per WhatsApp number). Replies typed on the phone carry
+ * no sent_by and go to the owner of the number they left from; the hidden
+ * maintenance account is skipped.
+ */
+export async function fetchAttendants(
+  contactIds: string[],
+  members: TeamMemberRef[],
+): Promise<Map<string, Attendant[]>> {
+  const byUser = new Map(members.filter((m) => m.userId).map((m) => [m.userId as string, m]));
+  const owners = await fetchInstanceOwners(members);
+  const contactByConversation = new Map<string, string>();
+  const instanceByConversation = new Map<string, string>();
+  for (let i = 0; i < contactIds.length; i += IN_CHUNK) {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('id, contact_id, metadata')
+      .in('contact_id', contactIds.slice(i, i + IN_CHUNK));
+    if (error) throw error;
+    for (const c of data ?? []) {
+      if (c.contact_id) contactByConversation.set(c.id, c.contact_id);
+      const instance = (c.metadata as { instance?: string } | null)?.instance;
+      if (instance) instanceByConversation.set(c.id, instance);
+    }
+  }
+
+  const acc = new Map<string, Map<string, Attendant>>();
+  const conversationIds = [...contactByConversation.keys()];
+  for (let i = 0; i < conversationIds.length; i += IN_CHUNK) {
+    const chunk = conversationIds.slice(i, i + IN_CHUNK);
+    for (let offset = 0; ; offset += PAGE) {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('conversation_id, sent_by, sent_at')
+        .in('conversation_id', chunk)
+        .eq('from_type', 'human')
+        .order('sent_at', { ascending: true })
+        .range(offset, offset + PAGE - 1);
+      if (error) throw error;
+      for (const m of data ?? []) {
+        const contactId = contactByConversation.get(m.conversation_id);
+        if (!contactId) continue;
+        const fromPhone = !m.sent_by;
+        const instance = instanceByConversation.get(m.conversation_id);
+        const member = m.sent_by ? byUser.get(m.sent_by) : instance ? owners.get(instance) : undefined;
+        if (member?.hidden) continue;
+        const key = member?.id ?? (m.sent_by ? `user:${m.sent_by}` : 'phone');
+        const perContact = acc.get(contactId) ?? new Map<string, Attendant>();
+        acc.set(contactId, perContact);
+        const entry = perContact.get(key);
+        if (entry) {
+          entry.messages += 1;
+          if (fromPhone) entry.phoneMessages += 1;
+          if (m.sent_at < entry.firstAt) entry.firstAt = m.sent_at;
+          if (m.sent_at > entry.lastAt) entry.lastAt = m.sent_at;
+        } else {
+          perContact.set(key, {
+            memberId: member?.id ?? null,
+            name: member?.name ?? (m.sent_by ? 'Ex-integrante' : 'Pelo celular'),
+            messages: 1,
+            phoneMessages: fromPhone ? 1 : 0,
+            firstAt: m.sent_at,
+            lastAt: m.sent_at,
+          });
+        }
+      }
+      if (!data || data.length < PAGE) break;
+    }
+  }
+
+  const result = new Map<string, Attendant[]>();
+  for (const [contactId, perContact] of acc) {
+    result.set(contactId, [...perContact.values()].sort((a, b) => a.firstAt.localeCompare(b.firstAt)));
+  }
+  return result;
 }

@@ -54,6 +54,9 @@ export function configuredMetaAccounts(): string[] {
 }
 
 async function graphPost(instance: string, path: string, body: Record<string, unknown>): Promise<Record<string, any>> {
+  // `instance` is a configured account id (it must have a token), but it still
+  // goes into the path: no `/`, `?`, `#` or `.` that could reshape it.
+  if (!/^[\w-]{1,64}$/.test(instance)) throw new Error(`[meta] id de conta inválido: "${instance}".`);
   const url = `${GRAPH_BASE}/${path}?access_token=${encodeURIComponent(tokenFor(instance))}`;
   const response = await fetch(url, {
     method: 'POST',
@@ -115,8 +118,12 @@ export const metaClient = {
    *  Best-effort: Instagram often withholds the profile, and a missing name must
    *  never block ingesting the message. */
   async fetchSenderName(instance: string, senderId: string): Promise<string | undefined> {
+    // PSIDs/IGSIDs are numeric. The id comes from the webhook payload, so it is
+    // checked before going into the Graph path (no `../`, `?` or `#` tricks with
+    // our page token attached).
+    if (!/^\d{1,32}$/.test(senderId)) return undefined;
     try {
-      const url = `${GRAPH_BASE}/${senderId}?fields=name,username&access_token=${encodeURIComponent(tokenFor(instance))}`;
+      const url = `${GRAPH_BASE}/${encodeURIComponent(senderId)}?fields=name,username&access_token=${encodeURIComponent(tokenFor(instance))}`;
       const response = await fetch(url);
       if (!response.ok) return undefined;
       const json = (await response.json()) as { name?: string; username?: string };

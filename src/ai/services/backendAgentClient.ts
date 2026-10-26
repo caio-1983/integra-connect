@@ -16,7 +16,7 @@ import { backendAuthOnlyHeaders, backendBaseUrl, backendHeaders } from '@/servic
 export async function chatWithBackendAgent(agentId: AgentId, context: AgentContext): Promise<AgentExecutionResult> {
   const response = await fetch(`${backendBaseUrl()}/v1/agents/${agentId}/chat`, {
     method: 'POST',
-    headers: backendHeaders(),
+    headers: await backendHeaders(),
     body: JSON.stringify({
       conversationId: context.conversationId,
       contactId: context.contactId,
@@ -47,7 +47,7 @@ export async function chatWithBackendAgent(agentId: AgentId, context: AgentConte
 export async function fetchConversationSummary(conversationId: string): Promise<ConversationSummary> {
   const response = await fetch(`${backendBaseUrl()}/v1/conversations/${encodeURIComponent(conversationId)}/summary`, {
     method: 'POST',
-    headers: backendAuthOnlyHeaders(),
+    headers: await backendAuthOnlyHeaders(),
   });
 
   if (!response.ok) {
@@ -66,7 +66,7 @@ export async function fetchConversationSummary(conversationId: string): Promise<
 export async function fetchConversationInsight(conversationId: string, mode: InsightMode = 'default'): Promise<ConversationInsight | null> {
   const response = await fetch(`${backendBaseUrl()}/v1/conversations/${encodeURIComponent(conversationId)}/insight`, {
     method: 'POST',
-    headers: backendHeaders(),
+    headers: await backendHeaders(),
     body: JSON.stringify({ mode }),
   });
 

@@ -6,3 +6,9 @@ dist-ssr
 .env.local
 backend
 graphify-out
+backups
+arquivos
+.venv
+.claude
+docs
+*.sql

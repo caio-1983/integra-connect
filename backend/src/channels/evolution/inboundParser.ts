@@ -340,9 +340,9 @@ const STATUS_MAP: Record<string, MessageDeliveryStatus> = {
 /**
  * Shared across v1 and v2. Delivery-status updates (Evolution's
  * `messages.update`) are less standardized across versions than inbound
- * messages, so the raw payload is logged until the exact shape is confirmed
- * against a live server — adjust STATUS_MAP / the field lookups below once
- * verified rather than assuming.
+ * messages — adjust STATUS_MAP / the field lookups below against a live server
+ * rather than assuming. The raw payload is no longer logged: it carries
+ * customer phone numbers (remoteJid) on every status tick.
  */
 export function parseStatusUpdate(rawBody: unknown): NormalizedStatusUpdate | null {
   const body = (rawBody ?? {}) as Record<string, any>;
@@ -352,7 +352,6 @@ export function parseStatusUpdate(rawBody: unknown): NormalizedStatusUpdate | nu
   if (!instance) return null;
 
   const raw = body.data;
-  logger.info({ instance, data: raw }, '[evolution] messages.update raw payload');
 
   const entries = Array.isArray(raw) ? raw : [raw];
   for (const entry of entries) {

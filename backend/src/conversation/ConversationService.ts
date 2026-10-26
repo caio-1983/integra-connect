@@ -226,9 +226,9 @@ const EDIT_WINDOW_MS = 15 * 60 * 1000;
  * An operator correcting a text message they sent from the platform ("Editar",
  * as in WhatsApp). Restricted to their own messages: in a shared inbox the
  * wire text carries the author's `*Nome*` signature, so editing a colleague's
- * reply would put new words under their name. `operatorId` is self-asserted
- * like everywhere else on this gateway, so this rule is about attribution, not
- * security.
+ * reply would put new words under their name. `operatorId` is the user behind
+ * the verified session token (the route never takes it from the body), so this
+ * rule holds as an authorization check, not just attribution.
  */
 export async function requestMessageEdit(
   conversationId: string,
@@ -444,7 +444,7 @@ export interface StartConversationResult { conversationId: string; contactId: st
  * an empty thread and type the first message (routed via the same
  * requestManualReply/OutboundMessageRequested pipeline once they send it).
  */
-export async function startConversation(instance: string, phone: string, name?: string, operatorId?: string): Promise<StartConversationResult> {
+export async function startConversation(instance: string, phone: string, name: string | undefined, operatorId: string): Promise<StartConversationResult> {
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 10) throw new Error('Número de telefone inválido.');
 

@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { authMiddleware } from '../middleware/auth.js';
+import { authMiddleware, authUserOf, BEARER_SECURITY } from '../middleware/auth.js';
+import { requireConversationAccess, isValidInstanceName, userCanAccessInstance } from '../middleware/access.js';
+import { clientErrorMessage } from '../utils/httpErrors.js';
 import { requestManualReply, requestManualMediaReply, requestManualPixReply, requestMessageEdit, startConversation } from '../conversation/ConversationService.js';
 import { evolutionConnectionService } from '../channels/evolution/EvolutionConnectionService.js';
 import { summarizeConversation } from '../conversation/ConversationSummaryService.js';
@@ -10,13 +12,10 @@ import { transcriptionService } from '../transcription/TranscriptionService.js';
 
 const paramsSchema = z.object({ conversationId: z.string().min(1) });
 
-// `operatorId` is the authenticated frontend user's auth.users id, persisted to
-// `messages.sent_by` so per-attendant supervision is possible at all (from_type
-// only distinguishes user/nina/human). It is SELF-ASSERTED: this endpoint
-// authenticates with a shared GATEWAY_API_KEY and has no per-user identity, so
-// the value is sound for attribution and reporting and must never be used for
-// authorization. Optional so an older frontend build keeps working — the message
-// just lands unattributed.
+// The author of a reply (`messages.sent_by`, the signature, the "only your own
+// message" edit rule) is the user behind the verified session token
+// (request.authUser), never the body. `operatorId` is still accepted so an older
+// frontend build does not fail, but it is ignored.
 const bodySchema = z.object({
   content: z.string().min(1),
   operatorId: z.string().uuid().optional(),
@@ -37,7 +36,8 @@ const mediaBodySchema = z.object({
 const OPERATOR_ID_DOC = {
   type: 'string',
   format: 'uuid',
-  description: 'ID do operador (auth.users.id) que enviou — gravado em messages.sent_by para o relatório por atendente. Auto-declarado: use apenas para atribuição, nunca para autorização.',
+  deprecated: true,
+  description: 'Ignorado. O autor (messages.sent_by) é o usuário do token de sessão; o campo só é aceito para compatibilidade com builds antigos do frontend.',
 } as const;
 
 const mediaBodyJsonSchema = {
@@ -69,7 +69,7 @@ const replyBodyJsonSchema = {
 const editParamsSchema = z.object({ conversationId: z.string().min(1), messageId: z.string().uuid() });
 const editBodySchema = z.object({
   content: z.string().trim().min(1),
-  operatorId: z.string().uuid(),
+  operatorId: z.string().uuid().optional(),
 });
 
 const editParamsJsonSchema = {
@@ -83,10 +83,10 @@ const editParamsJsonSchema = {
 
 const editBodyJsonSchema = {
   type: 'object',
-  required: ['content', 'operatorId'],
+  required: ['content'],
   properties: {
-    content: { type: 'string', minLength: 1, description: 'Novo texto da mensagem.' },
-    operatorId: { ...OPERATOR_ID_DOC, description: 'ID do operador que está editando. Só a própria mensagem pode ser editada. Auto-declarado: use apenas para atribuição, nunca para autorização.' },
+    content: { type: 'string', minLength: 1, description: 'Novo texto da mensagem. Só a própria mensagem (do usuário do token) pode ser editada.' },
+    operatorId: OPERATOR_ID_DOC,
   },
 } as const;
 
@@ -157,29 +157,42 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     schema: {
       tags: ['conversations'],
       summary: 'Find or create a contact + conversation ahead of the first message ("Nova Conversa")',
-      security: [{ bearerAuth: [] }],
+      security: BEARER_SECURITY,
       body: startBodyJsonSchema,
     },
   }, async (request, reply) => {
     const parsed = startBodySchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'instance e phone são obrigatórios' });
+    const { instance } = parsed.data;
+    if (!isValidInstanceName(instance)) return reply.code(400).send({ error: 'Nome de instância inválido.' });
 
     try {
-      const result = await startConversation(parsed.data.instance, parsed.data.phone, parsed.data.name);
+      // Only from a number this user works on, and one that really exists in
+      // Evolution: otherwise anyone could open threads under any number, or
+      // park conversations on an instance name that does not exist.
+      if (!(await userCanAccessInstance(authUserOf(request), instance))) {
+        return reply.code(404).send({ error: 'Instância não encontrada.' });
+      }
+      const instances = await evolutionConnectionService.listInstances();
+      if (!instances.some((i) => i.name === instance)) {
+        return reply.code(404).send({ error: 'Instância não encontrada.' });
+      }
+
+      const result = await startConversation(instance, parsed.data.phone, parsed.data.name, authUserOf(request).id);
       return reply.send(result);
     } catch (error) {
       request.log.error(error);
-      return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao iniciar conversa.' });
+      return reply.code(400).send({ error: clientErrorMessage(error, 'Erro ao iniciar conversa.') });
     }
   });
 
   app.get('/v1/conversations/:conversationId/group-participants', {
-    preHandler: authMiddleware,
+    preHandler: [authMiddleware, requireConversationAccess],
     validatorCompiler: noopValidator,
     schema: {
       tags: ['conversations'],
       summary: 'List a WhatsApp group conversation\'s current members',
-      security: [{ bearerAuth: [] }],
+      security: BEARER_SECURITY,
       params: conversationParamsJsonSchema,
     },
   }, async (request, reply) => {
@@ -190,12 +203,12 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
       return reply.send(await evolutionConnectionService.getGroupParticipants(parsed.data.conversationId));
     } catch (error) {
       request.log.error(error);
-      return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao carregar participantes.' });
+      return reply.code(400).send({ error: clientErrorMessage(error, 'Erro ao carregar participantes.') });
     }
   });
 
   app.post('/v1/conversations/:conversationId/summary', {
-    preHandler: authMiddleware,
+    preHandler: [authMiddleware, requireConversationAccess],
     validatorCompiler: noopValidator,
     // Each call pays for a real model request — same bound as agent chat.
     config: {
@@ -207,7 +220,7 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     schema: {
       tags: ['conversations'],
       summary: 'Summarize a conversation with Lu (motivo, contexto, pendências, última ação, próximo passo)',
-      security: [{ bearerAuth: [] }],
+      security: BEARER_SECURITY,
       params: conversationParamsJsonSchema,
     },
   }, async (request, reply) => {
@@ -218,12 +231,12 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
       return reply.send(await summarizeConversation(parsed.data.conversationId));
     } catch (error) {
       request.log.error(error);
-      return reply.code(502).send({ error: error instanceof Error ? error.message : 'Erro ao gerar o resumo.' });
+      return reply.code(502).send({ error: 'Erro ao gerar o resumo.' });
     }
   });
 
   app.post('/v1/conversations/:conversationId/insight', {
-    preHandler: authMiddleware,
+    preHandler: [authMiddleware, requireConversationAccess],
     validatorCompiler: noopValidator,
     // A cache miss pays for a real model request — same bound as the summary.
     config: {
@@ -235,7 +248,7 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     schema: {
       tags: ['conversations'],
       summary: 'Lu copilot insight: suggested reply, customer need, detected fields, missing info and next steps',
-      security: [{ bearerAuth: [] }],
+      security: BEARER_SECURITY,
       params: conversationParamsJsonSchema,
       body: insightBodyJsonSchema,
     },
@@ -250,17 +263,17 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
       return insight ? reply.send(insight) : reply.code(204).send();
     } catch (error) {
       request.log.error(error);
-      return reply.code(502).send({ error: error instanceof Error ? error.message : 'Erro ao gerar a sugestão.' });
+      return reply.code(502).send({ error: 'Erro ao gerar a sugestão.' });
     }
   });
 
   app.post('/v1/conversations/:conversationId/reply', {
-    preHandler: authMiddleware,
+    preHandler: [authMiddleware, requireConversationAccess],
     validatorCompiler: noopValidator,
     schema: {
       tags: ['conversations'],
       summary: 'Send a human operator reply',
-      security: [{ bearerAuth: [] }],
+      security: BEARER_SECURITY,
       params: conversationParamsJsonSchema,
       body: replyBodyJsonSchema,
     },
@@ -275,23 +288,23 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
       await requestManualReply(
         paramsResult.data.conversationId,
         bodyResult.data.content,
-        bodyResult.data.operatorId,
+        authUserOf(request).id,
         bodyResult.data.replyToMessageId,
       );
       return reply.code(202).send({ accepted: true });
     } catch (error) {
       request.log.error(error);
-      return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao enviar resposta.' });
+      return reply.code(400).send({ error: clientErrorMessage(error, 'Erro ao enviar resposta.') });
     }
   });
 
   app.post('/v1/conversations/:conversationId/messages/:messageId/edit', {
-    preHandler: authMiddleware,
+    preHandler: [authMiddleware, requireConversationAccess],
     validatorCompiler: noopValidator,
     schema: {
       tags: ['conversations'],
       summary: 'Edit the text of an operator\'s own message (WhatsApp, up to 15 minutes after sending)',
-      security: [{ bearerAuth: [] }],
+      security: BEARER_SECURITY,
       params: editParamsJsonSchema,
       body: editBodyJsonSchema,
     },
@@ -300,24 +313,24 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     if (!paramsResult.success) return reply.code(400).send({ error: 'conversationId e messageId obrigatórios' });
 
     const bodyResult = editBodySchema.safeParse(request.body);
-    if (!bodyResult.success) return reply.code(400).send({ error: 'content e operatorId obrigatórios' });
+    if (!bodyResult.success) return reply.code(400).send({ error: 'content obrigatório' });
 
     try {
       await requestMessageEdit(
         paramsResult.data.conversationId,
         paramsResult.data.messageId,
         bodyResult.data.content,
-        bodyResult.data.operatorId,
+        authUserOf(request).id,
       );
       return reply.send({ edited: true });
     } catch (error) {
       request.log.error(error);
-      return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao editar mensagem.' });
+      return reply.code(400).send({ error: clientErrorMessage(error, 'Erro ao editar mensagem.') });
     }
   });
 
   app.post('/v1/conversations/:conversationId/messages/:messageId/transcribe', {
-    preHandler: authMiddleware,
+    preHandler: [authMiddleware, requireConversationAccess],
     validatorCompiler: noopValidator,
     // Each call may pay for a real transcription request.
     config: {
@@ -329,7 +342,7 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     schema: {
       tags: ['conversations'],
       summary: 'Transcribe a customer voice note (manual retry / old audio). The text lands on messages.transcription.',
-      security: [{ bearerAuth: [] }],
+      security: BEARER_SECURITY,
       params: editParamsJsonSchema,
     },
   }, async (request, reply) => {
@@ -342,13 +355,13 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
   });
 
   app.post('/v1/conversations/:conversationId/reply-media', {
-    preHandler: authMiddleware,
+    preHandler: [authMiddleware, requireConversationAccess],
     bodyLimit: MEDIA_BODY_LIMIT,
     validatorCompiler: noopValidator,
     schema: {
       tags: ['conversations'],
       summary: 'Send a human operator media reply (image/video/audio/document)',
-      security: [{ bearerAuth: [] }],
+      security: BEARER_SECURITY,
       params: conversationParamsJsonSchema,
       body: mediaBodyJsonSchema,
     },
@@ -360,21 +373,21 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     if (!bodyResult.success) return reply.code(400).send({ error: 'base64 e mimeType obrigatórios' });
 
     try {
-      await requestManualMediaReply(paramsResult.data.conversationId, bodyResult.data);
+      await requestManualMediaReply(paramsResult.data.conversationId, { ...bodyResult.data, operatorId: authUserOf(request).id });
       return reply.code(202).send({ accepted: true });
     } catch (error) {
       request.log.error(error);
-      return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao enviar anexo.' });
+      return reply.code(400).send({ error: clientErrorMessage(error, 'Erro ao enviar anexo.') });
     }
   });
 
   app.post('/v1/conversations/:conversationId/reply-pix', {
-    preHandler: authMiddleware,
+    preHandler: [authMiddleware, requireConversationAccess],
     validatorCompiler: noopValidator,
     schema: {
       tags: ['conversations'],
       summary: 'Send the company\'s registered Pix key as a card with a "Copiar chave Pix" button',
-      security: [{ bearerAuth: [] }],
+      security: BEARER_SECURITY,
       params: conversationParamsJsonSchema,
       body: pixBodyJsonSchema,
     },
@@ -386,11 +399,11 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     if (!bodyResult.success) return reply.code(400).send({ error: 'operatorId inválido' });
 
     try {
-      await requestManualPixReply(paramsResult.data.conversationId, bodyResult.data?.operatorId);
+      await requestManualPixReply(paramsResult.data.conversationId, authUserOf(request).id);
       return reply.code(202).send({ accepted: true });
     } catch (error) {
       request.log.error(error);
-      return reply.code(400).send({ error: error instanceof Error ? error.message : 'Erro ao enviar a chave Pix.' });
+      return reply.code(400).send({ error: clientErrorMessage(error, 'Erro ao enviar a chave Pix.') });
     }
   });
 }

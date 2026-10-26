@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Loader2, Megaphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/Button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,9 +16,11 @@ import {
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { api } from '@/services/api';
 import { fetchCampaigns, updateCampaign } from '@/services/attributionService';
-import { PERIOD_PRESETS, resolvePeriod, type PeriodPreset } from '@/services/analyticsService';
-import { fetchCampaignLeads, type CampaignLead, type LeadOutcome } from '@/services/campaignScoreboardService';
+import { PERIOD_PRESETS, resolvePeriod, type Period, type PeriodPreset } from '@/services/analyticsService';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { fetchCampaignLeads, fetchCampaignWins, type CampaignLead, type LeadOutcome } from '@/services/campaignScoreboardService';
 import { formatCurrency } from '@/lib/formatCurrency';
+import { CampaignWonDetails } from '@/components/campaigns/CampaignWonDetails';
 import type { Campaign } from '@/types';
 
 /**
@@ -93,8 +94,17 @@ function isEnded(campaign: Campaign | undefined): boolean {
 const dateTime = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 const shortDate = (iso: string) => iso.split('-').reverse().slice(0, 2).join('/');
 
-/** "nos últimos 30 dias" / "em setembro de 2026" — period labels need their own preposition. */
+const ALL_TIME: Period = {
+  from: new Date(2000, 0, 1),
+  to: new Date(Date.now() + 86_400_000),
+  prevFrom: new Date(2000, 0, 1),
+  prevTo: new Date(2000, 0, 1),
+  label: 'desde o início',
+};
+
+/** "desde o início" / "nos últimos 30 dias" / "em setembro de 2026" — period labels need their own preposition. */
 function inPeriod(label: string): string {
+  if (label === ALL_TIME.label) return label;
   return label.startsWith('últimos') ? `nos ${label}` : `em ${label}`;
 }
 
@@ -111,8 +121,11 @@ const Mark: React.FC<{ outcome: LeadOutcome }> = ({ outcome }) => {
 };
 
 export const CampaignScoreboard: React.FC = () => {
-  const [preset, setPreset] = useState<PeriodPreset>('30d');
-  const period = useMemo(() => resolvePeriod(preset), [preset]);
+  // Starts with no period: the question is which campaign brings the most
+  // money overall. Over all time the cohort count and the sales-date count are
+  // the same set, so this screen and Detalhes agree.
+  const [preset, setPreset] = useState<PeriodPreset | 'all'>('all');
+  const period = useMemo(() => (preset === 'all' ? ALL_TIME : resolvePeriod(preset)), [preset]);
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [lossLabels, setLossLabels] = useState<Map<string, string>>(new Map());
@@ -123,6 +136,13 @@ export const CampaignScoreboard: React.FC = () => {
   const [showAllPeople, setShowAllPeople] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState<CampaignGroup | null>(null);
   const [ending, setEnding] = useState(false);
+  const [detailsFor, setDetailsFor] = useState<CampaignGroup | null>(null);
+  const [wins, setWins] = useState<CampaignLead[]>([]);
+  const winsByCampaign = useMemo(() => {
+    const map = new Map<string, CampaignLead[]>();
+    for (const w of wins) if (w.campaignId) map.set(w.campaignId, [...(map.get(w.campaignId) ?? []), w]);
+    return map;
+  }, [wins]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -131,7 +151,10 @@ export const CampaignScoreboard: React.FC = () => {
       const [c, reasons] = await Promise.all([fetchCampaigns(), api.fetchLossReasons()]);
       setCampaigns(c);
       setLossLabels(new Map(reasons.map((r) => [r.key, r.label])));
-      setLeads(await fetchCampaignLeads(period, new Map(c.map((x) => [x.id, x.name]))));
+      const names = new Map(c.map((x) => [x.id, x.name]));
+      const [l, w] = await Promise.all([fetchCampaignLeads(period, names), fetchCampaignWins(period, names)]);
+      setLeads(l);
+      setWins(w);
     } catch (error) {
       console.error('[campaigns] Error loading scoreboard:', error);
       setFailed(true);
@@ -233,11 +256,12 @@ export const CampaignScoreboard: React.FC = () => {
             <p className="text-base leading-relaxed text-muted-foreground">{summary}</p>
           )}
         </div>
-        <Select value={preset} onValueChange={(v) => { setPreset(v as PeriodPreset); setSelectedId(null); setShowAllPeople(false); }}>
-          <SelectTrigger className="h-9 w-40" aria-label="Período">
+        <Select value={preset} onValueChange={(v) => { setPreset(v as PeriodPreset | 'all'); setSelectedId(null); setShowAllPeople(false); }}>
+          <SelectTrigger className="h-9 w-44" aria-label="Período">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">Todo o período</SelectItem>
             {PERIOD_PRESETS.map((p) => (
               <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
             ))}
@@ -265,7 +289,7 @@ export const CampaignScoreboard: React.FC = () => {
       ) : (
         <>
           <section aria-label="Placar das campanhas" className="rounded-xl border border-border bg-card p-2">
-            <div className="hidden md:grid grid-cols-[minmax(0,15rem)_minmax(0,1fr)_6rem_8rem_10rem] gap-5 px-4 pt-3 pb-2 text-xs text-muted-foreground items-center">
+            <div className="hidden md:grid grid-cols-[minmax(0,13rem)_minmax(0,1fr)_6rem_7rem_9rem] gap-4 pl-4 pr-[8rem] pt-3 pb-2 text-xs text-muted-foreground items-center">
               <span>Campanha</span>
               <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 Cada marca é uma pessoa que chamou
@@ -287,12 +311,12 @@ export const CampaignScoreboard: React.FC = () => {
                   .map((l) => l.outcome)
                   .sort((a, b) => ['won', 'open', 'lost'].indexOf(a) - ['won', 'open', 'lost'].indexOf(b));
                 return (
-                  <li key={g.id}>
+                  <li key={g.id} className="flex flex-col md:flex-row md:items-center gap-2">
                     <button
                       type="button"
                       onClick={() => { setSelectedId(g.id); setShowAllPeople(false); }}
                       aria-pressed={isSelected}
-                      className={`w-full text-left rounded-lg px-4 py-3.5 grid gap-3 md:gap-5 md:grid-cols-[minmax(0,15rem)_minmax(0,1fr)_6rem_8rem_10rem] md:items-center transition-colors ${
+                      className={`flex-1 min-w-0 text-left rounded-lg px-4 py-3.5 grid gap-3 md:gap-4 md:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_6rem_7rem_9rem] md:items-center transition-colors ${
                         isSelected ? 'bg-primary-subtle/40 ring-2 ring-inset ring-primary' : 'hover:bg-accent'
                       }`}
                     >
@@ -322,13 +346,30 @@ export const CampaignScoreboard: React.FC = () => {
                         </span>
                       </span>
                     </button>
+                    {/* Only campaigns with a sale have someone to reward; the
+                        empty slot keeps the columns aligned. */}
+                    {winsByCampaign.has(g.id) ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="self-start md:self-center ml-4 md:ml-0 md:mr-2 md:w-24 shrink-0"
+                        onClick={() => setDetailsFor(g)}
+                        aria-label={`Detalhes de quem fechou em ${g.name}`}
+                      >
+                        Detalhes
+                      </Button>
+                    ) : (
+                      <span className="hidden md:block md:w-24 md:mr-2 shrink-0" aria-hidden="true" />
+                    )}
                   </li>
                 );
               })}
             </ul>
 
             <p className="px-4 pt-3 pb-1 text-xs text-muted-foreground max-w-4xl">
-              Conta quem chamou {inPeriod(period.label)} e o que aconteceu com cada pessoa até hoje. Com pelo menos {MIN_LEADS} contatos
+              {preset === 'all'
+                ? 'Conta todo mundo que já chamou por campanha e o que aconteceu com cada pessoa até hoje.'
+                : `Conta quem chamou ${inPeriod(period.label)} e o que aconteceu com cada pessoa até hoje; Detalhes mostra as vendas fechadas ${inPeriod(period.label)}.`} Com pelo menos {MIN_LEADS} contatos
               e a maioria já decidida, uma campanha que fecha menos de 1 em cada {Math.round(1 / GOOD_CLOSE_RATE)} aparece como “não está rendendo”.
             </p>
 
@@ -357,6 +398,14 @@ export const CampaignScoreboard: React.FC = () => {
           )}
         </>
       )}
+
+      <CampaignWonDetails
+        open={!!detailsFor}
+        onOpenChange={(open) => { if (!open) setDetailsFor(null); }}
+        campaignName={detailsFor?.name ?? ''}
+        periodLabel={inPeriod(period.label)}
+        leads={(detailsFor && winsByCampaign.get(detailsFor.id)) || []}
+      />
 
       <AlertDialog open={!!confirmEnd} onOpenChange={(open) => { if (!open) setConfirmEnd(null); }}>
         <AlertDialogContent>
@@ -414,7 +463,6 @@ const SelectedCampaign: React.FC<SelectedCampaignProps> = ({ group, lossLabels, 
 
   const luDoubts = group.leads.filter((l) => l.outcome === 'open' && l.lu?.doubt).length;
   const canEnd = group.verdict === 'bad' && !!group.campaign && !isEnded(group.campaign);
-
   return (
     <section aria-label={`Contatos de ${group.name}`} className="rounded-xl border border-border bg-card">
       <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5 pb-4 border-b border-border">

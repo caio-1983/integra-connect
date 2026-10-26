@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { aiEventBus } from '../runtime/EventBus.js';
 import { configService } from '../config/ConfigService.js';
 import { ChannelEvents, type InboundWebhookReceivedPayload } from '../channels/channelEvents.js';
+import { secretsEqual } from '../utils/secrets.js';
 
 /**
  * Extremely thin channel ingress (Ajuste 5): validate the secret, publish a
@@ -15,6 +16,9 @@ import { ChannelEvents, type InboundWebhookReceivedPayload } from '../channels/c
  *   - `meta` (Messenger + Instagram Direct): URL-path secret, PLUS a GET
  *     verification handshake Meta requires before it will deliver anything, PLUS
  *     an `X-Hub-Signature-256` HMAC over the raw body.
+ *
+ * The secret is in the URL, so it is also in every request log line: the
+ * logger's `req` serializer (logger/Logger.ts) redacts it.
  */
 
 const noopValidator = () => () => true;
@@ -47,18 +51,24 @@ const verifyQueryJsonSchema = {
 } as const;
 
 /**
- * The URL-path secret expected for a provider.
+ * The URL-path secret expected for a provider, or undefined when that provider
+ * is not configured (every delivery is then refused).
  *
- * Meta gets its own so its callback URL can be rotated independently of the
- * Evolution one, but falls back to the Evolution secret — a single deployment
- * that never sets META_WEBHOOK_SECRET keeps working instead of silently
- * rejecting every Meta delivery.
+ * Meta has its own secret and NO fallback to the Evolution one: sharing it
+ * meant a leak of either callback URL opened both, and the Evolution secret was
+ * once handed to the browser. A deployment without META_WEBHOOK_SECRET simply
+ * does not accept Meta webhooks.
  */
-function expectedPathSecret(provider: string): string {
-  if (provider === 'meta') {
-    return configService.get('META_WEBHOOK_SECRET') ?? configService.require('EVOLUTION_WEBHOOK_SECRET');
-  }
-  return configService.require('EVOLUTION_WEBHOOK_SECRET');
+function expectedPathSecret(provider: string): string | undefined {
+  if (provider === 'meta') return configService.get('META_WEBHOOK_SECRET') || undefined;
+  if (provider === 'evolution') return configService.require('EVOLUTION_WEBHOOK_SECRET');
+  return undefined;
+}
+
+/** Constant-time check of the `:secret` path segment for `provider`. */
+function pathSecretValid(provider: string, secret: string | undefined): boolean {
+  const expected = expectedPathSecret(provider);
+  return expected !== undefined && secretsEqual(secret, expected);
 }
 
 /**
@@ -69,13 +79,13 @@ function expectedPathSecret(provider: string): string {
  * `JSON.stringify(request.body)` would fail on valid payloads and pass nothing
  * useful.
  *
- * Returns true when `META_APP_SECRET` is unset, so signature enforcement is
- * opt-in and an incomplete config doesn't drop real traffic. The URL-path secret
- * still gates the endpoint in that case.
+ * Required, not opt-in: without META_APP_SECRET every Meta delivery is
+ * rejected. The path secret alone is a bearer credential that sits in proxy and
+ * Meta dashboard configs; the signature is what proves the event came from Meta.
  */
 function metaSignatureValid(request: FastifyRequest): boolean {
   const appSecret = configService.get('META_APP_SECRET');
-  if (!appSecret) return true;
+  if (!appSecret) return false;
 
   const header = request.headers['x-hub-signature-256'];
   if (typeof header !== 'string' || !header.startsWith('sha256=')) return false;
@@ -116,6 +126,8 @@ export async function channelWebhookRoutes(app: FastifyInstance): Promise<void> 
     schema: {
       tags: ['webhooks'],
       summary: 'Meta webhook subscription verification (hub.challenge handshake)',
+      // Authenticated by the path secret, not a bearer token.
+      security: [],
       params: webhookParamsJsonSchema,
       querystring: verifyQueryJsonSchema,
     },
@@ -123,12 +135,12 @@ export async function channelWebhookRoutes(app: FastifyInstance): Promise<void> 
     const { provider, secret } = request.params as { provider: string; secret: string };
     const query = request.query as Record<string, string | undefined>;
 
-    if (secret !== expectedPathSecret(provider)) {
+    if (!pathSecretValid(provider, secret)) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
 
     const verifyToken = configService.get('META_WEBHOOK_VERIFY_TOKEN');
-    if (query['hub.mode'] === 'subscribe' && verifyToken && query['hub.verify_token'] === verifyToken) {
+    if (query['hub.mode'] === 'subscribe' && verifyToken && secretsEqual(query['hub.verify_token'], verifyToken)) {
       // Plain text, not JSON — Meta compares the body byte-for-byte.
       return reply.code(200).type('text/plain').send(query['hub.challenge'] ?? '');
     }
@@ -151,13 +163,15 @@ export async function channelWebhookRoutes(app: FastifyInstance): Promise<void> 
     // rate limit, a caller without it must not get to make us buffer the body.
     onRequest: async (request, reply) => {
       const { provider, secret } = request.params as { provider: string; secret: string };
-      if (secret !== expectedPathSecret(provider)) {
+      if (!pathSecretValid(provider, secret)) {
         return reply.code(401).send({ error: 'unauthorized' });
       }
     },
     schema: {
       tags: ['webhooks'],
       summary: 'Inbound channel webhook (thin ingress)',
+      // Authenticated by the path secret (+ X-Hub-Signature-256 for Meta), not a bearer token.
+      security: [],
       params: webhookParamsJsonSchema,
     },
   }, async (request, reply) => {

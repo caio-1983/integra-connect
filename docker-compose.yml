@@ -7,11 +7,11 @@ services:
         VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
         VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
         VITE_SUPABASE_PROJECT_ID: ${VITE_SUPABASE_PROJECT_ID}
-        # Backend gateway (WhatsApp + AI). Legacy VITE_AI_GATEWAY_* kept as fallback.
+        # Backend gateway (WhatsApp + AI). Legacy VITE_AI_GATEWAY_URL kept as
+        # fallback. No key: the app authenticates with the user's session token,
+        # and anything passed as VITE_* ends up public in the bundle.
         VITE_BACKEND_URL: ${VITE_BACKEND_URL:-}
-        VITE_BACKEND_KEY: ${VITE_BACKEND_KEY:-}
         VITE_AI_GATEWAY_URL: ${VITE_AI_GATEWAY_URL:-}
-        VITE_AI_GATEWAY_KEY: ${VITE_AI_GATEWAY_KEY:-}
         VITE_PLATFORM_PHASE: ${VITE_PLATFORM_PHASE:-1}
     container_name: integra-connect-frontend
     restart: unless-stopped

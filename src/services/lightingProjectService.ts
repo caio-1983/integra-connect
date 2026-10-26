@@ -60,7 +60,7 @@ export function isPdfAttachment(mediaUrl: string | null | undefined): boolean {
 export async function analyzeMessageProject(messageId: string): Promise<LightingProjectResult> {
   const res = await reach(`${backendBaseUrl()}/v1/projects/messages/${encodeURIComponent(messageId)}/analyze`, {
     method: 'POST',
-    headers: backendAuthOnlyHeaders(),
+    headers: await backendAuthOnlyHeaders(),
   });
   return readResult(res);
 }
@@ -71,7 +71,7 @@ export async function analyzeUploadedProject(file: File): Promise<LightingProjec
   for (let i = 0; i < buffer.length; i += 0x8000) binary += String.fromCharCode(...buffer.subarray(i, i + 0x8000));
   const res = await reach(`${backendBaseUrl()}/v1/projects/analyze`, {
     method: 'POST',
-    headers: backendHeaders(),
+    headers: await backendHeaders(),
     body: JSON.stringify({ base64: btoa(binary), fileName: file.name }),
   });
   return readResult(res);
@@ -118,7 +118,7 @@ export async function scanMessageProjects(messageIds: string[]): Promise<Record<
   if (missing.length === 0) return out;
   const res = await fetch(`${backendBaseUrl()}/v1/projects/scan`, {
     method: 'POST',
-    headers: backendHeaders(),
+    headers: await backendHeaders(),
     body: JSON.stringify({ messageIds: missing }),
   });
   const fresh = await handleBackendResponse<Record<string, ProjectScanEntry>>(res);

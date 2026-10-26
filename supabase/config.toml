@@ -1,1 +1,9 @@
 project_id = "eufqzeacugeixnzkgipq"
+
+[auth]
+# O app não tem cadastro: contas nascem pela edge function create-team-account.
+# Conferir também no painel (Authentication > Sign In / Providers).
+enable_signup = false
+
+[auth.email]
+enable_signup = false

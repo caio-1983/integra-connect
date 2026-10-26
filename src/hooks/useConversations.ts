@@ -16,12 +16,13 @@ import { toast } from 'sonner';
 import { contactDisplayName } from '@/lib/utils';
 
 /**
- * Current operator's auth id, for `messages.sent_by`.
+ * Current operator's auth id — used only to tell, before editing, that there is
+ * a session at all. Authorship (`messages.sent_by`) is decided by the backend
+ * from the session token, never sent from here.
  *
  * Read from the session on demand rather than taken from `useAuth()` so this
  * hook keeps working outside the AuthProvider tree (and in the mock-only
- * harness). Returns undefined if there's no session — the reply still sends, it
- * just lands unattributed rather than failing.
+ * harness).
  */
 async function currentOperatorId(): Promise<string | undefined> {
   const { data } = await supabase.auth.getSession();
@@ -138,7 +139,7 @@ export function useConversations() {
       }
       // Another operator's unsent "Nova Conversa": it joins this queue with its first message.
       if (!msgError && isForeignEmptyConversation(convData, messages?.length ?? 0, await currentAuthUserId())) return;
-      
+
       const uiConversation = transformDBToUIConversation(
         convData as unknown as DBConversation,
         (messages || []) as DBMessage[]
@@ -526,7 +527,7 @@ export function useConversations() {
 
     try {
       // The realtime handler will detect and replace the temp message automatically
-      await sendConversationReply(conversationId, content, await currentOperatorId(), replyToId);
+      await sendConversationReply(conversationId, content, replyToId);
     } catch (err) {
       console.error('[useConversations] Error sending message:', err);
       toast.error('Erro ao enviar mensagem');
@@ -588,7 +589,6 @@ export function useConversations() {
       const base64 = await fileToBase64(file);
       await sendConversationMediaReply(conversationId, {
         base64, mimeType, fileName: file.name, caption: trimmedCaption,
-        operatorId: await currentOperatorId(),
       });
       // The realtime INSERT replaces the temp message with the real row.
     } catch (err) {
@@ -606,7 +606,7 @@ export function useConversations() {
   // registered key, and the realtime INSERT lands about a second later anyway.
   const sendPixMessage = useCallback(async (conversationId: string) => {
     try {
-      await sendConversationPix(conversationId, await currentOperatorId());
+      await sendConversationPix(conversationId);
     } catch (err) {
       console.error('[useConversations] Error sending Pix:', err);
       toast.error(err instanceof Error ? err.message : 'Erro ao enviar a chave Pix');
@@ -638,7 +638,7 @@ export function useConversations() {
     patchMessageContent(conversationId, message.id, text, new Date().toISOString());
     try {
       // The realtime UPDATE then settles the row as stored.
-      await editConversationMessage(conversationId, message.id, text, operatorId);
+      await editConversationMessage(conversationId, message.id, text);
     } catch (err) {
       console.error('[useConversations] Error editing message:', err);
       toast.error(err instanceof Error ? err.message : 'Erro ao editar mensagem');
