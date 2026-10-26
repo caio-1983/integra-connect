@@ -219,7 +219,19 @@ export interface ClientMemory {
     user_summary: string;
     ai_action: string;
   }>;
+  /** Same shape as the backend's LeadQualificationService. Lu suggests, the attendant corrects. */
+  qualification?: LeadQualification;
 }
+
+export type QualificationKey = 'need' | 'budget' | 'timeline' | 'decider';
+
+export interface QualificationField {
+  value: string;
+  source: 'lu' | 'human';
+  updated_at: string;
+}
+
+export type LeadQualification = Partial<Record<QualificationKey, QualificationField>>;
 
 // ============= Lead origin, campaigns & outcome =============
 
@@ -712,7 +724,7 @@ export interface AIIntegrationPoint {
   data?: Record<string, any>;
 }
 
-function getDefaultClientMemory(): ClientMemory {
+export function getDefaultClientMemory(): ClientMemory {
   return {
     last_updated: null,
     lead_profile: {

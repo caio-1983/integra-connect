@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import { Button } from './Button';
 import { api } from '../services/api';
-import { Deal, DealActivity, TeamMember, KanbanColumn } from '../types';
+import { Deal, DealActivity, TeamMember, KanbanColumn, getDefaultClientMemory } from '../types';
+import { LeadQualificationCard } from './LeadQualificationCard';
 import { supabase } from '../integrations/supabase/client';
 import { CreateDealModal } from './CreateDealModal';
 import { LostReasonModal } from './LostReasonModal';
@@ -759,20 +760,29 @@ const Kanban: React.FC = () => {
                 </div>
 
                 {/* Lu insights */}
+                {selectedDeal.contactId && (
+                  <>
+                    <div className="h-2" aria-hidden="true" />
+                    <div className="bg-card px-6 py-5">
+                      <LeadQualificationCard
+                        contactId={selectedDeal.contactId}
+                        conversationId={selectedDeal.conversationId}
+                        memory={mem ?? getDefaultClientMemory()}
+                        sdrName={sdrName}
+                        onChange={(memory) => {
+                          setSelectedDeal(prev => prev && prev.id === selectedDeal.id ? { ...prev, clientMemory: memory } : prev);
+                          setDeals(prev => prev.map(d => d.contactId === selectedDeal.contactId ? { ...d, clientMemory: memory } : d));
+                        }}
+                      />
+                    </div>
+                  </>
+                )}
+
                 {mem && (
                   <>
                     <div className="h-2" aria-hidden="true" />
                     <div className="bg-card px-6 py-5 space-y-4">
                       <SectionTitle>Perfil do cliente, segundo {sdrName || 'a IA'}</SectionTitle>
-                      <div>
-                        <div className="flex items-baseline justify-between text-sm">
-                          <span className="text-muted-foreground">Qualificação</span>
-                          <span className="text-foreground tabular-nums">{mem.lead_profile.qualification_score || 0}%</span>
-                        </div>
-                        <div className="mt-1.5 w-full bg-secondary rounded-full h-1.5" role="progressbar" aria-valuenow={mem.lead_profile.qualification_score || 0} aria-valuemin={0} aria-valuemax={100} aria-label="Qualificação">
-                          <div className="bg-primary h-1.5 rounded-full" style={{ width: `${mem.lead_profile.qualification_score || 0}%` }} />
-                        </div>
-                      </div>
                       <div className="text-sm">
                         <span className="text-muted-foreground">Próximo passo sugerido</span>
                         <p className="mt-0.5 text-[15px] text-foreground">
@@ -799,20 +809,6 @@ const Kanban: React.FC = () => {
                           </div>
                         </div>
                       )}
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-muted-foreground">Orçamento</span>
-                          <p className="mt-0.5 text-[15px] text-foreground">
-                            {mem.sales_intelligence.budget_indication === 'unknown' ? 'Não informado' : mem.sales_intelligence.budget_indication}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-muted-foreground">Prazo de decisão</span>
-                          <p className="mt-0.5 text-[15px] text-foreground">
-                            {mem.sales_intelligence.decision_timeline === 'unknown' ? 'Não definido' : mem.sales_intelligence.decision_timeline}
-                          </p>
-                        </div>
-                      </div>
                     </div>
                   </>
                 )}

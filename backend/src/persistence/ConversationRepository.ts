@@ -1125,6 +1125,23 @@ class ConversationRepository {
     return { contactName: contact?.name || contact?.call_name || null, messages };
   }
 
+  /** The conversation's contact and its `client_memory` — input for Lu's lead qualification. */
+  async getContactMemoryByConversation(conversationId: string): Promise<{ contactId: string; memory: Record<string, unknown> | null } | null> {
+    const { data, error } = await getSupabase()
+      .from('conversations')
+      .select('contact_id, contacts(client_memory)')
+      .eq('id', conversationId)
+      .maybeSingle();
+    if (error || !data?.contact_id) return null;
+    const contact = (data as { contacts?: { client_memory?: Record<string, unknown> | null } | null }).contacts;
+    return { contactId: data.contact_id as string, memory: contact?.client_memory ?? null };
+  }
+
+  async updateContactMemory(contactId: string, memory: Record<string, unknown>): Promise<void> {
+    const { error } = await getSupabase().from('contacts').update({ client_memory: memory }).eq('id', contactId);
+    if (error) throw new Error(`Falha ao salvar a qualificação: ${error.message}`);
+  }
+
   /**
    * Latest `limit` messages (text only in `messages`, chronological) plus the id
    * and sender of the very last message of any type — the cache key and the

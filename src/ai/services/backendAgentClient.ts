@@ -1,4 +1,5 @@
 import type { AgentContext, AgentExecutionResult, AgentId, ConversationInsight, ConversationSummary, InsightMode } from '@/ai/types';
+import type { ClientMemory } from '@/types';
 import { backendAuthOnlyHeaders, backendBaseUrl, backendHeaders } from '@/services/backendGateway';
 
 /**
@@ -53,6 +54,21 @@ export async function fetchConversationSummary(conversationId: string): Promise<
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { error?: string } | null;
     throw new Error(body?.error ?? `A Lu não conseguiu resumir a conversa (${response.status}).`);
+  }
+
+  return response.json();
+}
+
+/** Lu fills the lead qualification from the conversation and saves it on the contact; returns the updated client_memory. */
+export async function requestLeadQualification(conversationId: string): Promise<ClientMemory> {
+  const response = await fetch(`${backendBaseUrl()}/v1/conversations/${encodeURIComponent(conversationId)}/qualification`, {
+    method: 'POST',
+    headers: await backendAuthOnlyHeaders(),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(body?.error ?? `A Lu não conseguiu qualificar o lead (${response.status}).`);
   }
 
   return response.json();

@@ -13,8 +13,10 @@ import {
   UIConversation,
   transformDBToUIConversation,
   InstanceAccessGrant,
-  LossReason
+  LossReason,
+  ClientMemory
 } from '../types';
+import type { Json } from '@/integrations/supabase/types';
 import { contactDisplayName } from '@/lib/utils';
 
 // Helper function to get current user ID
@@ -1954,6 +1956,21 @@ export const api = {
 
     if (error) {
       console.error('[API] Error updating contact notes:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Save the contact's client_memory (lead qualification edited by the attendant)
+   */
+  updateContactMemory: async (contactId: string, memory: ClientMemory): Promise<void> => {
+    const { error } = await supabase
+      .from('contacts')
+      .update({ client_memory: memory as unknown as Json })
+      .eq('id', contactId);
+
+    if (error) {
+      console.error('[API] Error updating contact memory:', error);
       throw error;
     }
   },

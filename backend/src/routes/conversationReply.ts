@@ -6,6 +6,7 @@ import { clientErrorMessage } from '../utils/httpErrors.js';
 import { requestManualReply, requestManualMediaReply, requestManualPixReply, requestMessageEdit, startConversation } from '../conversation/ConversationService.js';
 import { evolutionConnectionService } from '../channels/evolution/EvolutionConnectionService.js';
 import { summarizeConversation } from '../conversation/ConversationSummaryService.js';
+import { qualifyLead } from '../conversation/LeadQualificationService.js';
 import { getConversationInsight } from '../conversation/ConversationInsightService.js';
 import { configService } from '../config/ConfigService.js';
 import { transcriptionService } from '../transcription/TranscriptionService.js';
@@ -232,6 +233,34 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     } catch (error) {
       request.log.error(error);
       return reply.code(502).send({ error: 'Erro ao gerar o resumo.' });
+    }
+  });
+
+  app.post('/v1/conversations/:conversationId/qualification', {
+    preHandler: [authMiddleware, requireConversationAccess],
+    validatorCompiler: noopValidator,
+    // Each call pays for a real model request — same bound as the summary.
+    config: {
+      rateLimit: {
+        max: configService.getNumber('AGENT_CHAT_RATE_LIMIT_MAX', 20),
+        timeWindow: configService.getNumber('RATE_LIMIT_WINDOW_MS', 60_000),
+      },
+    },
+    schema: {
+      tags: ['conversations'],
+      summary: 'Lu suggests the lead qualification (necessidade, orçamento, prazo, decisor) and saves it on the contact; criteria set by an attendant are kept',
+      security: BEARER_SECURITY,
+      params: conversationParamsJsonSchema,
+    },
+  }, async (request, reply) => {
+    const parsed = paramsSchema.safeParse(request.params);
+    if (!parsed.success) return reply.code(400).send({ error: 'conversationId obrigatório' });
+
+    try {
+      return reply.send(await qualifyLead(parsed.data.conversationId));
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(502).send({ error: clientErrorMessage(error, 'Erro ao qualificar o lead.') });
     }
   });
 
