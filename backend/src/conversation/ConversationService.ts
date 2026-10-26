@@ -103,7 +103,10 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
   // Lead is created only when a real person makes contact (first inbound → new
   // 1:1 conversation) — replaces the old contact-insert trigger that flooded
   // the CRM with a lead per imported contact. Groups never become leads.
-  if (created && !msg.isGroup) {
+  // Not gated on `created`: a conversation opened by an outbound echo (team
+  // replying from the phone) already exists when the customer first writes, and
+  // that customer would never get a lead. createLeadForContact is idempotent.
+  if (!msg.isGroup) {
     await conversationRepository.createLeadForContact(contactId, msg.contactName ?? msg.externalContactId);
   }
 
