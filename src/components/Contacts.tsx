@@ -12,6 +12,7 @@ import { ContactFormDialog, type ContactFormValues } from '@/components/contact/
 type ContactFilter = 'all' | 'lead' | 'unsaved';
 
 const SEARCH_DEBOUNCE_MS = 300;
+const ALPHABET = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ', '#'];
 
 function formatLastContact(iso: string): string {
   if (!iso) return '';
@@ -84,7 +85,9 @@ const Contacts: React.FC = () => {
     return { groups, total: visible.length };
   }, [contacts, filter]);
 
-  const openConversation = (contact: Contact) => {
+  const presentLetters = useMemo(() => new Set(sections.groups.map(g => g.letter)), [sections]);
+
+  const openConversation =(contact: Contact) => {
     navigate(`/chat?contact=${encodeURIComponent(contact.phone)}`);
   };
 
@@ -145,15 +148,15 @@ const Contacts: React.FC = () => {
   return (
     <PageContainer>
       {/* Reading column centred in the page; the header aligns with the list. */}
-      <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
+      <div className="w-full max-w-6xl mx-auto flex flex-col gap-6">
       <PageHeader
         title="Contatos"
         description={!counts && loading ? 'Carregando…' : `${total.toLocaleString('pt-BR')} contatos · ${leadCount.toLocaleString('pt-BR')} leads`}
       />
 
-      <div className="w-full rounded-lg bg-card border border-border overflow-hidden flex flex-col min-h-[400px]">
-        <div className="px-3 pt-3 pb-2 flex flex-col gap-2 border-b border-border">
-          <div className="relative">
+      <div className="w-full rounded-lg bg-card border border-border flex flex-col min-h-[400px]">
+        <div className="px-3 py-3 flex flex-col sm:flex-row sm:items-center gap-2 border-b border-border">
+          <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-icon pointer-events-none" aria-hidden="true" />
             <input
               type="text"
@@ -197,25 +200,37 @@ const Contacts: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div role="list" aria-label="Contatos">
+          <div className="flex">
+          <div role="list" aria-label="Contatos" className="flex-1 min-w-0">
             {sections.groups.map(({ letter, items }) => (
-              <section key={letter} aria-label={letter}>
-                <h3 className="px-6 pt-5 pb-2 text-base text-primary">{letter}</h3>
+              <section
+                key={letter}
+                id={`contacts-${letter}`}
+                aria-label={letter}
+                className="scroll-mt-4 flex gap-2 sm:gap-4 border-b border-border last:border-b-0"
+              >
+                {/* Big letter pinned in the gutter while its section scrolls by. */}
+                <div className="w-10 sm:w-16 flex-shrink-0">
+                  <h3 className="sticky top-0 pt-4 text-center text-3xl sm:text-4xl font-light leading-none text-primary/80 tabular-nums">
+                    {letter}
+                  </h3>
+                </div>
+                <div className="flex-1 min-w-0 py-2 pr-2 grid grid-cols-1 lg:grid-cols-2 gap-x-2">
                 {items.map(({ contact, label }) => {
                   const last = formatLastContact(contact.lastContact);
                   return (
-                    <div key={contact.id} role="listitem" className="group flex items-center hover:bg-accent transition-colors">
+                    <div key={contact.id} role="listitem" className="group flex items-center rounded-lg hover:bg-accent transition-colors">
                       <button
                         type="button"
                         onClick={() => openConversation(contact)}
                         title="Abrir conversa"
-                        className="flex-1 min-w-0 flex items-center gap-3 pl-3 pr-2 text-left focus-visible:ring-inset focus-visible:ring-offset-0"
+                        className="flex-1 min-w-0 flex items-center gap-3 pl-2 pr-1 rounded-lg text-left focus-visible:ring-inset focus-visible:ring-offset-0"
                       >
-                        <ContactAvatar src={contact.avatar} name={label} className="w-[49px] h-[49px] text-lg flex-shrink-0" />
-                        <div className="flex-1 min-w-0 py-3 border-b border-border flex items-center gap-3">
+                        <ContactAvatar src={contact.avatar} name={label} className="w-10 h-10 text-base flex-shrink-0" />
+                        <div className="flex-1 min-w-0 py-2.5 flex items-center gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-[17px] leading-[21px] text-foreground truncate">{label}</span>
+                              <span className="text-[15px] leading-5 font-medium text-foreground truncate">{label}</span>
                               {contact.status === 'lead' && (
                                 <span className="flex-shrink-0 px-1.5 h-[18px] rounded-full text-[11px] font-medium flex items-center bg-primary-subtle text-primary-subtle-foreground">
                                   Lead
@@ -227,7 +242,7 @@ const Contacts: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            <p className="mt-0.5 text-sm text-muted-foreground truncate tabular-nums">
+                            <p className="mt-0.5 text-[13px] text-muted-foreground truncate tabular-nums">
                               {formatPhone(contact.phone)}{contact.email ? ` · ${contact.email}` : ''}
                             </p>
                           </div>
@@ -241,7 +256,7 @@ const Contacts: React.FC = () => {
                           onClick={() => setEditing(contact)}
                           title={contact.saved ? 'Editar contato' : 'Salvar contato'}
                           aria-label={`${contact.saved ? 'Editar' : 'Salvar'} contato ${label}`}
-                          className="mr-3 p-2 rounded-full text-icon hover:bg-card hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
+                          className="mr-1 p-2 rounded-full text-icon hover:bg-card hover:text-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
@@ -249,8 +264,34 @@ const Contacts: React.FC = () => {
                     </div>
                   );
                 })}
+                </div>
               </section>
             ))}
+          </div>
+          {/* A–Z index: jump straight to a letter instead of scrolling the whole list. */}
+          <nav aria-label="Índice alfabético" className="hidden sm:block w-8 flex-shrink-0 border-l border-border">
+            <ol className="sticky top-0 py-3 flex flex-col items-center">
+              {ALPHABET.map((l) => {
+                const has = presentLetters.has(l);
+                return (
+                  <li key={l}>
+                    <button
+                      type="button"
+                      disabled={!has}
+                      onClick={() => document.getElementById(`contacts-${l}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                      aria-label={`Ir para ${l}`}
+                      className={cn(
+                        'w-6 h-[18px] text-[11px] leading-none rounded tabular-nums',
+                        has ? 'text-primary font-semibold hover:bg-primary-subtle' : 'text-muted-foreground/40 cursor-default',
+                      )}
+                    >
+                      {l}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </nav>
           </div>
         )}
       </div>
