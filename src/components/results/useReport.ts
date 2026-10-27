@@ -49,7 +49,8 @@ export function invalidateReport(name: string): void {
 }
 
 export function useReport<T, W extends Window>(name: string, fetcher: (w: W) => Promise<T>, w: W | null) {
-  const cached = w ? (fresh(keyOf(name, w))?.value as T | undefined) : undefined;
+  // Stale values still render right away; the effect refreshes them quietly.
+  const cached = w ? (cache.get(keyOf(name, w))?.value as T | undefined) : undefined;
   const [data, setData] = useState<T | undefined>(cached);
   const [loading, setLoading] = useState(cached === undefined);
   const [failed, setFailed] = useState(false);
@@ -59,12 +60,15 @@ export function useReport<T, W extends Window>(name: string, fetcher: (w: W) => 
   useEffect(() => {
     if (!w) return;
     let cancelled = false;
-    const hit = fresh(keyOf(name, w))?.value as T | undefined;
+    const key = keyOf(name, w);
+    const hit = fresh(key)?.value as T | undefined;
     if (hit !== undefined) {
       setData(hit); setLoading(false); setFailed(false);
       return;
     }
-    setLoading(true);
+    const stale = cache.get(key)?.value as T | undefined;
+    if (stale !== undefined) setData(stale);
+    setLoading(stale === undefined);
     setFailed(false);
     loadReport(name, fetcher, w)
       .then((value) => { if (!cancelled) setData(value); })

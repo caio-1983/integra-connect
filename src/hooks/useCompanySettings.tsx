@@ -33,8 +33,10 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
     }
 
     try {
-      setLoading(true);
-      
+      // Only the first load blocks: `loading` makes RoleRoute unmount its pages,
+      // so a refetch must not flip it back on.
+      if (!role) setLoading(true);
+
       // Check if user is admin
       const { data: roleData } = await supabase
         .from('user_roles')
@@ -73,9 +75,11 @@ export const CompanySettingsProvider: React.FC<{ children: React.ReactNode }> = 
     }
   };
 
+  // Keyed by id: Supabase hands out a new user object on every token refresh
+  // (e.g. when the browser tab regains focus), which is not a different user.
   useEffect(() => {
     fetchSettings();
-  }, [user]);
+  }, [user?.id]);
 
   const value: CompanySettings = {
     companyName,
