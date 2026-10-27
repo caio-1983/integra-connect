@@ -38,7 +38,7 @@ export const SidebarNavigation: React.FC = () => {
     }));
 
   // Subpáginas (/campanhas/configurar) marcam o item pai; vence o href mais
-  // longo para /settings/channels ficar em Conexões e não em Configurações.
+  // longo para um item filho vencer o pai.
   const activeHref = visibleSections
     .flatMap((section) => section.items.map((item) => item.href))
     .filter((href) => currentPath === href || currentPath.startsWith(`${href}/`))

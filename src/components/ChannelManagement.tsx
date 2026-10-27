@@ -2,15 +2,20 @@ import React from 'react';
 import { PageContainer, PageHeader } from '@/components/layout';
 import { MetaSection, RoadmapCard, WhatsAppSection } from '@/components/channels';
 
-const ChannelManagement: React.FC = () => {
+const ChannelManagement: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
+  // Inside the Configurações tabs the shell already provides page chrome.
+  const Shell = embedded ? React.Fragment : PageContainer;
+
   return (
-    <PageContainer>
+    <Shell>
       <div className="w-full max-w-4xl mx-auto flex flex-col gap-3">
-        <PageHeader
-          title="Conexões"
-          description="Os números e contas que trazem mensagens para o atendimento."
-          className="mb-3"
-        />
+        {!embedded && (
+          <PageHeader
+            title="Conexões"
+            description="Os números e contas que trazem mensagens para o atendimento."
+            className="mb-3"
+          />
+        )}
 
         <WhatsAppSection />
 
@@ -22,7 +27,7 @@ const ChannelManagement: React.FC = () => {
             sem cards de ação que não fazem nada. */}
         <RoadmapCard />
       </div>
-    </PageContainer>
+    </Shell>
   );
 };
 

@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import Contacts from './components/Contacts';
-import Settings from './components/Settings';
+import Settings, { AppearanceTab, PaymentsTab, QuickRepliesTab } from './components/Settings';
 import Team from './components/Team';
 import Scheduling from './components/Scheduling';
 import Kanban from './components/Kanban';
@@ -112,9 +112,7 @@ const App: React.FC = () => {
                 <Route path="/projetos" element={<LightingProjects />} />
               </Route>
               {/* Equipe/Usuários — RBAC: só admin/gestor (Route element={<RoleRoute />}) */}
-              <Route element={<RoleRoute />}>
-                <Route path="/team" element={<Team />} />
-              </Route>
+              <Route path="/team" element={<Navigate to="/settings/usuarios" replace />} />
               {/* Campanhas — "Sinais e regras" é aberta a qualquer usuário; o
                   placar compara atendentes, então segue admin/gestor e o
                   atendente cai direto na configuração. */}
@@ -125,7 +123,17 @@ const App: React.FC = () => {
                 <Route path="configurar" element={<CampaignSettings embedded />} />
               </Route>
               <Route path="/settings/campanhas" element={<Navigate to="/campanhas/configurar" replace />} />
-              <Route path="/settings" element={<Settings />} />
+              {/* Configurações — abas: Respostas rápidas, Aparência, Usuários
+                  (só admin/gestor), Conexões e Pagamentos. */}
+              <Route path="/settings" element={<Settings />}>
+                <Route index element={<QuickRepliesTab />} />
+                <Route path="aparencia" element={<AppearanceTab />} />
+                <Route element={<RoleRoute redirectTo="/settings" />}>
+                  <Route path="usuarios" element={<Team embedded />} />
+                </Route>
+                <Route path="conexoes" element={<ChannelManagement embedded />} />
+                <Route path="pagamentos" element={<PaymentsTab />} />
+              </Route>
               {/* CRM — Sprint 007 (gated: Fase 2) */}
               <Route element={<ModuleRoute module="crm" />}>
                 <Route path="/crm/people" element={<CRMPeople />} />
@@ -134,7 +142,7 @@ const App: React.FC = () => {
                 <Route path="/crm/tasks" element={<CRMTasks />} />
               </Route>
               {/* Omnichannel — Sprint 008 */}
-              <Route path="/settings/channels" element={<ChannelManagement />} />
+              <Route path="/settings/channels" element={<Navigate to="/settings/conexoes" replace />} />
               {/* IA — Sprint 009 (gated: Fase 2) */}
               <Route element={<ModuleRoute module="ia" />}>
                 <Route path="/ia/agentes" element={<AIAgentsPage />} />

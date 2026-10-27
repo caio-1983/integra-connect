@@ -28,7 +28,7 @@ const EMPTY_FORM: MemberFormValues = { name: '', email: '', role: 'agent', statu
 /** api.fetchTeam fills missing avatars with ui-avatars; our own initials read better. */
 const realAvatar = (url?: string) => (url && !url.includes('ui-avatars.com') ? url : undefined);
 
-const Team: React.FC = () => {
+const Team: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { isAdmin, canManageUsers } = useCompanySettings();
   /** Managers can touch agent/manager rows; only admins can touch admin rows. */
   const canEditRow = (targetRole: string) => isAdmin || (canManageUsers && targetRole !== 'admin');
@@ -262,27 +262,36 @@ const Team: React.FC = () => {
 
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+  const summary = loading ? 'Carregando…' : failed ? 'Não foi possível carregar a equipe' : `${plural(members.length, 'pessoa', 'pessoas')} · ${plural(teams.length, 'time', 'times')}`;
+  const headerActions = (
+    <>
+      <Button onClick={() => setShowConfigModal(true)} variant="outline">
+        <UsersRound className="w-4 h-4 mr-2" aria-hidden="true" />
+        Times
+      </Button>
+      {canManageUsers && (
+        <Button onClick={openInvite}>
+          <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
+          Adicionar pessoa
+        </Button>
+      )}
+    </>
+  );
+
+  // Inside the Configurações tabs the shell already provides page chrome.
+  const Shell = embedded ? React.Fragment : PageContainer;
+
   return (
-    <PageContainer>
-      <div className="w-full max-w-4xl mx-auto flex flex-col gap-6">
-        <PageHeader
-          title="Equipe"
-          description={loading ? 'Carregando…' : failed ? 'Não foi possível carregar a equipe' : `${plural(members.length, 'pessoa', 'pessoas')} · ${plural(teams.length, 'time', 'times')}`}
-          actions={
-            <>
-              <Button onClick={() => setShowConfigModal(true)} variant="outline">
-                <UsersRound className="w-4 h-4 mr-2" aria-hidden="true" />
-                Times
-              </Button>
-              {canManageUsers && (
-                <Button onClick={openInvite}>
-                  <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
-                  Adicionar pessoa
-                </Button>
-              )}
-            </>
-          }
-        />
+    <Shell>
+      <div className={cn('w-full max-w-4xl mx-auto flex flex-col', embedded ? 'gap-3' : 'gap-6')}>
+        {embedded ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-muted-foreground">{summary}</p>
+            <div className="flex items-center gap-2">{headerActions}</div>
+          </div>
+        ) : (
+          <PageHeader title="Equipe" description={summary} actions={headerActions} />
+        )}
 
         <div className="w-full rounded-lg bg-card border border-border overflow-hidden flex flex-col min-h-[400px]">
           <div className="px-3 pt-3 pb-2 flex flex-col gap-2 border-b border-border">
@@ -386,7 +395,7 @@ const Team: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </PageContainer>
+    </Shell>
   );
 };
 

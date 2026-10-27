@@ -7,11 +7,9 @@ import {
   Building2,
   CalendarDays,
   UserRound,
-  UsersRound,
   Landmark,
   HandCoins,
   CheckSquare,
-  Radio,
   Megaphone,
   Bot,
   BookOpen,
@@ -108,9 +106,8 @@ export const sidebarNavigation: SidebarSectionConfig[] = [
     id: 'administracao',
     title: 'Administração',
     items: [
+      // Usuários, Conexões e Pagamentos são abas dentro de Configurações.
       { id: 'settings', label: 'Configurações', href: '/settings', icon: SettingsIcon },
-      { id: 'team', label: 'Usuários', href: '/team', icon: UsersRound },
-      { id: 'channels', label: 'Conexões', href: '/settings/channels', icon: Radio },
     ],
   },
 ];
