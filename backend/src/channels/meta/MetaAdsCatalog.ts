@@ -13,9 +13,13 @@ import { GRAPH_BASE } from './MetaClient.js';
  * its raw ad id — attribution itself never depends on this.
  */
 
-const FIELDS = 'name,effective_status,account_id,adset{id,name},campaign{id,name}';
-/** Graph's cap on ids per `?ids=` request. */
-const BATCH = 50;
+const FIELDS = 'name,effective_status,account_id,adset{id,name},campaign{id,name},creative{body}';
+/**
+ * Boosted posts get "Post do Instagram: …" (truncated) as ad, ad set and
+ * campaign name; the readable name is the first line of the post text.
+ */
+const GENERIC_NAME = /^Post d[oa] (Instagram|Facebook)\b/i;
+const MAX_POST_NAME = 80;
 
 let warnedNoToken = false;
 
@@ -28,15 +32,25 @@ function adsToken(): string | null {
   return token ?? null;
 }
 
+function firstLineOfPost(body: unknown): string | null {
+  if (typeof body !== 'string') return null;
+  const line = body.split('\n').map(l => l.trim()).find(Boolean);
+  if (!line) return null;
+  return line.length > MAX_POST_NAME ? `${line.slice(0, MAX_POST_NAME - 1).trimEnd()}…` : line;
+}
+
 function toRow(adId: string, ad: Record<string, any>): MetaAdCatalogRow {
+  const fromPost = firstLineOfPost(ad.creative?.body);
+  const readable = (name: string | undefined) =>
+    name && GENERIC_NAME.test(name) && fromPost ? fromPost : name ?? null;
   return {
     ad_id: adId,
-    ad_name: ad.name ?? null,
+    ad_name: readable(ad.name),
     ad_status: ad.effective_status ?? null,
     adset_id: ad.adset?.id ?? null,
-    adset_name: ad.adset?.name ?? null,
+    adset_name: readable(ad.adset?.name),
     campaign_id: ad.campaign?.id ?? null,
-    campaign_name: ad.campaign?.name ?? null,
+    campaign_name: readable(ad.campaign?.name),
     ad_account_id: ad.account_id ? `act_${ad.account_id}` : null,
     lookup_error: null,
   };
@@ -60,29 +74,18 @@ async function graphGet(path: string, token: string): Promise<{ ok: boolean; jso
  * Looks up the given ad ids and upserts one catalog row per id — resolved, or
  * with `lookup_error` so it is not retried on every message. Returns the rows.
  *
- * A `?ids=` batch fails as a whole when any single id is inaccessible, so a
- * failed batch falls back to one request per id to isolate the bad one.
+ * One request per id: Graph rejects `?ids=` ("deprecated in v26.0+").
  */
 export async function lookupAds(adIds: string[]): Promise<MetaAdCatalogRow[]> {
   const token = adsToken();
   if (!token || adIds.length === 0) return [];
 
   const rows: MetaAdCatalogRow[] = [];
-  for (let i = 0; i < adIds.length; i += BATCH) {
-    const chunk = adIds.slice(i, i + BATCH);
-    const batch = await graphGet(`?ids=${chunk.join(',')}&fields=${FIELDS}`, token);
-    if (batch.ok) {
-      for (const adId of chunk) {
-        rows.push(batch.json[adId] ? toRow(adId, batch.json[adId]) : failedRow(adId, 'não retornado pela Graph API'));
-      }
-      continue;
-    }
-    for (const adId of chunk) {
-      const single = await graphGet(`${adId}?fields=${FIELDS}`, token);
-      rows.push(single.ok
-        ? toRow(adId, single.json)
-        : failedRow(adId, single.json?.error?.message ?? 'erro desconhecido'));
-    }
+  for (const adId of adIds) {
+    const single = await graphGet(`${adId}?fields=${FIELDS}`, token);
+    rows.push(single.ok
+      ? toRow(adId, single.json)
+      : failedRow(adId, single.json?.error?.message ?? 'erro desconhecido'));
   }
 
   await conversationRepository.upsertAdCatalog(rows);
