@@ -164,6 +164,9 @@ const withRecentMessages = async (conversations: unknown[]): Promise<UIConversat
   return loaded.filter((c): c is UIConversation => c !== null);
 };
 
+/** How far back the board shows won/lost deals. */
+export const PIPELINE_CLOSED_DAYS = 30;
+
 export const api = {
   /**
    * Fetch dashboard metrics with real data from Supabase
@@ -973,35 +976,55 @@ export const api = {
   /**
    * Fetch pipeline/deals with real data
    */
+  /**
+   * Open deals plus deals closed in the last PIPELINE_CLOSED_DAYS. Won/lost
+   * accumulate forever, and PostgREST caps a response at 1000 rows, so the
+   * board pages through the result instead of silently losing deals.
+   * Throws on failure so the board can show its error state.
+   */
   fetchPipeline: async (): Promise<Deal[]> => {
-    const { data, error } = await supabase
-      .from('deals')
-      .select(`
-        *,
-        contact:contacts(name, call_name, phone_number, email, client_memory),
-        owner:team_members(name, avatar)
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('[API] Error fetching pipeline:', error);
-      return [];
+    const closedSince = new Date(Date.now() - PIPELINE_CLOSED_DAYS * 86_400_000).toISOString();
+    const PAGE = 1000;
+    const data: any[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data: page, error } = await supabase
+        .from('deals')
+        .select(`
+          *,
+          contact:contacts(name, call_name, phone_number, email, client_memory),
+          owner:team_members(name, avatar)
+        `)
+        .or(`and(won_at.is.null,lost_at.is.null),won_at.gte.${closedSince},lost_at.gte.${closedSince}`)
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (error) {
+        console.error('[API] Error fetching pipeline:', error);
+        throw error;
+      }
+      data.push(...(page ?? []));
+      if (!page || page.length < PAGE) break;
     }
 
-    // Buscar conversation IDs para cada deal com contact_id
-    const contactIds = (data?.filter(d => d.contact_id).map(d => d.contact_id) || []).filter((id): id is string => id !== null);
-    
-    const { data: conversations } = await supabase
-      .from('conversations')
-      .select('id, contact_id')
-      .in('contact_id', contactIds);
-
-    const convMap = new Map(conversations?.map(c => [c.contact_id, c.id]) || []);
+    // Buscar conversation IDs para cada deal com contact_id, em lotes para não estourar a URL
+    const contactIds = [...new Set(data.map(d => d.contact_id).filter((id): id is string => !!id))];
+    // A contact has one conversation per WhatsApp number; link the most recently active one.
+    const convMap = new Map<string, string>();
+    for (let i = 0; i < contactIds.length; i += 150) {
+      const { data: rows } = await supabase
+        .from('conversations')
+        .select('id, contact_id')
+        .in('contact_id', contactIds.slice(i, i + 150))
+        .order('last_message_at', { ascending: false, nullsFirst: false });
+      for (const c of rows ?? []) {
+        if (c.contact_id && !convMap.has(c.contact_id)) convMap.set(c.contact_id, c.id);
+      }
+    }
 
     return (data || []).map((d: any) => ({
       id: d.id,
       title: d.title,
-      company: d.company || d.contact?.name || d.contact?.call_name || 'Sem empresa',
+      // WhatsApp leads rarely have a company; empty beats a fake "Sem empresa".
+      company: d.company || '',
       value: Number(d.value) || 0,
       stage: d.stage,
       stageId: d.stage_id,
@@ -1010,7 +1033,8 @@ export const api = {
       ownerName: d.owner?.name,
       tags: d.tags || [],
       dueDate: d.due_date,
-      priority: (d.priority || 'medium') as 'low' | 'medium' | 'high',
+      // No priority set means nobody flagged it — don't paint every card "Média".
+      priority: (d.priority || 'low') as 'low' | 'medium' | 'high',
       contactId: d.contact_id,
       contactName: d.contact?.name || d.contact?.call_name,
       contactPhone: d.contact?.phone_number,

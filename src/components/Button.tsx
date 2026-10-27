@@ -12,6 +12,7 @@ export const buttonVariants = cva(
         outline:   "border border-input bg-card text-primary hover:bg-accent",
         ghost:     "text-icon hover:bg-accent hover:text-foreground",
         danger:    "bg-danger-subtle text-danger hover:bg-danger-subtle/70 border border-danger/25",
+        success:   "bg-success-subtle text-success hover:bg-success-subtle/70 border border-success/25",
         default:   "bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-transparent",
       },
       size: {

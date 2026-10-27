@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Pencil, Trash2, GripVertical, Plus, Lock, Bot, User, AlertTriangle } from 'lucide-react';
+import { Pencil, Trash2, GripVertical, Plus, Lock, Bot, User, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 import { KanbanColumn } from '@/types';
 import { api } from '@/services/api';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -85,9 +86,11 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
   const handleSaveEdit = async () => {
     if (!editingId) return;
 
+    const editing = stages.find(s => s.id === editingId);
     try {
       await api.updatePipelineStage(editingId, {
-        title: editTitle,
+        // Ganho/Perdido are recognised by name across the app, so system stages keep theirs.
+        title: editing?.isSystem ? editing.title : editTitle,
         color: editColor,
         isAiManaged: editIsAiManaged,
         aiTriggerCriteria: editTriggerCriteria || null,
@@ -113,10 +116,14 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
   const handleDeleteClick = async (stage: KanbanColumn) => {
     // Check if there are deals in this stage
     try {
-      const deals = await api.fetchPipeline();
-      const dealsInStage = deals.filter(d => d.stageId === stage.id);
-      
-      if (dealsInStage.length > 0) {
+      // Count directly: the board list hides deals closed long ago, which still block a delete.
+      const { count, error } = await supabase
+        .from('deals')
+        .select('id', { count: 'exact', head: true })
+        .eq('stage_id', stage.id);
+      if (error) throw error;
+
+      if ((count ?? 0) > 0) {
         // Show dialog to move deals
         const otherStages = stages.filter(s => s.id !== stage.id);
         setAvailableStages(otherStages);
@@ -130,7 +137,7 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
         onSave?.();
       }
     } catch (error) {
-      toast.error('Erro ao verificar deals');
+      toast.error('Não foi possível verificar os negócios desta etapa');
     }
   };
 
@@ -139,7 +146,7 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
 
     try {
       await api.deletePipelineStage(deleteConfirm.stageId, moveToStageId);
-      toast.success('Etapa removida e deals realocados');
+      toast.success('Etapa removida e negócios movidos');
       setDeleteConfirm(null);
       setMoveToStageId('');
       loadStages();
@@ -172,6 +179,23 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
       onSave?.();
     } catch (error) {
       toast.error('Erro ao criar etapa');
+    }
+  };
+
+  /** Keyboard alternative to dragging a stage. */
+  const moveStage = async (index: number, step: -1 | 1) => {
+    const target = index + step;
+    if (target < 0 || target >= stages.length) return;
+    const previous = stages;
+    const next = [...stages];
+    [next[index], next[target]] = [next[target], next[index]];
+    setStages(next);
+    try {
+      await api.reorderPipelineStages(next.map(s => s.id));
+      onSave?.();
+    } catch {
+      toast.error('Não foi possível reordenar as etapas');
+      setStages(previous);
     }
   };
 
@@ -213,14 +237,14 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>⚙️ Configurar Pipeline</DialogTitle>
+            <DialogTitle>Etapas do funil</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             {/* Existing Stages */}
             <div className="space-y-2">
               {loading ? (
-                <p className="text-sm text-muted-foreground">Carregando...</p>
+                <p className="text-sm text-muted-foreground">Carregando…</p>
               ) : (
                 stages.map((stage, index) => (
                   <div
@@ -229,20 +253,23 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
                     onDragStart={() => handleDragStart(index)}
                     onDragOver={(e) => handleDragOver(e, index)}
                     onDragEnd={handleDragEnd}
-                    className={`flex items-center gap-3 p-3 border rounded-lg bg-card cursor-move hover:bg-accent transition-colors ${
+                    className={`flex items-center gap-3 p-3 rounded-lg bg-secondary cursor-move hover:bg-accent transition-colors ${
                       draggedIndex === index ? 'opacity-50' : ''
                     }`}
                   >
-                    <GripVertical className="w-5 h-5 text-muted-foreground" />
-                    
-                    <div className={`w-3 h-3 rounded-full ${stage.color.replace('border-', 'bg-')}`} />
+                    <GripVertical className="w-5 h-5 text-icon" aria-hidden="true" />
+
+                    <div className={`w-3 h-3 rounded-full ${stage.color.replace('border-', 'bg-')}`} aria-hidden="true" />
 
                     {editingId === stage.id ? (
                       <div className="flex-1 space-y-2">
                         <div className="flex gap-2">
                           <Input
-                            value={editTitle}
+                            value={stage.isSystem ? stage.title : editTitle}
                             onChange={(e) => setEditTitle(e.target.value)}
+                            disabled={stage.isSystem}
+                            title={stage.isSystem ? 'O nome das etapas Ganho e Perdido não pode mudar' : undefined}
+                            aria-label="Nome da etapa"
                             className="flex-1"
                             placeholder="Nome da etapa"
                           />
@@ -266,27 +293,29 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
                         
                         {/* Stage Type Selector */}
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Tipo de Estágio:</Label>
+                          <Label className="text-xs text-muted-foreground">Quem move negócios para cá</Label>
                           <div className="flex gap-2">
                             <Button
                               type="button"
                               size="sm"
                               variant={!editIsAiManaged ? "default" : "outline"}
                               onClick={() => setEditIsAiManaged(false)}
-                              className="flex-1"
+                              aria-pressed={!editIsAiManaged}
+                              className="flex-1 rounded-full"
                             >
-                              <User className="w-3 h-3 mr-1" />
-                              Manual
+                              <User className="w-3 h-3 mr-1" aria-hidden="true" />
+                              Só a equipe
                             </Button>
                             <Button
                               type="button"
                               size="sm"
                               variant={editIsAiManaged ? "default" : "outline"}
                               onClick={() => setEditIsAiManaged(true)}
-                              className="flex-1"
+                              aria-pressed={editIsAiManaged}
+                              className="flex-1 rounded-full"
                             >
-                              <Bot className="w-3 h-3 mr-1" />
-                              Automático
+                              <Bot className="w-3 h-3 mr-1" aria-hidden="true" />
+                              A Lu também
                             </Button>
                           </div>
                         </div>
@@ -295,7 +324,7 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
                         {editIsAiManaged && (
                           <div>
                             <Label className="text-xs text-muted-foreground">
-                              Critérios para IA mover para este estágio:
+                              Quando a Lu deve mover um negócio para esta etapa
                             </Label>
                             <Textarea
                               value={editTriggerCriteria}
@@ -307,11 +336,11 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
                         )}
                         
                         <div className="flex gap-2 justify-end">
-                          <Button size="sm" onClick={handleSaveEdit}>
-                            Salvar
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={handleCancelEdit}>
+                          <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="rounded-full">
                             Cancelar
+                          </Button>
+                          <Button size="sm" onClick={handleSaveEdit} className="rounded-full">
+                            Salvar
                           </Button>
                         </div>
                       </div>
@@ -321,39 +350,40 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
                           {/* Visual Indicator */}
                           {stage.isAiManaged ? (
                             stage.aiTriggerCriteria ? (
-                              <div title="Estágio automático com critério configurado">
-                                <Bot className="w-4 h-4 text-primary" />
-                              </div>
+                              <Bot className="w-4 h-4 text-primary flex-shrink-0" aria-hidden="true" />
                             ) : (
-                              <div title="Estágio automático sem critério - IA não sabe quando usar">
-                                <AlertTriangle className="w-4 h-4 text-warning" />
-                              </div>
+                              <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
                             )
                           ) : (
-                            <div title="Estágio manual - apenas movimentação humana">
-                              <User className="w-4 h-4 text-muted-foreground" />
-                            </div>
+                            <User className="w-4 h-4 text-icon flex-shrink-0" aria-hidden="true" />
                           )}
-                          <span className="font-medium">{stage.title}</span>
+                          <div className="min-w-0">
+                            <p className="text-[15px] font-medium text-foreground">{stage.title}</p>
+                            <p className={`text-xs ${stage.isAiManaged && !stage.aiTriggerCriteria ? 'text-warning' : 'text-muted-foreground'}`}>
+                              {!stage.isAiManaged
+                                ? 'Só a equipe move'
+                                : stage.aiTriggerCriteria
+                                  ? 'A Lu também move'
+                                  : 'A Lu move, mas falta dizer quando'}
+                            </p>
+                          </div>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEdit(stage)}
-                        >
-                          <Pencil className="w-4 h-4" />
+                        <Button size="sm" variant="ghost" onClick={() => moveStage(index, -1)} disabled={index === 0} aria-label={`Subir ${stage.title}`} className="rounded-full w-8 h-8 p-0">
+                          <ChevronUp className="w-4 h-4" aria-hidden="true" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => moveStage(index, 1)} disabled={index === stages.length - 1} aria-label={`Descer ${stage.title}`} className="rounded-full w-8 h-8 p-0">
+                          <ChevronDown className="w-4 h-4" aria-hidden="true" />
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleEdit(stage)} aria-label={`Editar ${stage.title}`} className="rounded-full w-8 h-8 p-0">
+                          <Pencil className="w-4 h-4" aria-hidden="true" />
                         </Button>
                         {stage.isSystem ? (
-                          <Button size="sm" variant="ghost" disabled title="Etapa de sistema não pode ser deletada">
-                            <Lock className="w-4 h-4 text-muted-foreground" />
-                          </Button>
+                          <span className="w-8 h-8 flex items-center justify-center" title="Ganho e Perdido não podem ser removidas">
+                            <Lock className="w-4 h-4 text-icon" aria-label="Etapa fixa, não pode ser removida" />
+                          </span>
                         ) : (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteClick(stage)}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
+                          <Button size="sm" variant="ghost" onClick={() => handleDeleteClick(stage)} aria-label={`Remover ${stage.title}`} className="rounded-full w-8 h-8 p-0">
+                            <Trash2 className="w-4 h-4 text-destructive" aria-hidden="true" />
                           </Button>
                         )}
                       </>
@@ -365,7 +395,7 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
 
             {/* Add New Stage */}
             <div className="border-t pt-4 space-y-3">
-              <Label className="text-sm font-medium">Nova Etapa</Label>
+              <Label className="text-sm font-medium">Nova etapa</Label>
               <div className="flex gap-2">
                 <Input
                   value={newStageTitle}
@@ -393,27 +423,29 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
               
               {/* Stage Type Selector */}
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Tipo de Estágio:</Label>
+                <Label className="text-xs text-muted-foreground">Quem move negócios para cá</Label>
                 <div className="flex gap-2">
                   <Button
                     type="button"
                     size="sm"
                     variant={!newStageIsAiManaged ? "default" : "outline"}
                     onClick={() => setNewStageIsAiManaged(false)}
-                    className="flex-1"
+                    aria-pressed={!newStageIsAiManaged}
+                    className="flex-1 rounded-full"
                   >
-                    <User className="w-3 h-3 mr-1" />
-                    Manual
+                    <User className="w-3 h-3 mr-1" aria-hidden="true" />
+                    Só a equipe
                   </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant={newStageIsAiManaged ? "default" : "outline"}
                     onClick={() => setNewStageIsAiManaged(true)}
-                    className="flex-1"
+                    aria-pressed={newStageIsAiManaged}
+                    className="flex-1 rounded-full"
                   >
-                    <Bot className="w-3 h-3 mr-1" />
-                    Automático
+                    <Bot className="w-3 h-3 mr-1" aria-hidden="true" />
+                    A Lu também
                   </Button>
                 </div>
               </div>
@@ -422,7 +454,7 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
               {newStageIsAiManaged && (
                 <div>
                   <Label className="text-xs text-muted-foreground">
-                    Critérios para IA mover para este estágio:
+                    Quando a Lu deve mover um negócio para esta etapa
                   </Label>
                   <Textarea
                     value={newStageTriggerCriteria}
@@ -433,9 +465,9 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
                 </div>
               )}
               
-              <Button onClick={handleAddStage} className="w-full">
-                <Plus className="w-4 h-4 mr-1" />
-                Adicionar Etapa
+              <Button onClick={handleAddStage} className="w-full rounded-full">
+                <Plus className="w-4 h-4 mr-1" aria-hidden="true" />
+                Adicionar etapa
               </Button>
             </div>
           </div>
@@ -448,11 +480,11 @@ export function PipelineSettingsModal({ open, onClose, onSave }: PipelineSetting
           <AlertDialogHeader>
             <AlertDialogTitle>Remover etapa "{deleteConfirm?.stageName}"?</AlertDialogTitle>
             <AlertDialogDescription>
-              Existem deals nesta etapa. Para onde você deseja movê-los?
+              Há negócios nesta etapa. Escolha para onde movê-los antes de remover.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="my-4">
-            <Label>Mover deals para:</Label>
+            <Label>Mover negócios para</Label>
             <Select value={moveToStageId} onValueChange={setMoveToStageId}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione uma etapa" />

@@ -42,7 +42,8 @@ interface Props {
 export const LeadQualificationCard: React.FC<Props> = ({ contactId, conversationId, memory, sdrName, onChange }) => {
   const q = memory.qualification ?? {};
   const pct = score(q);
-  const luName = sdrName || 'a IA';
+  // The assistant is "Lu" on screen; the company setting carries the long form ("Lumina").
+  const luName = sdrName ? 'Lu' : 'a IA';
   const [editing, setEditing] = useState<QualificationKey | null>(null);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -80,7 +81,10 @@ export const LeadQualificationCard: React.FC<Props> = ({ contactId, conversation
       onChange(await requestLeadQualification(conversationId));
       toast.success(`${luName} atualizou a qualificação.`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erro ao qualificar o lead.');
+      // fetch() rejects with a bare TypeError ("Failed to fetch") when the backend is unreachable.
+      toast.error(error instanceof TypeError
+        ? `Não foi possível falar com ${sdrName ? 'a Lu' : 'a IA'} agora. Tente de novo em alguns minutos.`
+        : error instanceof Error ? error.message : 'Erro ao qualificar o lead.');
     } finally {
       setAsking(false);
     }
@@ -105,7 +109,7 @@ export const LeadQualificationCard: React.FC<Props> = ({ contactId, conversation
 
       <div>
         <div className="flex items-baseline justify-between text-sm">
-          <span className="text-muted-foreground">Qualificação</span>
+          <span className="text-muted-foreground">Preenchida</span>
           <span className="text-foreground tabular-nums">{pct}%</span>
         </div>
         <div className="mt-1.5 w-full bg-secondary rounded-full h-1.5" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Qualificação">
@@ -134,12 +138,13 @@ export const LeadQualificationCard: React.FC<Props> = ({ contactId, conversation
                     value={draft}
                     onChange={e => setDraft(e.target.value)}
                     onKeyDown={e => {
-                      if (e.key === 'Enter') save(key);
-                      if (e.key === 'Escape') setEditing(null);
+                      if (e.key === 'Enter' && !saving) save(key);
+                      // Stop here: the deal panel closes on Escape, which would drop the draft.
+                      if (e.key === 'Escape') { e.stopPropagation(); setEditing(null); }
                     }}
                     placeholder={placeholder}
                     maxLength={200}
-                    className="flex-1 h-9 px-3 rounded-md bg-secondary text-[15px] text-foreground outline-none focus:ring-1 focus:ring-primary"
+                    className="flex-1 h-9 px-3 rounded-md bg-secondary text-[15px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   />
                   <button type="button" onClick={() => save(key)} disabled={saving} aria-label="Salvar" className="w-8 h-8 rounded-full flex items-center justify-center text-primary hover:bg-accent">
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
@@ -152,12 +157,13 @@ export const LeadQualificationCard: React.FC<Props> = ({ contactId, conversation
                 <button
                   type="button"
                   onClick={() => startEdit(key)}
+                  aria-label={`${label}: ${field?.value || 'não informado'}. Editar`}
                   className="group mt-0.5 w-full text-left flex items-center gap-2 text-[15px]"
                 >
                   <span className={field ? 'text-foreground' : 'text-muted-foreground italic'}>
                     {field?.value || 'Não informado'}
                   </span>
-                  <Pencil className="w-3.5 h-3.5 text-icon opacity-0 group-hover:opacity-100" />
+                  <Pencil className="w-3.5 h-3.5 text-icon opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100" aria-hidden="true" />
                 </button>
               )}
             </li>

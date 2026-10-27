@@ -6,7 +6,7 @@ import {
   Pencil, Smartphone, UserRound,
 } from 'lucide-react';
 import { Button } from './Button';
-import { api } from '../services/api';
+import { api, PIPELINE_CLOSED_DAYS } from '../services/api';
 import { Deal, DealActivity, TeamMember, KanbanColumn, getDefaultClientMemory } from '../types';
 import { LeadQualificationCard } from './LeadQualificationCard';
 import { supabase } from '../integrations/supabase/client';
@@ -18,6 +18,11 @@ import { PipelineSettingsModal } from './PipelineSettingsModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { PageContainer, PageHeader } from '@/components/layout';
 import { ContactAvatar } from '@/components/workspace/ContactAvatar';
 import { cn } from '@/lib/utils';
@@ -45,18 +50,26 @@ const ACTIVITY_ICON: Record<DealActivity['type'], React.ElementType> = {
 };
 
 const COMPOSER_TABS = [
-  { id: 'note', label: 'Nota', icon: FileText, placeholder: 'Escreva uma nota…' },
-  { id: 'activity', label: 'Ligação', icon: Phone, placeholder: 'Como foi a ligação?' },
-  { id: 'email', label: 'E-mail', icon: Mail, placeholder: 'Resumo do e-mail enviado…' },
+  { id: 'note', label: 'Nota', icon: FileText, title: 'Assunto da nota', placeholder: 'Escreva uma nota…' },
+  { id: 'activity', label: 'Ligação', icon: Phone, title: 'Com quem e sobre o quê', placeholder: 'Como foi a ligação?' },
+  { id: 'email', label: 'E-mail', icon: Mail, title: 'Assunto do e-mail', placeholder: 'Resumo do e-mail enviado…' },
 ] as const;
+
+/** Ganho/Perdido are the system stages; PipelineSettingsModal locks their names, so the title is stable. */
+const outcomeOf = (col?: KanbanColumn): 'won' | 'lost' | null =>
+  !col?.isSystem ? null : col.title === 'Ganho' ? 'won' : col.title === 'Perdido' ? 'lost' : null;
 
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <h3 className="text-sm text-primary mb-3">{children}</h3>
 );
 
 const Kanban: React.FC = () => {
-  const { sdrName } = useCompanySettings();
+  const { sdrName, role } = useCompanySettings();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  // null = untouched: attendants start on their own deals, managers and admins on the whole board.
+  const [onlyMineChoice, setOnlyMine] = useState<boolean | null>(null);
+  const [activityToDelete, setActivityToDelete] = useState<string | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [stages, setStages] = useState<KanbanColumn[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,38 +91,48 @@ const Kanban: React.FC = () => {
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [origin, setOrigin] = useState<{ conversationId: string; instance: string | null; attendants: string[] } | null>(null);
   const [editingValue, setEditingValue] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [showAllMessages, setShowAllMessages] = useState(false);
 
   const dragItem = useRef<string | null>(null);
 
-  const handleDealCreated = async () => {
-    const data = await api.fetchPipeline();
-    setDeals(data);
+  // Set when a drop on Ganho/Perdido opened the deal only to show its modal:
+  // cancelling that modal should close the panel too, not leave it behind.
+  const openedByDrop = useRef(false);
+
+  const refreshPipeline = async () => {
+    try {
+      setDeals(await api.fetchPipeline());
+    } catch (error) {
+      console.error('Erro ao atualizar pipeline', error);
+    }
   };
 
-  useEffect(() => {
-    const loadStages = async () => {
-      try {
-        const data = await api.fetchPipelineStages();
-        setStages(data);
-      } catch (error) {
-        console.error("Erro ao carregar etapas", error);
-        setLoadFailed(true);
-      }
-    };
-    loadStages();
+  const handleDealCreated = refreshPipeline;
 
-    const loadPipeline = async () => {
-      try {
-        const data = await api.fetchPipeline();
-        setDeals(data);
-      } catch (error) {
-        console.error("Erro ao carregar pipeline", error);
-        setLoadFailed(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadPipeline();
+  const closeOutcomeModal = (setOpen: (open: boolean) => void) => (open: boolean) => {
+    setOpen(open);
+    if (!open && openedByDrop.current) {
+      openedByDrop.current = false;
+      setSelectedDeal(null);
+    }
+  };
+
+  const loadBoard = async () => {
+    setLoadFailed(false);
+    const [stagesResult, dealsResult] = await Promise.allSettled([api.fetchPipelineStages(), api.fetchPipeline()]);
+    if (stagesResult.status === 'fulfilled') setStages(stagesResult.value);
+    else console.error('Erro ao carregar etapas', stagesResult.reason);
+    if (dealsResult.status === 'fulfilled') setDeals(dealsResult.value);
+    else console.error('Erro ao carregar pipeline', dealsResult.reason);
+    if (stagesResult.status === 'rejected' || dealsResult.status === 'rejected') setLoadFailed(true);
+    setLoading(false);
+  };
+
+  const retryLoad = () => { setLoading(true); loadBoard(); };
+
+  useEffect(() => {
+    loadBoard();
 
     const loadTeamMembers = async () => {
       try {
@@ -121,11 +144,13 @@ const Kanban: React.FC = () => {
     };
     loadTeamMembers();
 
+    // A burst of changes (Lu moving several deals, a bulk edit) triggers one reload, not one per row.
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     const dealsChannel = supabase
       .channel('deals-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, async () => {
-        const data = await api.fetchPipeline();
-        setDeals(data);
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, () => {
+        clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(refreshPipeline, 800);
       })
       .subscribe();
 
@@ -138,6 +163,7 @@ const Kanban: React.FC = () => {
       .subscribe();
 
     return () => {
+      clearTimeout(refreshTimer);
       supabase.removeChannel(dealsChannel);
       supabase.removeChannel(stagesChannel);
     };
@@ -146,6 +172,8 @@ const Kanban: React.FC = () => {
   useEffect(() => {
     if (selectedDeal) loadActivities();
     setEditingValue(null);
+    setComposerOpen(false);
+    setShowAllMessages(false);
     setOrigin(null);
     const contactId = selectedDeal?.contactId;
     if (!contactId) return;
@@ -259,7 +287,9 @@ const Kanban: React.FC = () => {
     try {
       await api.updateDealOwner(selectedDeal.id, ownerId);
       const member = teamMembers.find(m => m.id === ownerId);
-      setSelectedDeal({ ...selectedDeal, ownerId, ownerName: member?.name });
+      const owner = { ownerId, ownerName: member?.name, ownerAvatar: member?.avatar ?? '' };
+      setSelectedDeal({ ...selectedDeal, ...owner });
+      setDeals(ds => ds.map(d => d.id === selectedDeal.id ? { ...d, ...owner } : d));
       toast.success("Responsável atualizado");
     } catch (error) {
       console.error("Erro ao atualizar proprietário", error);
@@ -278,6 +308,7 @@ const Kanban: React.FC = () => {
       });
       setNewActivityTitle('');
       setNewActivityDescription('');
+      setComposerOpen(false);
       loadActivities();
       toast.success("Atividade registrada");
     } catch (error) {
@@ -292,6 +323,7 @@ const Kanban: React.FC = () => {
       loadActivities();
     } catch (error) {
       console.error("Erro ao atualizar atividade", error);
+      toast.error("Não foi possível atualizar a atividade");
     }
   };
 
@@ -302,6 +334,7 @@ const Kanban: React.FC = () => {
       toast.success("Atividade excluída");
     } catch (error) {
       console.error("Erro ao excluir atividade", error);
+      toast.error("Não foi possível excluir a atividade");
     }
   };
 
@@ -330,12 +363,13 @@ const Kanban: React.FC = () => {
     // Dropping on Ganho/Perdido goes through the same modals as the buttons:
     // moveDealStage alone never sets won_at/lost_at, so a dragged sale used to
     // stay "open" in every report.
-    const target = stages.find(s => s.id === targetStageId);
-    if (target?.title === 'Ganho' || target?.title === 'Perdido') {
+    const outcome = outcomeOf(stages.find(s => s.id === targetStageId));
+    if (outcome) {
       const deal = deals.find(d => d.id === dealId);
       if (!deal || deal.stageId === targetStageId) return;
+      openedByDrop.current = selectedDeal?.id !== deal.id;
       setSelectedDeal(deal);
-      if (target.title === 'Ganho') setIsWonModalOpen(true);
+      if (outcome === 'won') setIsWonModalOpen(true);
       else setIsLostModalOpen(true);
       return;
     }
@@ -348,15 +382,14 @@ const Kanban: React.FC = () => {
     } catch (error) {
       console.error('Error moving deal:', error);
       toast.error('Não foi possível mover o negócio');
-      const data = await api.fetchPipeline();
-      setDeals(data);
+      await refreshPipeline();
     }
   };
 
   const moveSelectedTo = async (col: KanbanColumn) => {
     if (!selectedDeal) return;
-    if (col.title === 'Ganho') { setIsWonModalOpen(true); return; }
-    if (col.title === 'Perdido') { setIsLostModalOpen(true); return; }
+    if (outcomeOf(col) === 'won') { setIsWonModalOpen(true); return; }
+    if (outcomeOf(col) === 'lost') { setIsLostModalOpen(true); return; }
     setDeals(deals.map(d => d.id === selectedDeal.id ? { ...d, stageId: col.id } : d));
     setSelectedDeal({ ...selectedDeal, stageId: col.id });
     try {
@@ -367,10 +400,51 @@ const Kanban: React.FC = () => {
     }
   };
 
-  const q = searchQuery.toLowerCase();
-  const filteredDeals = deals.filter(deal =>
-    deal.title.toLowerCase().includes(q) || deal.company.toLowerCase().includes(q)
-  );
+  /** Keyboard alternative to drag: Alt+←/→ on a card moves it one stage. */
+  const moveCardByKey = async (deal: Deal, step: -1 | 1) => {
+    const idx = stages.findIndex(s => s.id === deal.stageId);
+    const target = stages[idx + step];
+    if (idx < 0 || !target) return;
+    const outcome = outcomeOf(target);
+    if (outcome) {
+      openedByDrop.current = selectedDeal?.id !== deal.id;
+      setSelectedDeal(deal);
+      if (outcome === 'won') setIsWonModalOpen(true); else setIsLostModalOpen(true);
+      return;
+    }
+    setDeals(ds => ds.map(d => d.id === deal.id ? { ...d, stageId: target.id } : d));
+    toast.success(`Movido para ${target.title}`);
+    try {
+      await api.moveDealStage(deal.id, target.id);
+    } catch (error) {
+      console.error('Error moving deal:', error);
+      toast.error('Não foi possível mover o negócio');
+      await refreshPipeline();
+    }
+  };
+
+  // Close the panel and give focus back to the card that opened it.
+  const lastCardRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (selectedDeal) closeButtonRef.current?.focus();
+    else lastCardRef.current?.focus();
+  }, [!!selectedDeal]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Owner is a team_members id; the signed-in user is matched through its auth id.
+  const myMemberId = teamMembers.find(m => m.user_id === user?.id)?.id;
+  const onlyMine = !!myMemberId && (onlyMineChoice ?? role === 'agent');
+
+  const q = searchQuery.trim().toLowerCase();
+  const qDigits = q.replace(/\D/g, '');
+  const filteredDeals = deals.filter(deal => (!onlyMine || deal.ownerId === myMemberId) && (
+    deal.title.toLowerCase().includes(q)
+    || deal.company.toLowerCase().includes(q)
+    || (deal.contactName ?? '').toLowerCase().includes(q)
+    || (qDigits.length >= 3 && (deal.contactPhone ?? '').includes(qDigits))
+  ));
+  const noSearchResults = !!q && filteredDeals.length === 0;
+  const emptyColumnText = q ? 'Nenhum resultado nesta etapa' : onlyMine ? 'Nenhum negócio seu aqui' : 'Arraste um negócio para cá';
 
   const openDeals = deals.filter(d => !d.wonAt && !d.lostAt);
   const openValue = openDeals.reduce((acc, d) => acc + d.value, 0);
@@ -404,23 +478,50 @@ const Kanban: React.FC = () => {
         }
       />
 
-      <div className="relative w-full sm:w-80">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-icon pointer-events-none" aria-hidden="true" />
-        <input
-          type="text"
-          aria-label="Buscar negócio"
-          placeholder="Buscar negócio ou empresa"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-11 pr-4 h-10 bg-card border border-border rounded-full text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-icon pointer-events-none" aria-hidden="true" />
+          <input
+            type="text"
+            aria-label="Buscar negócio"
+            placeholder="Buscar negócio, cliente ou telefone"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-11 pr-4 h-10 bg-card border border-border rounded-full text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0"
+          />
+        </div>
+        {myMemberId && (
+          <button
+            type="button"
+            aria-pressed={onlyMine}
+            onClick={() => setOnlyMine(!onlyMine)}
+            className={cn(
+              'h-8 px-3 rounded-full text-sm flex items-center gap-1.5 transition-colors',
+              onlyMine ? 'bg-primary-subtle text-primary-subtle-foreground font-medium' : 'bg-secondary text-muted-foreground hover:bg-accent',
+            )}
+          >
+            <UserRound className="w-4 h-4" aria-hidden="true" /> Meus negócios
+          </button>
+        )}
+        <p className="hidden sm:block ml-auto text-xs text-muted-foreground">Alt + ← → move o negócio selecionado de etapa</p>
       </div>
+      {/* Drag doesn't work on touch screens; the panel's stage picker does. */}
+      <p className="sm:hidden -mt-2 text-xs text-muted-foreground">Toque num negócio para mudar a etapa.</p>
 
-      {loadFailed && deals.length === 0 ? (
+      {noSearchResults && (
+        <p role="status" className="-mt-1 text-sm text-muted-foreground">
+          Nenhum negócio encontrado para "{searchQuery.trim()}"{onlyMine && ' entre os seus'}.{' '}
+          <button type="button" onClick={() => setSearchQuery('')} className="text-primary hover:underline">Limpar busca</button>
+          {onlyMine && <> ou <button type="button" onClick={() => setOnlyMine(false)} className="text-primary hover:underline">ver de todos</button></>}
+        </p>
+      )}
+
+      {loadFailed && (deals.length === 0 || stages.length === 0) ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center">
           <CloudOff className="w-10 h-10 text-icon/40" aria-hidden="true" />
           <p className="text-base text-foreground">Não foi possível carregar o funil</p>
-          <p className="text-sm text-muted-foreground">Recarregue a página para tentar de novo.</p>
+          <p className="text-sm text-muted-foreground">Verifique a conexão e tente de novo.</p>
+          <Button variant="outline" size="sm" onClick={retryLoad} className="mt-2">Tentar de novo</Button>
         </div>
       ) : (
       /* Board */
@@ -429,8 +530,8 @@ const Kanban: React.FC = () => {
           {stages.map((column) => {
             const columnDeals = filteredDeals.filter(d => d.stageId === column.id);
             const totalValue = columnDeals.reduce((acc, curr) => acc + curr.value, 0);
-            const isWonColumn = column.title === 'Ganho';
-            const isLostColumn = column.title === 'Perdido';
+            const isWonColumn = outcomeOf(column) === 'won';
+            const isLostColumn = outcomeOf(column) === 'lost';
             const dot = isWonColumn ? 'bg-success' : isLostColumn ? 'bg-danger' : stageDot(column.color);
 
             return (
@@ -453,20 +554,30 @@ const Kanban: React.FC = () => {
                     {column.isAiManaged && (
                       <Bot className="w-3.5 h-3.5 text-primary flex-shrink-0" aria-label="A Lu move negócios para esta etapa" />
                     )}
-                    <span className="ml-auto min-w-[22px] h-[22px] px-1.5 rounded-full bg-card text-xs font-medium text-muted-foreground tabular-nums flex items-center justify-center">
-                      {columnDeals.length}
+                    <span className="ml-auto text-xs text-muted-foreground tabular-nums">
+                      {columnDeals.length} {columnDeals.length === 1 ? 'negócio' : 'negócios'}
                     </span>
                   </div>
-                  <p className="mt-0.5 pl-[18px] text-xs text-muted-foreground tabular-nums">{formatCurrency(totalValue)}</p>
+                  {/* The column's money is what a sales board is read for — give it weight. */}
+                  <p className="mt-1.5 pl-[18px] text-[17px] font-semibold leading-none text-foreground tabular-nums">
+                    {formatCurrency(totalValue)}
+                  </p>
+                  {(isWonColumn || isLostColumn) && (
+                    <p className="mt-1 pl-[18px] text-[11px] text-muted-foreground">Últimos {PIPELINE_CLOSED_DAYS} dias</p>
+                  )}
                 </header>
 
                 {/* Column Body */}
                 <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-2">
                   {columnDeals.length === 0 && (
-                    <p className="px-2 py-6 text-center text-xs text-muted-foreground">Arraste um negócio para cá</p>
+                    <p className="px-2 py-6 text-center text-xs text-muted-foreground">{emptyColumnText}</p>
                   )}
                   {columnDeals.map((deal) => {
                     const pr = PRIORITY[deal.priority] ?? PRIORITY.low;
+                    // Who the deal is with, without repeating the title.
+                    const subtitle = [deal.contactName, deal.company]
+                      .filter((s, i, all): s is string => !!s && s !== deal.title && all.indexOf(s) === i)
+                      .join(' · ');
                     return (
                       <div
                         key={deal.id}
@@ -475,15 +586,22 @@ const Kanban: React.FC = () => {
                         draggable
                         onDragStart={(e) => onDragStart(e, deal.id)}
                         onDragEnd={onDragEnd}
-                        onClick={() => setSelectedDeal(deal)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedDeal(deal); } }}
+                        aria-describedby="kanban-card-hint"
+                        onClick={(e) => { lastCardRef.current = e.currentTarget; setSelectedDeal(deal); }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); lastCardRef.current = e.currentTarget; setSelectedDeal(deal); }
+                          if (e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); moveCardByKey(deal, e.key === 'ArrowRight' ? 1 : -1); }
+                        }}
                         className={cn(
-                          'bg-card rounded-lg p-3 shadow-wa-bubble cursor-grab active:cursor-grabbing transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0',
+                          'bg-card rounded-lg p-3 cursor-grab active:cursor-grabbing transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0',
                           selectedDeal?.id === deal.id && 'ring-2 ring-primary',
                         )}
                       >
-                        <p className="text-[15px] leading-5 text-foreground">{deal.title}</p>
-                        {deal.company && <p className="mt-0.5 text-[13px] text-muted-foreground truncate">{deal.company}</p>}
+                        <div className="flex items-start gap-2">
+                          <p className="flex-1 min-w-0 text-[15px] leading-5 font-medium text-foreground line-clamp-2 break-words">{deal.title}</p>
+                          <span className="flex-shrink-0 text-[15px] leading-5 font-semibold text-foreground tabular-nums">{formatCurrency(deal.value)}</span>
+                        </div>
+                        {subtitle && <p className="mt-0.5 text-[13px] text-muted-foreground truncate">{subtitle}</p>}
 
                         {deal.tags.length > 0 && (
                           <div className="flex items-center gap-1 mt-2 flex-wrap">
@@ -493,8 +611,7 @@ const Kanban: React.FC = () => {
                           </div>
                         )}
 
-                        <div className="flex items-center gap-2 mt-3">
-                          <span className="text-sm font-medium text-foreground tabular-nums">{formatCurrency(deal.value)}</span>
+                        <div className="flex items-center gap-2 mt-2.5 min-h-6">
                           {deal.priority !== 'low' && (
                             <span className={cn('flex items-center gap-1 text-xs', pr.text)}>
                               <span className={cn('w-1.5 h-1.5 rounded-full', pr.dot)} aria-hidden="true" />
@@ -509,7 +626,8 @@ const Kanban: React.FC = () => {
                               </span>
                             )}
                             <span title={deal.ownerName || 'Sem responsável'}>
-                              <ContactAvatar src={realAvatar(deal.ownerAvatar)} name={deal.ownerName || '?'} className="w-6 h-6 text-[10px]" />
+                              <ContactAvatar src={realAvatar(deal.ownerAvatar)} name={deal.ownerName || '?'} className="w-6 h-6 text-[10px]" aria-hidden="true" />
+                              <span className="sr-only">Responsável: {deal.ownerName || 'ninguém'}</span>
                             </span>
                           </span>
                         </div>
@@ -521,6 +639,7 @@ const Kanban: React.FC = () => {
             );
           })}
         </div>
+        <p id="kanban-card-hint" className="sr-only">Enter abre os detalhes. Alt mais seta para a direita ou esquerda move de etapa.</p>
       </div>
       )}
 
@@ -533,36 +652,52 @@ const Kanban: React.FC = () => {
       <aside
         aria-label="Detalhes do negócio"
         aria-hidden={!selectedDeal}
+        aria-modal={!!selectedDeal || undefined}
+        role="dialog"
+        onKeyDown={(e) => {
+          // Keep Tab inside the panel while it covers the board.
+          if (e.key !== 'Tab') return;
+          const items = e.currentTarget.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), textarea, [tabindex]:not([tabindex="-1"])');
+          const first = items[0], last = items[items.length - 1];
+          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+          else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+        }}
         className={cn(
           'fixed top-0 right-0 h-full w-full max-w-xl bg-background shadow-wa-menu z-50 transform transition-transform duration-300 ease-out flex flex-col',
           selectedDeal ? 'translate-x-0' : 'translate-x-full',
         )}
       >
         {selectedDeal && (() => {
-          const currentStageIndex = stages.findIndex(c => c.id === selectedDeal.stageId);
           const mem = selectedDeal.clientMemory;
+          const nextAction = mem?.sales_intelligence.next_best_action;
+          const interests = mem?.lead_profile.interests ?? [];
+          const pains = mem?.sales_intelligence.pain_points ?? [];
+          const visibleMessages = showAllMessages ? conversationMessages : conversationMessages.slice(-3);
           return (
             <>
-              {/* Header bar */}
-              <div className="flex-shrink-0 h-[60px] px-4 flex items-center gap-4 bg-muted">
-                <button
-                  type="button"
-                  onClick={() => setSelectedDeal(null)}
-                  aria-label="Fechar"
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-icon hover:bg-accent"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-                <span className="text-base text-foreground">Detalhes do negócio</span>
-              </div>
-
-              <div className="flex-1 overflow-y-auto">
-                {/* Identity */}
-                <div className="bg-card px-6 pt-6 pb-5">
-                  <h2 className="text-[22px] leading-tight text-foreground break-words">{selectedDeal.title}</h2>
+              {/* Sticky header: what the deal is worth, where it stands, who owns it, how it ends. */}
+              <div className="flex-shrink-0 bg-card border-b border-border">
+                <div className="px-4 pt-3 flex items-start gap-2">
+                  <button
+                    ref={closeButtonRef}
+                    type="button"
+                    onClick={() => setSelectedDeal(null)}
+                    aria-label="Fechar"
+                    className="-ml-1 w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center text-icon hover:bg-accent"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                  <div className="flex-1 min-w-0 pt-1.5">
+                    <h2 className="text-[19px] leading-tight font-medium text-foreground break-words">{selectedDeal.title}</h2>
+                    {selectedDeal.company && (
+                      <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Building className="w-3.5 h-3.5" aria-hidden="true" /> {selectedDeal.company}
+                      </p>
+                    )}
+                  </div>
                   {editingValue !== null ? (
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="text-lg text-muted-foreground">R$</span>
+                    <div className="pt-1 flex items-center gap-1.5">
+                      <span className="text-base text-muted-foreground">R$</span>
                       <input
                         autoFocus
                         inputMode="decimal"
@@ -574,7 +709,7 @@ const Kanban: React.FC = () => {
                           if (e.key === 'Enter') { e.preventDefault(); saveValue(); }
                           if (e.key === 'Escape') { e.stopPropagation(); setEditingValue(null); }
                         }}
-                        className="w-40 h-9 px-3 rounded-lg bg-secondary text-lg text-foreground tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        className="w-32 h-9 px-3 rounded-lg bg-secondary text-lg text-foreground tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       />
                     </div>
                   ) : (
@@ -582,141 +717,231 @@ const Kanban: React.FC = () => {
                       type="button"
                       onClick={() => setEditingValue(selectedDeal.value ? String(selectedDeal.value).replace('.', ',') : '')}
                       title="Editar valor"
-                      className="mt-1 -mx-1 px-1 rounded flex items-center gap-1.5 text-lg text-foreground tabular-nums hover:bg-accent group/v"
+                      className="mt-1 px-1.5 rounded flex items-center gap-1.5 text-[19px] font-semibold text-foreground tabular-nums hover:bg-accent group/v flex-shrink-0"
                     >
                       {formatCurrencyExact(selectedDeal.value)}
-                      <Pencil className="w-3.5 h-3.5 text-icon opacity-60 group-hover/v:opacity-100" aria-hidden="true" />
+                      <Pencil className="w-3.5 h-3.5 text-icon opacity-50 group-hover/v:opacity-100" aria-hidden="true" />
                     </button>
                   )}
-                  {selectedDeal.company && (
-                    <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                      <Building className="w-4 h-4" aria-hidden="true" /> {selectedDeal.company}
-                    </p>
-                  )}
-                  {origin && (
-                    <div className="mt-3 space-y-1 text-sm">
-                      {origin.instance && (
-                        <p className="flex items-center gap-1.5 text-muted-foreground">
-                          <Smartphone className="w-4 h-4" aria-hidden="true" />
-                          Conversa no número <span className="text-foreground">{origin.instance}</span>
-                        </p>
+                </div>
+
+                <div className="px-4 pt-3 pb-3 flex flex-wrap items-center gap-2">
+                  <Select
+                    value={selectedDeal.stageId || ''}
+                    onValueChange={(id) => { const col = stages.find(s => s.id === id); if (col) moveSelectedTo(col); }}
+                  >
+                    <SelectTrigger aria-label="Etapa" className="w-auto min-w-[150px] h-9 rounded-full bg-primary-subtle text-primary-subtle-foreground border-0 text-sm font-medium">
+                      <SelectValue placeholder="Sem etapa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stages.map(col => (
+                        <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={selectedDeal.ownerId || ''} onValueChange={handleOwnerChange}>
+                    <SelectTrigger aria-label="Responsável" className="w-auto min-w-[160px] h-9 rounded-full bg-secondary border-0 text-sm">
+                      <SelectValue placeholder="Sem responsável">
+                        <span className="flex items-center gap-2">
+                          <ContactAvatar src={realAvatar(selectedDeal.ownerAvatar)} name={selectedDeal.ownerName || '?'} className="w-5 h-5 text-[9px]" />
+                          {selectedDeal.ownerName || 'Sem responsável'}
+                        </span>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teamMembers.map(member => (
+                        <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {/* On a phone the outcome buttons drop to their own row instead of squeezing the pickers. */}
+                  <span className="flex-1 basis-full sm:basis-0" />
+                  <Button size="sm" variant="success" onClick={() => setIsWonModalOpen(true)}>
+                    <CheckCircle2 className="w-4 h-4 mr-1.5" aria-hidden="true" /> Ganho
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => setIsLostModalOpen(true)}>
+                    <X className="w-4 h-4 mr-1.5" aria-hidden="true" /> Perdido
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto">
+                {/* What to do now */}
+                {(nextAction || conversationId) && (
+                  <div className="bg-card px-6 py-5 flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      {nextAction ? (
+                        <>
+                          <p className="text-sm text-muted-foreground">Próximo passo, segundo a Lu</p>
+                          <p className="mt-0.5 text-[17px] leading-snug text-foreground">{NEXT_ACTION[nextAction] ?? nextAction}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Sem sugestão de próximo passo ainda.</p>
                       )}
-                      <p className="flex items-center gap-1.5 text-muted-foreground">
-                        <UserRound className="w-4 h-4" aria-hidden="true" />
-                        {origin.attendants.length > 0
-                          ? <>Atendido por <span className="text-foreground">{origin.attendants.join(', ')}</span></>
-                          : 'Nenhum atendente respondeu pelo sistema'}
-                      </p>
                     </div>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <Select value={selectedDeal.ownerId || ''} onValueChange={handleOwnerChange}>
-                      <SelectTrigger aria-label="Responsável" className="w-auto min-w-[200px] h-9 rounded-full bg-secondary border-0 text-sm">
-                        <SelectValue placeholder="Sem responsável">
-                          <span className="flex items-center gap-2">
-                            <ContactAvatar src={realAvatar(selectedDeal.ownerAvatar)} name={selectedDeal.ownerName || '?'} className="w-5 h-5 text-[9px]" />
-                            {selectedDeal.ownerName || 'Sem responsável'}
-                          </span>
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {teamMembers.map(member => (
-                          <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <span className="flex-1" />
-                    <Button size="sm" onClick={() => setIsWonModalOpen(true)} className="bg-success-subtle text-success hover:bg-success-subtle/70 border-0">
-                      <CheckCircle2 className="w-4 h-4 mr-1.5" aria-hidden="true" /> Ganho
-                    </Button>
-                    <Button size="sm" variant="danger" onClick={() => setIsLostModalOpen(true)} className="border-0">
-                      <X className="w-4 h-4 mr-1.5" aria-hidden="true" /> Perdido
-                    </Button>
+                    {conversationId && (
+                      <Button onClick={() => navigate(`/chat?conversation=${conversationId}`)} className="flex-shrink-0">
+                        <MessageSquare className="w-4 h-4 mr-2" aria-hidden="true" />
+                        Abrir conversa
+                      </Button>
+                    )}
                   </div>
-                </div>
+                )}
 
-                {/* Stage */}
-                <div className="h-2" aria-hidden="true" />
-                <div className="bg-card px-6 py-5">
-                  <SectionTitle>Etapa</SectionTitle>
-                  <div role="radiogroup" aria-label="Etapa do negócio" className="flex flex-wrap gap-1.5">
-                    {stages.map((col, idx) => {
-                      const isCompleted = idx < currentStageIndex;
-                      const isActive = idx === currentStageIndex;
-                      return (
-                        <button
-                          key={col.id}
-                          type="button"
-                          role="radio"
-                          aria-checked={isActive}
-                          onClick={() => moveSelectedTo(col)}
-                          className={cn(
-                            'px-3 h-8 rounded-full text-sm whitespace-nowrap transition-colors flex items-center gap-1.5',
-                            isActive ? 'bg-primary text-primary-foreground font-medium'
-                              : isCompleted ? 'bg-primary-subtle text-primary-subtle-foreground hover:bg-primary-subtle/70'
-                              : 'bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground',
+                {/* Conversation */}
+                {conversationId && (
+                  <>
+                    <div className="h-2" aria-hidden="true" />
+                    <div className="bg-card px-6 py-5">
+                      <SectionTitle>Conversa</SectionTitle>
+                      {loadingMessages ? (
+                        <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-primary" aria-label="Carregando mensagens" /></div>
+                      ) : conversationMessages.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Nenhuma mensagem nesta conversa.</p>
+                      ) : (
+                        <>
+                          <div className="chat-wall rounded-lg overflow-hidden" /* pattern on a non-scrolling wrapper, see index.css */>
+                            <div className={cn('relative p-3 space-y-1.5', showAllMessages && 'max-h-80 overflow-y-auto')}>
+                              {visibleMessages.map(msg => {
+                                const incoming = msg.from_type === 'user';
+                                return (
+                                  <div key={msg.id} className={cn('flex', incoming ? 'justify-start' : 'justify-end')}>
+                                    <div
+                                      className={cn(
+                                        'max-w-[85%] rounded-lg px-2.5 py-1.5 text-sm shadow-wa-bubble text-[color:var(--wa-text)]',
+                                        incoming ? 'bg-[var(--wa-in)]' : 'bg-[var(--wa-out)]',
+                                      )}
+                                    >
+                                      {!incoming && (
+                                        <p className="text-xs font-medium text-primary">{msg.from_type === 'nina' ? sdrName || 'Lu' : 'Equipe'}</p>
+                                      )}
+                                      <p className="leading-snug line-clamp-4 whitespace-pre-wrap break-words">{msg.content || 'Mídia'}</p>
+                                      <p className="text-[11px] text-right text-[color:var(--wa-meta)] tabular-nums">
+                                        {new Date(msg.sent_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          {conversationMessages.length > 3 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowAllMessages(v => !v)}
+                              className="mt-2 text-sm text-primary hover:underline"
+                            >
+                              {showAllMessages ? 'Mostrar só as últimas' : `Ver as ${conversationMessages.length} últimas mensagens`}
+                            </button>
                           )}
-                        >
-                          {isCompleted && <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />}
-                          {col.title}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Composer */}
-                <div className="h-2" aria-hidden="true" />
-                <div className="bg-card px-6 py-5">
-                  <SectionTitle>Registrar</SectionTitle>
-                  <div role="tablist" aria-label="Tipo de registro" className="flex gap-1.5 mb-3">
-                    {COMPOSER_TABS.map(t => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={activeTab === t.id}
-                        onClick={() => setActiveTab(t.id)}
-                        className={cn(
-                          'px-3 h-8 rounded-full text-sm flex items-center gap-1.5 transition-colors',
-                          activeTab === t.id ? 'bg-primary-subtle text-primary-subtle-foreground font-medium' : 'bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground',
-                        )}
-                      >
-                        <t.icon className="w-4 h-4" aria-hidden="true" /> {t.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="rounded-lg bg-secondary overflow-hidden focus-within:ring-2 focus-within:ring-primary">
-                    <input
-                      type="text"
-                      aria-label="Título"
-                      className="w-full bg-transparent px-4 pt-3 pb-1 text-[15px] text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                      placeholder="Título"
-                      value={newActivityTitle}
-                      onChange={(e) => setNewActivityTitle(e.target.value)}
-                    />
-                    <textarea
-                      aria-label="Descrição"
-                      className="w-full bg-transparent px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[72px] focus-visible:ring-0 focus-visible:ring-offset-0"
-                      placeholder={tab.placeholder}
-                      value={newActivityDescription}
-                      onChange={(e) => setNewActivityDescription(e.target.value)}
-                    />
-                    <div className="px-3 pb-3 flex justify-end">
-                      <Button size="sm" onClick={handleCreateActivity} disabled={!newActivityTitle.trim()}>Salvar</Button>
+                        </>
+                      )}
                     </div>
-                  </div>
-                </div>
+                  </>
+                )}
 
-                {/* Activities */}
+                {/* About the client: qualification + what the Lu picked up */}
+                {(selectedDeal.contactId || interests.length > 0 || pains.length > 0) && (
+                  <>
+                    <div className="h-2" aria-hidden="true" />
+                    <div className="bg-card px-6 py-5 space-y-4">
+                      {selectedDeal.contactId && (
+                        <LeadQualificationCard
+                          contactId={selectedDeal.contactId}
+                          conversationId={selectedDeal.conversationId}
+                          memory={mem ?? getDefaultClientMemory()}
+                          sdrName={sdrName}
+                          onChange={(memory) => {
+                            setSelectedDeal(prev => prev && prev.id === selectedDeal.id ? { ...prev, clientMemory: memory } : prev);
+                            setDeals(prev => prev.map(d => d.contactId === selectedDeal.contactId ? { ...d, clientMemory: memory } : d));
+                          }}
+                        />
+                      )}
+                      {interests.length > 0 && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Interesses</span>
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {interests.map((interest, idx) => (
+                              <span key={idx} className="px-2.5 h-6 rounded-full bg-secondary text-foreground text-xs flex items-center">{interest}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {pains.length > 0 && (
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">Dores</span>
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {pains.map((pain, idx) => (
+                              <span key={idx} className="px-2.5 h-6 rounded-full bg-secondary text-foreground text-xs flex items-center">{pain}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* History: one-line composer that expands, then the activity list */}
                 <div className="h-2" aria-hidden="true" />
                 <div className="bg-card py-5">
-                  <div className="px-6"><SectionTitle>Atividades{activities.length > 0 ? ` · ${activities.length}` : ''}</SectionTitle></div>
+                  <div className="px-6"><SectionTitle>Histórico{activities.length > 0 ? ` · ${activities.length}` : ''}</SectionTitle></div>
+                  <div className="px-6 mb-2">
+                    {!composerOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => setComposerOpen(true)}
+                        className="w-full h-10 px-4 rounded-lg bg-secondary text-left text-[15px] text-muted-foreground hover:bg-accent flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" aria-hidden="true" /> Registrar nota, ligação ou e-mail
+                      </button>
+                    ) : (
+                      <>
+                        <div role="tablist" aria-label="Tipo de registro" className="flex gap-1.5 mb-2">
+                          {COMPOSER_TABS.map(t => (
+                            <button
+                              key={t.id}
+                              type="button"
+                              role="tab"
+                              aria-selected={activeTab === t.id}
+                              onClick={() => setActiveTab(t.id)}
+                              className={cn(
+                                'px-3 h-8 rounded-full text-sm flex items-center gap-1.5 transition-colors',
+                                activeTab === t.id ? 'bg-primary-subtle text-primary-subtle-foreground font-medium' : 'bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground',
+                              )}
+                            >
+                              <t.icon className="w-4 h-4" aria-hidden="true" /> {t.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="rounded-lg bg-secondary overflow-hidden focus-within:ring-2 focus-within:ring-primary">
+                          <input
+                            type="text"
+                            autoFocus
+                            aria-label={tab.title}
+                            className="w-full bg-transparent px-4 pt-3 pb-1 text-[15px] text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                            placeholder={tab.title}
+                            value={newActivityTitle}
+                            onChange={(e) => setNewActivityTitle(e.target.value)}
+                          />
+                          <textarea
+                            aria-label="Descrição"
+                            className="w-full bg-transparent px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[72px] focus-visible:ring-0 focus-visible:ring-offset-0"
+                            placeholder={tab.placeholder}
+                            value={newActivityDescription}
+                            onChange={(e) => setNewActivityDescription(e.target.value)}
+                          />
+                          <div className="px-3 pb-3 flex justify-end gap-2">
+                            <Button size="sm" variant="ghost" onClick={() => { setComposerOpen(false); setNewActivityTitle(''); setNewActivityDescription(''); }}>Cancelar</Button>
+                            <Button size="sm" onClick={handleCreateActivity} disabled={!newActivityTitle.trim()}>Salvar</Button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
                   {loadingActivities ? (
                     <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-primary" aria-label="Carregando atividades" /></div>
                   ) : activities.length === 0 ? (
-                    <p className="px-6 text-sm text-muted-foreground">Nada registrado ainda. Use o campo acima para anotar o que aconteceu.</p>
+                    <p className="px-6 pt-1 text-sm text-muted-foreground">Nada registrado ainda.</p>
                   ) : (
                     <ul>
                       {activities.map(activity => {
@@ -739,15 +964,18 @@ const Kanban: React.FC = () => {
                                 </p>
                                 {activity.description && <p className="mt-0.5 text-sm text-muted-foreground whitespace-pre-wrap break-words">{activity.description}</p>}
                                 <p className="mt-1 text-xs text-muted-foreground tabular-nums">
-                                  {new Date(activity.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  {new Date(activity.createdAt).toLocaleDateString('pt-BR', {
+                                    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+                                    ...(new Date(activity.createdAt).getFullYear() !== new Date().getFullYear() && { year: 'numeric' }),
+                                  })}
                                   {activity.createdByName && ` · ${activity.createdByName}`}
                                 </p>
                               </div>
                               <button
                                 type="button"
-                                onClick={() => handleDeleteActivity(activity.id)}
+                                onClick={() => setActivityToDelete(activity.id)}
                                 aria-label="Excluir atividade"
-                                className="sm:opacity-0 group-hover/li:opacity-100 focus-visible:opacity-100 w-8 h-8 rounded-full flex items-center justify-center text-icon hover:bg-danger-subtle hover:text-danger transition-opacity flex-shrink-0"
+                                className="ml-2 sm:opacity-0 group-hover/li:opacity-100 focus-visible:opacity-100 w-10 h-10 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-icon hover:bg-danger-subtle hover:text-danger transition-opacity flex-shrink-0"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -759,114 +987,47 @@ const Kanban: React.FC = () => {
                   )}
                 </div>
 
-                {/* Lu insights */}
-                {selectedDeal.contactId && (
-                  <>
-                    <div className="h-2" aria-hidden="true" />
-                    <div className="bg-card px-6 py-5">
-                      <LeadQualificationCard
-                        contactId={selectedDeal.contactId}
-                        conversationId={selectedDeal.conversationId}
-                        memory={mem ?? getDefaultClientMemory()}
-                        sdrName={sdrName}
-                        onChange={(memory) => {
-                          setSelectedDeal(prev => prev && prev.id === selectedDeal.id ? { ...prev, clientMemory: memory } : prev);
-                          setDeals(prev => prev.map(d => d.contactId === selectedDeal.contactId ? { ...d, clientMemory: memory } : d));
-                        }}
-                      />
-                    </div>
-                  </>
+                {/* Reference only: where the conversation happened and who answered */}
+                {origin && (
+                  <div className="px-6 pt-4 pb-6 space-y-1 text-xs text-muted-foreground">
+                    {origin.instance && (
+                      <p className="flex items-center gap-1.5">
+                        <Smartphone className="w-3.5 h-3.5" aria-hidden="true" />
+                        Conversa no número {origin.instance}
+                      </p>
+                    )}
+                    <p className="flex items-center gap-1.5">
+                      <UserRound className="w-3.5 h-3.5" aria-hidden="true" />
+                      {origin.attendants.length > 0
+                        ? `Atendido por ${origin.attendants.join(', ')}`
+                        : 'Nenhum atendente respondeu pelo sistema'}
+                    </p>
+                  </div>
                 )}
-
-                {mem && (
-                  <>
-                    <div className="h-2" aria-hidden="true" />
-                    <div className="bg-card px-6 py-5 space-y-4">
-                      <SectionTitle>Perfil do cliente, segundo {sdrName || 'a IA'}</SectionTitle>
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Próximo passo sugerido</span>
-                        <p className="mt-0.5 text-[15px] text-foreground">
-                          {NEXT_ACTION[mem.sales_intelligence.next_best_action] ?? mem.sales_intelligence.next_best_action}
-                        </p>
-                      </div>
-                      {mem.lead_profile.interests.length > 0 && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Interesses</span>
-                          <div className="flex flex-wrap gap-1.5 mt-1.5">
-                            {mem.lead_profile.interests.map((interest, idx) => (
-                              <span key={idx} className="px-2.5 h-6 rounded-full bg-success-subtle text-success text-xs flex items-center">{interest}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {mem.sales_intelligence.pain_points.length > 0 && (
-                        <div className="text-sm">
-                          <span className="text-muted-foreground">Dores</span>
-                          <div className="flex flex-wrap gap-1.5 mt-1.5">
-                            {mem.sales_intelligence.pain_points.map((pain, idx) => (
-                              <span key={idx} className="px-2.5 h-6 rounded-full bg-danger-subtle text-danger text-xs flex items-center">{pain}</span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {/* Conversation */}
-                {conversationId && (
-                  <>
-                    <div className="h-2" aria-hidden="true" />
-                    <div className="bg-card px-6 py-5">
-                      <SectionTitle>Últimas mensagens</SectionTitle>
-                      {loadingMessages ? (
-                        <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin text-primary" aria-label="Carregando mensagens" /></div>
-                      ) : conversationMessages.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Nenhuma mensagem nesta conversa.</p>
-                      ) : (
-                        <div className="chat-wall rounded-lg overflow-hidden" /* pattern on a non-scrolling wrapper, see index.css */>
-                        <div className="relative p-3 space-y-1.5 max-h-72 overflow-y-auto">
-                          {conversationMessages.map(msg => {
-                            const incoming = msg.from_type === 'user';
-                            return (
-                              <div key={msg.id} className={cn('flex', incoming ? 'justify-start' : 'justify-end')}>
-                                <div
-                                  className={cn(
-                                    'max-w-[85%] rounded-lg px-2.5 py-1.5 text-sm shadow-wa-bubble text-[color:var(--wa-text)]',
-                                    incoming ? 'bg-[var(--wa-in)]' : 'bg-[var(--wa-out)]',
-                                  )}
-                                >
-                                  {!incoming && (
-                                    <p className="text-xs font-medium text-primary">{msg.from_type === 'nina' ? sdrName || 'Lu' : 'Equipe'}</p>
-                                  )}
-                                  <p className="leading-snug line-clamp-4 whitespace-pre-wrap break-words">{msg.content || 'Mídia'}</p>
-                                  <p className="text-[11px] text-right text-[color:var(--wa-meta)] tabular-nums">
-                                    {new Date(msg.sent_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                                  </p>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        </div>
-                      )}
-                      <Button
-                        variant="outline"
-                        className="w-full mt-3"
-                        onClick={() => navigate(`/chat?conversation=${conversationId}`)}
-                      >
-                        <MessageSquare className="w-4 h-4 mr-2" aria-hidden="true" />
-                        Abrir conversa
-                      </Button>
-                    </div>
-                  </>
-                )}
-                <div className="h-6" aria-hidden="true" />
+                {!origin && <div className="h-6" aria-hidden="true" />}
               </div>
             </>
           );
         })()}
       </aside>
+
+      <AlertDialog open={!!activityToDelete} onOpenChange={(open) => { if (!open) setActivityToDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta atividade?</AlertDialogTitle>
+            <AlertDialogDescription>Ela some do histórico do negócio e não dá para recuperar.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { if (activityToDelete) handleDeleteActivity(activityToDelete); setActivityToDelete(null); }}
+              className="bg-destructive text-primary-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CreateDealModal
         open={isCreateModalOpen}
@@ -876,14 +1037,14 @@ const Kanban: React.FC = () => {
 
       <LostReasonModal
         open={isLostModalOpen}
-        onOpenChange={setIsLostModalOpen}
+        onOpenChange={closeOutcomeModal(setIsLostModalOpen)}
         onConfirm={handleMarkLost}
         dealTitle={selectedDeal?.title || ''}
       />
 
       <WonDealModal
         open={isWonModalOpen}
-        onOpenChange={setIsWonModalOpen}
+        onOpenChange={closeOutcomeModal(setIsWonModalOpen)}
         onConfirm={handleMarkWon}
         dealTitle={selectedDeal?.title || ''}
         currentValue={selectedDeal?.value ?? 0}
