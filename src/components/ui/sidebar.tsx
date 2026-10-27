@@ -87,7 +87,7 @@ export const DesktopSidebar = ({
 }: React.ComponentProps<typeof motion.div>) => {
   const { open, setOpen, animate } = useSidebar();
   return (
-    <div className="relative h-full flex-shrink-0 hidden md:block">
+    <div className="group/menu relative h-full flex-shrink-0 hidden md:block">
       <motion.div
         className={cn(
           "h-full px-2.5 py-3 hidden md:flex md:flex-col w-[248px]",
@@ -105,15 +105,21 @@ export const DesktopSidebar = ({
         {children}
       </motion.div>
       
-      {/* Toggle Button - outside motion.div to avoid type issues */}
+      {/* Toggle Button - outside motion.div to avoid type issues.
+          Some até o mouse entrar no menu; foco por teclado e telas sem hover
+          mostram sempre. Opacidade, não display: segue clicável. */}
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         aria-label={open ? "Recolher menu" : "Expandir menu"}
+        aria-expanded={open}
         className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6
-                   bg-card border border-input rounded-full
+                   bg-card border border-input rounded-full shadow-md
                    hidden md:flex items-center justify-center
                    hover:bg-accent
-                   transition-colors z-50 group"
+                   transition-[opacity,background-color] z-50 group
+                   opacity-0 group-hover/menu:opacity-100 focus-visible:opacity-100
+                   [@media(hover:none)]:opacity-100 motion-reduce:transition-none"
       >
         <ChevronLeft
           className={cn(
