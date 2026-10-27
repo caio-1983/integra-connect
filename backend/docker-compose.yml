@@ -55,3 +55,14 @@ services:
     # set BACKEND_BIND=0.0.0.0 only as a stopgap.
     ports:
       - "${BACKEND_BIND:-127.0.0.1}:8787:8787"
+    networks:
+      - default
+      - proxy
+
+networks:
+  # nginx-proxy-manager reaches the backend as ai-runtime:8787 over this
+  # network. Without it a redeploy drops the container off the proxy's network
+  # and every /v1, /webhooks and /health request answers 502.
+  proxy:
+    external: true
+    name: nginx-proxy-manager_default
