@@ -164,6 +164,15 @@ export class EvolutionClient {
     return adapter.parseSendResult(response);
   }
 
+  /** POST /message/sendWhatsAppAudio/{instance} — a voice note (PTT). Evolution
+   *  converts the input (e.g. the browser's webm) to ogg/opus; webm sent through
+   *  sendMedia never reached the customer (stuck on one tick). */
+  async sendWhatsAppAudio(instanceName: string, number: string, audio: string): Promise<SendTextResult> {
+    const adapter = await this.getAdapter();
+    const response = await this.request<unknown>('POST', `/message/sendWhatsAppAudio/${seg(instanceName)}`, adapter.sendAudioBody({ number, audio }));
+    return adapter.parseSendResult(response);
+  }
+
   /**
    * POST /message/sendButtons/{instance} — an interactive (native flow) message.
    * v2 only. Verified against the v2.3.7 source:

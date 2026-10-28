@@ -52,6 +52,11 @@ export const v2Adapter: EvolutionAdapter = {
     };
   },
 
+  // v2: flat, like sendMedia.
+  sendAudioBody(params: { number: string; audio: string }): Record<string, unknown> {
+    return { number: params.number, audio: params.audio };
+  },
+
   parseQr(response: unknown): QrResult {
     const r = (response ?? {}) as Record<string, any>;
     const qr = r.qrcode ?? r;

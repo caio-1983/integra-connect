@@ -49,6 +49,11 @@ export const v1Adapter: EvolutionAdapter = {
     };
   },
 
+  // v1: audio nested under `audioMessage`.
+  sendAudioBody(params: { number: string; audio: string }): Record<string, unknown> {
+    return { number: params.number, audioMessage: { audio: params.audio } };
+  },
+
   parseQr(response: unknown): QrResult {
     const r = (response ?? {}) as Record<string, any>;
     const qr = r.qrcode ?? r;

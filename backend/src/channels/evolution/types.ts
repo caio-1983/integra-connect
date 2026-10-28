@@ -52,6 +52,7 @@ export interface EvolutionAdapter {
    *  own store by that id. */
   sendTextBody(params: { number: string; text: string; quotedId?: string }): Record<string, unknown>;
   sendMediaBody(params: SendMediaParams): Record<string, unknown>;
+  sendAudioBody(params: { number: string; audio: string }): Record<string, unknown>;
   parseQr(response: unknown): QrResult;
   parseSendResult(response: unknown): SendTextResult;
 }

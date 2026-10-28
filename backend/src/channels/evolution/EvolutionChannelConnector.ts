@@ -73,6 +73,7 @@ export const evolutionChannelConnector: ChannelConnector = {
   },
 
   async sendMedia(instance: string, to: string, media: OutboundMediaPayload) {
+    if (media.mediatype === 'audio') return getEvolutionClient().sendWhatsAppAudio(instance, to, media.base64);
     return getEvolutionClient().sendMedia(instance, {
       number: to,
       mediatype: media.mediatype,
