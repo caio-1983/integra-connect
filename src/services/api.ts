@@ -105,7 +105,7 @@ const getDateString = (date: Date): string => {
 /** Conversations per page in the queue — more load as the list is scrolled. */
 const CONVERSATION_PAGE_SIZE = 50;
 /** Pins per attendant — the enforce_conversation_pin_limit trigger holds the same number. */
-export const MAX_PINNED_CONVERSATIONS = 5;
+export const MAX_PINNED_CONVERSATIONS = 8;
 /** Messages loaded per conversation (the most recent ones). */
 const MESSAGES_PER_CONVERSATION = 100;
 
