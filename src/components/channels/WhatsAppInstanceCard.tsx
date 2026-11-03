@@ -14,6 +14,7 @@ import { disconnectWhatsappInstance, removeWhatsappInstance, importWhatsappConta
 import { EvolutionConnectSheet } from './EvolutionConnectSheet';
 import { InstanceAccessSheet } from './InstanceAccessSheet';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
+import { useAuth } from '@/hooks/useAuth';
 import { ContactAvatar } from '@/components/workspace/ContactAvatar';
 import { cn, formatPhone } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -26,6 +27,9 @@ interface WhatsAppInstanceCardProps {
   /** Custom display name for the row (overrides the WhatsApp profile name). */
   customLabel?: string;
   onLabelChanged: () => void;
+  /** The agent who may re-pair this number by QR, besides admins/managers. */
+  responsibleUserId?: string;
+  onResponsibleChanged: () => void;
 }
 
 const STATUS: Record<WhatsappInstanceSummary['status'], { label: string; text: string; dot: string }> = {
@@ -37,8 +41,13 @@ const STATUS: Record<WhatsappInstanceSummary['status'], { label: string; text: s
 /** One connected number, laid out like an entry of WhatsApp's "Aparelhos conectados". */
 export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({
   instance, onChanged, grantedUserIds, onGrantsChanged, customLabel, onLabelChanged,
+  responsibleUserId, onResponsibleChanged,
 }) => {
   const { canManageUsers } = useCompanySettings();
+  const { user } = useAuth();
+  // The backend checks the same: pairing is admin/manager, or this number's
+  // responsible (held to the same phone). Everything else stays admin/manager.
+  const canPair = canManageUsers || (!!user && responsibleUserId === user.id);
   const [busy, setBusy] = useState(false);
   const [importing, setImporting] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -164,62 +173,66 @@ export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({
           )}
         </div>
 
-        {!instance.connected && (
+        {canPair && !instance.connected && (
           <Button size="sm" onClick={() => setSheetOpen(true)} className="hidden sm:inline-flex flex-shrink-0">
             <QrCode className="w-4 h-4 mr-1.5" aria-hidden="true" /> Conectar
           </Button>
         )}
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label={`Ações de ${label}`}
-              disabled={busy}
-              className="w-10 h-10 rounded-full flex items-center justify-center text-icon hover:bg-accent flex-shrink-0 disabled:opacity-50"
-            >
-              {busy || importing ? <Loader2 className="w-5 h-5 animate-spin" /> : <MoreVertical className="w-5 h-5" />}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-52">
-            {!instance.connected && (
-              <DropdownMenuItem onSelect={() => setSheetOpen(true)}>
-                <QrCode className="w-4 h-4 mr-2" /> Conectar com QR Code
-              </DropdownMenuItem>
-            )}
-            {instance.connected && (
-              <>
+        {canPair && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={`Ações de ${label}`}
+                disabled={busy}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-icon hover:bg-accent flex-shrink-0 disabled:opacity-50"
+              >
+                {busy || importing ? <Loader2 className="w-5 h-5 animate-spin" /> : <MoreVertical className="w-5 h-5" />}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-52">
+              {!instance.connected && (
                 <DropdownMenuItem onSelect={() => setSheetOpen(true)}>
-                  <QrCode className="w-4 h-4 mr-2" /> Reconectar com novo QR
+                  <QrCode className="w-4 h-4 mr-2" /> Conectar com QR Code
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={handleImportContacts}
-                  disabled={importing}
-                  title="Importa os contatos sincronizados pelo WhatsApp — nomes vêm do perfil da pessoa, não da agenda do celular."
-                >
-                  <Download className="w-4 h-4 mr-2" /> Importar contatos
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={handleDisconnect}>
-                  <Unlink className="w-4 h-4 mr-2" /> Desconectar
-                </DropdownMenuItem>
-              </>
-            )}
-            {canManageUsers && (
-              <>
-                <DropdownMenuItem onSelect={startEditLabel}>
-                  <Pencil className="w-4 h-4 mr-2" /> Renomear
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setAccessSheetOpen(true)}>
-                  <ShieldCheck className="w-4 h-4 mr-2" /> Quem tem acesso
-                </DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => setConfirmRemove(true)} className="text-danger focus:text-danger">
-              <Trash2 className="w-4 h-4 mr-2" /> Remover número
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              )}
+              {instance.connected && (
+                <>
+                  <DropdownMenuItem onSelect={() => setSheetOpen(true)}>
+                    <QrCode className="w-4 h-4 mr-2" /> Reconectar com novo QR
+                  </DropdownMenuItem>
+                  {canManageUsers && (
+                    <DropdownMenuItem
+                      onSelect={handleImportContacts}
+                      disabled={importing}
+                      title="Importa os contatos sincronizados pelo WhatsApp — nomes vêm do perfil da pessoa, não da agenda do celular."
+                    >
+                      <Download className="w-4 h-4 mr-2" /> Importar contatos
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onSelect={handleDisconnect}>
+                    <Unlink className="w-4 h-4 mr-2" /> Desconectar
+                  </DropdownMenuItem>
+                </>
+              )}
+              {canManageUsers && (
+                <>
+                  <DropdownMenuItem onSelect={startEditLabel}>
+                    <Pencil className="w-4 h-4 mr-2" /> Renomear
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setAccessSheetOpen(true)}>
+                    <ShieldCheck className="w-4 h-4 mr-2" /> Quem tem acesso
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setConfirmRemove(true)} className="text-danger focus:text-danger">
+                    <Trash2 className="w-4 h-4 mr-2" /> Remover número
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <EvolutionConnectSheet
@@ -235,6 +248,9 @@ export const WhatsAppInstanceCard: React.FC<WhatsAppInstanceCardProps> = ({
           instanceName={instance.name}
           grantedUserIds={grantedUserIds}
           onChanged={onGrantsChanged}
+          instanceNumber={instance.number}
+          responsibleUserId={responsibleUserId}
+          onResponsibleChanged={onResponsibleChanged}
         />
       )}
 

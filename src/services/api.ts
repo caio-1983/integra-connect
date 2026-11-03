@@ -1972,6 +1972,66 @@ export const api = {
   },
 
   /**
+   * The agent responsible for each WhatsApp instance — the one who may re-pair
+   * it by QR, besides admins/managers — as { instanceName -> user_id }.
+   */
+  fetchInstanceResponsibles: async (): Promise<Record<string, string>> => {
+    const { data, error } = await (supabase as any)
+      .from('whatsapp_instance_responsibles')
+      .select('instance_name, user_id');
+
+    if (error) {
+      console.error('[API] Error fetching instance responsibles:', error);
+      return {};
+    }
+
+    const map: Record<string, string> = {};
+    for (const row of (data ?? []) as { instance_name: string; user_id: string }[]) {
+      map[row.instance_name] = row.user_id;
+    }
+    return map;
+  },
+
+  /**
+   * Marks (or, with null, clears) the responsible of a WhatsApp instance.
+   * `phoneNumber` is the number connected right now: the backend holds the
+   * responsible's re-pairing to it. Omitted, the number on record is kept.
+   * RLS: admins mark anyone with access, managers only agents.
+   */
+  setInstanceResponsible: async (instanceName: string, userId: string | null, phoneNumber?: string): Promise<void> => {
+    if (!userId) {
+      const { error } = await (supabase as any)
+        .from('whatsapp_instance_responsibles')
+        .delete()
+        .eq('instance_name', instanceName);
+      if (error) {
+        console.error('[API] Error clearing instance responsible:', error);
+        throw error;
+      }
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const digits = phoneNumber?.replace(/\D/g, '');
+    const { error } = await (supabase as any)
+      .from('whatsapp_instance_responsibles')
+      .upsert(
+        {
+          instance_name: instanceName,
+          user_id: userId,
+          ...(digits ? { phone_number: digits } : {}),
+          assigned_by: user?.id ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'instance_name' },
+      );
+    if (error) {
+      console.error('[API] Error setting instance responsible:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Update contact notes
    */
   updateContactNotes: async (contactId: string, notes: string): Promise<void> => {

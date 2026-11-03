@@ -20,6 +20,13 @@ export interface InstanceVisibility {
   granted: Set<string>;
 }
 
+/** The agent who may re-pair a number, and the number that pairing must keep (whatsapp_instance_responsibles). */
+export interface InstanceResponsible {
+  userId: string;
+  /** Digits only; null until the number is first known. */
+  phoneNumber: string | null;
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function isUuid(value: unknown): value is string {
@@ -121,5 +128,25 @@ export const accessRepository = {
       .from('whatsapp_instance_access')
       .upsert({ instance_name: instanceName, user_id: userId, granted_by: userId }, { onConflict: 'instance_name,user_id', ignoreDuplicates: true });
     if (error) throw new Error(`[access] failed to grant instance access: ${error.message}`);
+  },
+
+  async getInstanceResponsible(instanceName: string): Promise<InstanceResponsible | null> {
+    const { data, error } = await getSupabase()
+      .from('whatsapp_instance_responsibles')
+      .select('user_id, phone_number')
+      .eq('instance_name', instanceName)
+      .maybeSingle();
+    if (error) throw new Error(`[access] failed to read instance responsible: ${error.message}`);
+    if (!data) return null;
+    return { userId: data.user_id as string, phoneNumber: (data.phone_number as string | null) ?? null };
+  },
+
+  /** Records the number a responsible's re-pairing must keep. No-op for a number without a responsible. */
+  async pinInstanceNumber(instanceName: string, phoneNumber: string): Promise<void> {
+    const { error } = await getSupabase()
+      .from('whatsapp_instance_responsibles')
+      .update({ phone_number: phoneNumber, updated_at: new Date().toISOString() })
+      .eq('instance_name', instanceName);
+    if (error) throw new Error(`[access] failed to pin instance number: ${error.message}`);
   },
 };

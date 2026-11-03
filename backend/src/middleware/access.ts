@@ -73,6 +73,29 @@ export async function requireInstanceAccess(request: FastifyRequest, reply: Fast
   }
 }
 
+/**
+ * preHandler for pairing a number again (QR, state, reconnect, disconnect),
+ * after authMiddleware and before requireInstanceAccess: admins and managers,
+ * or the agent marked responsible for that number. Creating, removing and
+ * importing stay admin/manager only.
+ */
+export async function requirePairingRole(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const user = request.authUser;
+  if (user && (user.role === 'admin' || user.role === 'manager')) return;
+  const { name } = (request.params ?? {}) as { name?: string };
+  if (!user || !isValidInstanceName(name)) {
+    reply.code(403).send({ error: 'Sem permissão para esta ação.' });
+    return;
+  }
+  try {
+    const responsible = await accessRepository.getInstanceResponsible(name);
+    if (responsible?.userId !== user.id) reply.code(403).send({ error: 'Sem permissão para esta ação.' });
+  } catch (error) {
+    request.log.error(error, '[access] instance responsible check failed');
+    reply.code(500).send({ error: 'Não foi possível verificar o acesso à instância.' });
+  }
+}
+
 /** The ids among `messageIds` whose conversation the user can access — for routes keyed by message. */
 export async function accessibleMessageIds(user: AuthUser, messageIds: string[]): Promise<Set<string>> {
   const conversations = await accessRepository.getMessageConversations(messageIds);

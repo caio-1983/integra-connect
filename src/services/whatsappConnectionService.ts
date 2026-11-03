@@ -14,7 +14,11 @@ import {
 
 export interface QrResult { base64?: string; pairingCode?: string; code?: string; }
 export interface CreateInstanceResult { qr: QrResult; major: number; webhookUrl: string; }
-export interface ConnectionStateResult { state: 'open' | 'connecting' | 'close' | 'unknown'; }
+export interface ConnectionStateResult {
+  state: 'open' | 'connecting' | 'close' | 'unknown';
+  /** The responsible's QR was read by another phone number, and the backend logged it out. */
+  rejectedWrongNumber?: boolean;
+}
 
 export async function createWhatsappInstance(instanceName: string): Promise<CreateInstanceResult> {
   const res = await fetch(`${base()}/v1/whatsapp/instances`, {

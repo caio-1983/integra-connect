@@ -59,7 +59,13 @@ export const EvolutionConnectSheet: React.FC<EvolutionConnectSheetProps> = ({ op
     lastQrFetchRef.current = Date.now(); // we just got a fresh QR from create/reconnect
     pollRef.current = setInterval(async () => {
       try {
-        const { state } = await fetchWhatsappState(name);
+        const { state, rejectedWrongNumber } = await fetchWhatsappState(name);
+        if (rejectedWrongNumber) {
+          stopPolling();
+          setErrorMsg('O QR Code foi lido por outro número de WhatsApp, e a conexão foi desfeita. Leia de novo com o celular do próprio número.');
+          setPhase('error');
+          return;
+        }
         if (state === 'open') {
           stopPolling();
           setPhase('connected');

@@ -1,8 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authMiddleware, authUserOf, requireRole, BEARER_SECURITY } from '../middleware/auth.js';
-import { canAccessInstance, isValidInstanceName, requireInstanceAccess, INSTANCE_NAME_RE } from '../middleware/access.js';
+import { canAccessInstance, isValidInstanceName, requireInstanceAccess, requirePairingRole, INSTANCE_NAME_RE } from '../middleware/access.js';
 import { evolutionConnectionService } from '../channels/evolution/EvolutionConnectionService.js';
+import { pairingGuard } from '../channels/evolution/pairingGuard.js';
 import { accessRepository } from '../persistence/AccessRepository.js';
 import { clientErrorMessage } from '../utils/httpErrors.js';
 
@@ -39,11 +40,16 @@ const nameParamsJsonSchema = {
 
 const noopValidator = () => () => true;
 
-// Pairing, unpairing and removing numbers is what the channels screen does for
-// admins and managers (canManageUsers in the frontend). Agents only work the
-// conversations of the numbers granted to them.
+// Creating, removing and importing numbers is what the channels screen does for
+// admins and managers (canManageUsers in the frontend). Pairing an existing
+// number again (QR, state, reconnect, disconnect) is also open to the agent
+// marked responsible for it, held to the same phone number by pairingGuard.
+// Other agents only work the conversations of the numbers granted to them.
 const MANAGE = [authMiddleware, requireRole('admin', 'manager')];
 const MANAGE_INSTANCE = [...MANAGE, requireInstanceAccess];
+const PAIR_INSTANCE = [authMiddleware, requirePairingRole, requireInstanceAccess];
+
+const isManager = (role: string) => role === 'admin' || role === 'manager';
 
 /**
  * Endpoints for the frontend connect flow (Fase 2), behind the caller's
@@ -117,15 +123,16 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
   });
 
   app.get('/v1/whatsapp/instances/:name/qr', {
-    preHandler: MANAGE_INSTANCE,
+    preHandler: PAIR_INSTANCE,
     validatorCompiler: noopValidator,
     schema: {
-      tags: ['whatsapp'], summary: 'Fetch QR code (admin/manager)', security: BEARER_SECURITY, params: nameParamsJsonSchema,
+      tags: ['whatsapp'], summary: 'Fetch QR code (admin/manager or the number\'s responsible)', security: BEARER_SECURITY, params: nameParamsJsonSchema,
     },
   }, async (request, reply) => {
     const parsed = nameParams.safeParse(request.params);
     if (!parsed.success) return reply.code(400).send({ error: 'name obrigatório' });
     try {
+      await pairingGuard.watch(parsed.data.name, !isManager(authUserOf(request).role), { fresh: false });
       return reply.send(await evolutionConnectionService.getQr(parsed.data.name));
     } catch (error) {
       request.log.error(error);
@@ -134,16 +141,23 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
   });
 
   app.get('/v1/whatsapp/instances/:name/state', {
-    preHandler: MANAGE_INSTANCE,
+    preHandler: PAIR_INSTANCE,
     validatorCompiler: noopValidator,
     schema: {
-      tags: ['whatsapp'], summary: 'Connection state (admin/manager)', security: BEARER_SECURITY, params: nameParamsJsonSchema,
+      tags: ['whatsapp'],
+      summary: 'Connection state (admin/manager or the number\'s responsible); `rejectedWrongNumber` when the last QR was read by another number',
+      security: BEARER_SECURITY,
+      params: nameParamsJsonSchema,
     },
   }, async (request, reply) => {
     const parsed = nameParams.safeParse(request.params);
     if (!parsed.success) return reply.code(400).send({ error: 'name obrigatório' });
+    const { name } = parsed.data;
     try {
-      return reply.send(await evolutionConnectionService.getState(parsed.data.name));
+      const result = await evolutionConnectionService.getState(name);
+      if (result.state === 'open') await pairingGuard.check(name);
+      if (pairingGuard.wasRejected(name)) return reply.send({ state: 'close', rejectedWrongNumber: true });
+      return reply.send(result);
     } catch (error) {
       request.log.error(error);
       return reply.code(502).send({ error: clientErrorMessage(error, 'Erro ao obter estado.') });
@@ -151,10 +165,10 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
   });
 
   app.post('/v1/whatsapp/instances/:name/disconnect', {
-    preHandler: MANAGE_INSTANCE,
+    preHandler: PAIR_INSTANCE,
     validatorCompiler: noopValidator,
     schema: {
-      tags: ['whatsapp'], summary: 'Disconnect session (keeps the instance registered) (admin/manager)', security: BEARER_SECURITY, params: nameParamsJsonSchema,
+      tags: ['whatsapp'], summary: 'Disconnect session (keeps the instance registered) (admin/manager or the number\'s responsible)', security: BEARER_SECURITY, params: nameParamsJsonSchema,
     },
   }, async (request, reply) => {
     const parsed = nameParams.safeParse(request.params);
@@ -169,15 +183,16 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
   });
 
   app.post('/v1/whatsapp/instances/:name/reconnect', {
-    preHandler: MANAGE_INSTANCE,
+    preHandler: PAIR_INSTANCE,
     validatorCompiler: noopValidator,
     schema: {
-      tags: ['whatsapp'], summary: 'Request a fresh QR code for an existing instance (admin/manager)', security: BEARER_SECURITY, params: nameParamsJsonSchema,
+      tags: ['whatsapp'], summary: 'Request a fresh QR code for an existing instance (admin/manager or the number\'s responsible)', security: BEARER_SECURITY, params: nameParamsJsonSchema,
     },
   }, async (request, reply) => {
     const parsed = nameParams.safeParse(request.params);
     if (!parsed.success) return reply.code(400).send({ error: 'name obrigatório' });
     try {
+      await pairingGuard.watch(parsed.data.name, !isManager(authUserOf(request).role), { fresh: true });
       const qr = await evolutionConnectionService.reconnect(parsed.data.name);
       return reply.send({ qr: qr.base64 });
     } catch (error) {

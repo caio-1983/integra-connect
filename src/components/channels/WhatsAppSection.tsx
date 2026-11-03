@@ -5,6 +5,8 @@ import { SettingsPanel as Panel } from '@/components/settings/SettingsPanel';
 import { useWhatsappInstances } from '@/hooks/useWhatsappInstances';
 import { useInstanceAccessGrants } from '@/hooks/useInstanceAccessGrants';
 import { useInstanceLabels } from '@/hooks/useInstanceLabels';
+import { useInstanceResponsibles } from '@/hooks/useInstanceResponsibles';
+import { useCompanySettings } from '@/hooks/useCompanySettings';
 import { WhatsAppInstanceCard } from './WhatsAppInstanceCard';
 import { EvolutionConnectSheet } from './EvolutionConnectSheet';
 import { BackendUnreachable } from './BackendUnreachable';
@@ -23,6 +25,8 @@ export const WhatsAppSection: React.FC = () => {
   const { instances, loading, lastFetchedAt, error, refresh } = useWhatsappInstances();
   const { grantsByInstance, refresh: refreshGrants } = useInstanceAccessGrants();
   const { labels, refresh: refreshLabels } = useInstanceLabels();
+  const { responsibles, refresh: refreshResponsibles } = useInstanceResponsibles();
+  const { canManageUsers } = useCompanySettings();
   const [newSheetOpen, setNewSheetOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 5000); return () => clearInterval(t); }, []);
@@ -42,11 +46,11 @@ export const WhatsAppSection: React.FC = () => {
     <Panel
       title="WhatsApp"
       description={description}
-      action={
+      action={canManageUsers ? (
         <Button size="sm" onClick={() => setNewSheetOpen(true)}>
           <Plus className="w-4 h-4 mr-1" aria-hidden="true" /> Conectar número
         </Button>
-      }
+      ) : undefined}
     >
       {loading ? (
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
@@ -71,6 +75,8 @@ export const WhatsAppSection: React.FC = () => {
               onGrantsChanged={refreshGrants}
               customLabel={labels[instance.name]}
               onLabelChanged={refreshLabels}
+              responsibleUserId={responsibles[instance.name]}
+              onResponsibleChanged={refreshResponsibles}
             />
           ))}
         </ul>
