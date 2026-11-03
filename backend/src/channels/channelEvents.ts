@@ -75,6 +75,15 @@ export interface InboundAttribution {
   kind: 'paid_ad' | 'website' | 'direct_social' | 'organic' | 'unknown';
 }
 
+/** What a quote ("responder") shows, as the provider sent it. Stored on the
+ *  reply (`messages.metadata.quoted`) only when the quoted message itself is
+ *  not stored here, so the reference is never lost. */
+export interface QuotedSnapshot {
+  text: string;
+  /** True: the customer wrote it; false: our side did; absent: unknown. */
+  fromCustomer?: boolean;
+}
+
 /** Normalized, channel-agnostic inbound message (Evolution specifics already stripped). */
 export interface InboundMessageReceivedPayload {
   provider: string;
@@ -94,6 +103,7 @@ export interface InboundMessageReceivedPayload {
   isGroup?: boolean;
   /** Provider id of the message the customer quoted ("responder"), if any. */
   quotedProviderMessageId?: string;
+  quoted?: QuotedSnapshot;
   /** A Pix card (e.g. a supplier sending theirs) — `text` holds its plain form. */
   pix?: PixMessageMeta;
   /** Shared contact cards — `text` holds their plain form. */
@@ -121,6 +131,7 @@ export interface OutboundEchoReceivedPayload {
   media?: InboundMedia;
   isGroup?: boolean;
   quotedProviderMessageId?: string;
+  quoted?: QuotedSnapshot;
   /** The WhatsApp Business app's own Pix card, sent from the phone. */
   pix?: PixMessageMeta;
   /** Contact cards the team shared from the phone. */

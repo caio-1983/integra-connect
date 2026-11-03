@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Pencil, Sparkles, Camera, Mic, FileText, Video, Diamond, Lightbulb, UserRound, type LucideIcon } from 'lucide-react';
 import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn, contactDisplayName } from '@/lib/utils';
@@ -9,6 +9,7 @@ import { sharedContactsSummary } from '@/lib/sharedContact';
 import { LightingProjectSheet } from '@/components/projects/LightingProjectSheet';
 import { isPdfAttachment } from '@/services/lightingProjectService';
 import { useFeatureVisible } from '@/lib/devPreview';
+import { api } from '@/services/api';
 
 const WAVE_BARS = 40;
 
@@ -222,6 +223,38 @@ export function messagePreview(msg: UIMessage): string {
   }
 }
 
+/** Whether the bubble opens with a quote (linked original or WhatsApp's own snapshot). */
+function hasQuote(msg: UIMessage): boolean {
+  return !!msg.replyToId || !!msg.quoted;
+}
+
+/**
+ * Originals of quotes that fall outside the loaded part of the thread (only the
+ * latest messages come with it), fetched once so the quote still reads as the
+ * customer saw it instead of "não carregada".
+ */
+function useOlderQuoted(messages: UIMessage[], messagesById: Map<string, UIMessage>): Map<string, UIMessage> {
+  const [older, setOlder] = useState<Map<string, UIMessage>>(() => new Map());
+  const requested = useRef(new Set<string>());
+
+  useEffect(() => {
+    const missing = [...new Set(messages.map(m => m.replyToId).filter((id): id is string => !!id))]
+      .filter(id => !messagesById.has(id) && !requested.current.has(id));
+    if (missing.length === 0) return;
+    missing.forEach(id => requested.current.add(id));
+    api.fetchMessagesByIds(missing).then(found => {
+      if (found.length === 0) return;
+      setOlder(prev => {
+        const next = new Map(prev);
+        found.forEach(m => next.set(m.id, m));
+        return next;
+      });
+    });
+  }, [messages, messagesById]);
+
+  return older;
+}
+
 /** Who wrote a message, from the attendant's point of view. */
 export function messageAuthor(msg: UIMessage, contactName?: string, isGroup?: boolean): string {
   if (msg.direction === MessageDirection.OUTGOING) return msg.fromType === 'nina' ? 'IA' : 'Você';
@@ -233,6 +266,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
   messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply, onEdit, canEdit, luNote, onTranscribe, onMessageContact,
 }) => {
   const messagesById = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages]);
+  const olderQuoted = useOlderQuoted(messages, messagesById);
   const [flashId, setFlashId] = useState<string | null>(null);
 
   /** Scrolls to the quoted original and briefly highlights it. */
@@ -271,7 +305,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
           alt="Anexo"
           className={cn(
             'block max-w-full h-auto max-h-72 object-cover border border-border/60',
-            msg.replyToId ? 'rounded-xl' : 'rounded-[inherit]',
+            hasQuote(msg) ? 'rounded-xl' : 'rounded-[inherit]',
           )}
           loading="lazy"
           onError={(e) => {
@@ -412,7 +446,7 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
           aria-label="Vídeo"
           className={cn(
             'block max-w-full max-h-80 bg-black',
-            msg.replyToId ? 'rounded-xl' : 'rounded-[inherit]',
+            hasQuote(msg) ? 'rounded-xl' : 'rounded-[inherit]',
           )}
           onError={() => setUnplayableVideos(prev => new Set(prev).add(msg.id))}
         />
@@ -480,12 +514,14 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
         const showChannelHint = msgChannel !== primaryChannel;
         const channelCfg = CHANNEL_CONFIG[msgChannel];
         const ChannelIcon = channelCfg.icon;
-        const quoted = msg.replyToId ? messagesById.get(msg.replyToId) : undefined;
+        const quoted = msg.replyToId ? messagesById.get(msg.replyToId) ?? olderQuoted.get(msg.replyToId) : undefined;
+        // Only an original in the loaded thread can be scrolled to.
+        const quotedInView = !!quoted && messagesById.has(quoted.id);
         const canReply = !!onReply && !msg.id.startsWith('temp-');
         const isVisual = msg.type === MessageType.IMAGE || msg.type === MessageType.VIDEO;
         const caption = isVisual ? mediaCaption(msg) : '';
         // Time over the picture only for a photo: a video's controls sit there.
-        const bareImage = msg.type === MessageType.IMAGE && !msg.replyToId && !caption;
+        const bareImage = msg.type === MessageType.IMAGE && !hasQuote(msg) && !caption;
         const isCard = !!msg.pix || !!msg.contacts;
         const isText = !isCard && !isVisual && msg.type !== MessageType.AUDIO && !msg.mediaUrl;
         const hoverAction = 'self-center p-1.5 rounded-full text-[var(--wa-meta)] hover:bg-black/5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity flex-shrink-0';
@@ -565,14 +601,14 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                     {contactDisplayName(msg.senderName, msg.senderPhone, 'Participante')}
                   </span>
                 )}
-                {msg.replyToId && (
+                {hasQuote(msg) && (
                   <button
                     type="button"
-                    onClick={() => quoted && jumpTo(quoted.id)}
-                    disabled={!quoted}
+                    onClick={() => quotedInView && jumpTo(quoted!.id)}
+                    disabled={!quotedInView}
                     className={cn(
                       'block w-full text-left mb-1 px-2.5 py-1.5 rounded-md border-l-4 border-[var(--wa-quote)] bg-black/5 dark:bg-white/5 text-xs',
-                      quoted ? 'cursor-pointer hover:bg-black/10 dark:hover:bg-white/10' : 'cursor-default',
+                      quotedInView ? 'cursor-pointer hover:bg-black/10 dark:hover:bg-white/10' : 'cursor-default',
                     )}
                   >
                     {quoted ? (
@@ -581,6 +617,18 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                         <span className="flex items-start gap-1 text-[var(--wa-meta)]">
                           {(() => { const Icon = previewIcon(quoted); return Icon ? <Icon className="w-3.5 h-3.5 mt-px flex-shrink-0" aria-hidden="true" /> : null; })()}
                           <span className="line-clamp-2">{formatWhatsApp(messagePreview(quoted), 0)}</span>
+                        </span>
+                      </>
+                    ) : msg.quoted ? (
+                      <>
+                        {msg.quoted.fromCustomer !== undefined && (
+                          <span className="block font-semibold text-[var(--wa-quote)]">
+                            {msg.quoted.fromCustomer ? contactName || 'Cliente' : 'Você'}
+                          </span>
+                        )}
+                        <span className="flex items-start gap-1 text-[var(--wa-meta)]">
+                          {(() => { const Icon = previewIcon(undefined, msg.quoted.text); return Icon ? <Icon className="w-3.5 h-3.5 mt-px flex-shrink-0" aria-hidden="true" /> : null; })()}
+                          <span className="line-clamp-2">{formatWhatsApp(stripMediaEmoji(msg.quoted.text), 0)}</span>
                         </span>
                       </>
                     ) : (

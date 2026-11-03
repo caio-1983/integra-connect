@@ -1,7 +1,7 @@
 /** Evolution API version-adaptive contracts (Fase 1). Kept entirely inside channels/evolution — nothing above imports these. */
 
 import type { MessageDeliveryStatus } from '../../types/messageStatus.js';
-import type { ChannelName, InboundAttribution } from '../channelEvents.js';
+import type { ChannelName, InboundAttribution, QuotedSnapshot } from '../channelEvents.js';
 import type { PixMessageMeta } from '../pix.js';
 import type { SharedContact } from '../sharedContact.js';
 
@@ -160,6 +160,8 @@ export interface NormalizedInbound {
   attribution?: InboundAttribution;
   /** Provider id of the message this one quotes ("responder"), if any. */
   quotedProviderMessageId?: string;
+  /** What the quote shows, for when the quoted message is not stored here. */
+  quoted?: QuotedSnapshot;
   /** Set when the message is a Pix card; `text` then holds its plain-text form. */
   pix?: PixMessageMeta;
   /** Set when the message shares contact cards; `text` then holds their plain-text form. */
@@ -183,6 +185,7 @@ export interface NormalizedOutboundEcho {
   pendingMedia?: { kind: InboundMediaKind; mimeType: string; fileName?: string };
   isGroup?: boolean;
   quotedProviderMessageId?: string;
+  quoted?: QuotedSnapshot;
   pix?: PixMessageMeta;
   contacts?: SharedContact[];
 }

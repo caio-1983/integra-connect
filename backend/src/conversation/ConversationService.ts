@@ -63,6 +63,7 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
     // Attribute the sender in group threads (contactName is the group subject).
     sender: msg.isGroup ? { name: msg.senderName, phone: msg.senderParticipant } : undefined,
     quotedProviderMessageId: msg.quotedProviderMessageId,
+    quoted: msg.quoted,
     pix: msg.pix,
     contacts: msg.contacts,
   });
@@ -516,6 +517,7 @@ async function onOutboundEcho(event: AppEvent): Promise<void> {
       dbType: mediaKindFromMime(echo.media.mimeType),
       tsSec: echo.tsSec,
       quotedProviderMessageId: echo.quotedProviderMessageId,
+      quoted: echo.quoted,
     });
   } else {
     await conversationRepository.insertOutboundMessage({
@@ -526,6 +528,7 @@ async function onOutboundEcho(event: AppEvent): Promise<void> {
       fromType: 'human',
       tsSec: echo.tsSec,
       quotedProviderMessageId: echo.quotedProviderMessageId,
+      quoted: echo.quoted,
       // The Pix card the Business app sends from the phone, or contact cards.
       metadata: echo.pix ? { pix: echo.pix } : echo.contacts ? { contacts: echo.contacts } : undefined,
     });

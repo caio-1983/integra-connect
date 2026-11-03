@@ -6,7 +6,7 @@ import type {
   NormalizedStatusUpdate,
 } from './types.js';
 import type { MessageDeliveryStatus } from '../../types/messageStatus.js';
-import type { InboundAttribution } from '../channelEvents.js';
+import type { InboundAttribution, QuotedSnapshot } from '../channelEvents.js';
 import { extractRefToken } from '../attributionToken.js';
 import { MEDIA_PLACEHOLDER } from '../mediaPlaceholder.js';
 import { pixKeyTypeFromWire, pixMessageText, type PixMessageMeta } from '../pix.js';
@@ -75,19 +75,71 @@ export function extractAdReply(data: Record<string, any>, message: Record<string
 }
 
 /**
- * Provider id of the message this one quotes (WhatsApp "responder"). Baileys
- * puts `contextInfo.stanzaId` on whichever node carries the content
- * (extendedTextMessage, imageMessage, ...); Evolution v2 also mirrors it at
- * `data.contextInfo`. Reads both.
+ * The `contextInfo` of a quote (WhatsApp "responder"). Baileys puts it on
+ * whichever node carries the content (extendedTextMessage, imageMessage, ...);
+ * Evolution v2 also mirrors it at `data.contextInfo`. Reads both.
  */
-function extractQuotedId(data: Record<string, any>, message: Record<string, any>): string | undefined {
-  const fromData = data.contextInfo?.stanzaId;
-  if (fromData) return String(fromData);
+function findQuoteContext(data: Record<string, any>, message: Record<string, any>): Record<string, any> | undefined {
+  if (data.contextInfo?.stanzaId) return data.contextInfo;
   for (const node of Object.values(message ?? {})) {
-    const stanzaId = node && typeof node === 'object' ? (node as Record<string, any>).contextInfo?.stanzaId : undefined;
-    if (stanzaId) return String(stanzaId);
+    const ctx = node && typeof node === 'object' ? (node as Record<string, any>).contextInfo : undefined;
+    if (ctx?.stanzaId) return ctx;
   }
   return undefined;
+}
+
+/** Longest quoted text kept — the timeline shows two lines of it. */
+const QUOTED_TEXT_MAX = 500;
+
+/** One-line text of the quoted message, in the same forms the parser stores. */
+function quotedText(quoted: Record<string, any> | undefined): string | undefined {
+  if (!quoted || typeof quoted !== 'object') return undefined;
+  const doc = quoted.documentMessage ?? quoted.documentWithCaptionMessage?.message?.documentMessage;
+  const contacts = extractSharedContacts(quoted);
+  const text: unknown =
+    quoted.conversation ??
+    quoted.extendedTextMessage?.text ??
+    quoted.imageMessage?.caption ??
+    quoted.videoMessage?.caption ??
+    doc?.caption ??
+    (contacts ? sharedContactsText(contacts) : undefined) ??
+    (quoted.imageMessage ? MEDIA_PLACEHOLDER.image
+      : quoted.videoMessage ? MEDIA_PLACEHOLDER.video
+      : quoted.audioMessage ? MEDIA_PLACEHOLDER.audio
+      : doc ? `${MEDIA_PLACEHOLDER.document}${doc.fileName ? ` ${doc.fileName}` : ''}`
+      : quoted.stickerMessage ? MEDIA_PLACEHOLDER.sticker
+      : undefined);
+  const clean = typeof text === 'string' ? text.trim() : '';
+  return clean ? clean.slice(0, QUOTED_TEXT_MAX) : undefined;
+}
+
+/**
+ * What the quote itself says, kept for when the quoted message is not stored
+ * here (sent before the number was connected, or a type the parser drops) —
+ * without it the reply arrives with no trace of what it answers.
+ *
+ * Authorship is only decided in a 1:1 chat when `participant` is written the
+ * same way as the chat (both `@lid` or both phone JIDs): there it is either the
+ * customer or us. A group, or a mixed lid/phone pair, leaves it unknown.
+ */
+function extractQuoted(
+  data: Record<string, any>,
+  message: Record<string, any>,
+  remoteJid: string,
+  isGroup: boolean,
+): { providerMessageId: string; snapshot?: QuotedSnapshot } | undefined {
+  const ctx = findQuoteContext(data, message);
+  if (!ctx) return undefined;
+  const text = quotedText(ctx.quotedMessage);
+  const participant = typeof ctx.participant === 'string' ? ctx.participant : '';
+  const domain = (jid: string) => jid.slice(jid.indexOf('@'));
+  const fromCustomer = !isGroup && participant.includes('@') && domain(participant) === domain(remoteJid)
+    ? participant === remoteJid
+    : undefined;
+  return {
+    providerMessageId: String(ctx.stanzaId),
+    snapshot: text ? { text, ...(fromCustomer !== undefined ? { fromCustomer } : {}) } : undefined,
+  };
 }
 
 /**
@@ -254,6 +306,8 @@ function parseMessageEnvelope(rawBody: unknown): ParsedEnvelope | null {
     }
   }
 
+  const quote = extractQuoted(data, msg, remoteJid, isGroup);
+
   return {
     fromMe,
     message: {
@@ -279,7 +333,8 @@ function parseMessageEnvelope(rawBody: unknown): ParsedEnvelope | null {
         : undefined,
       senderName: isGroup ? (data.pushName ?? undefined) : undefined,
       attribution,
-      quotedProviderMessageId: extractQuotedId(data, msg),
+      quotedProviderMessageId: quote?.providerMessageId,
+      quoted: quote?.snapshot,
       pix,
       contacts,
     },
@@ -313,9 +368,9 @@ export function parseOutboundEcho(rawBody: unknown): NormalizedOutboundEcho | nu
   const parsed = parseMessageEnvelope(rawBody);
   if (!parsed || !parsed.fromMe) return null;
 
-  const { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId, pix, contacts } =
+  const { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId, quoted, pix, contacts } =
     parsed.message;
-  return { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId, pix, contacts };
+  return { channel, instance, externalContactId, providerMessageId, text, tsSec, media, pendingMedia, isGroup, quotedProviderMessageId, quoted, pix, contacts };
 }
 
 // Evolution forwards Baileys' numeric WAMessageStatus ack levels in some

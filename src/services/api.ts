@@ -11,7 +11,9 @@ import {
   DBConversation,
   DBMessage,
   UIConversation,
+  UIMessage,
   transformDBToUIConversation,
+  transformDBToUIMessage,
   InstanceAccessGrant,
   LossReason,
   ClientMemory
@@ -2155,5 +2157,16 @@ export const api = {
     }
 
     return (data || []).reverse(); // Reverter para ordem cronológica
+  },
+
+  /** Messages by id — the originals of quotes older than the loaded part of a thread. */
+  fetchMessagesByIds: async (ids: string[]): Promise<UIMessage[]> => {
+    if (ids.length === 0) return [];
+    const { data, error } = await supabase.from('messages').select('*').in('id', ids);
+    if (error) {
+      console.error('[API] Error fetching quoted messages:', error);
+      return [];
+    }
+    return ((data || []) as unknown as DBMessage[]).map(transformDBToUIMessage);
   },
 };

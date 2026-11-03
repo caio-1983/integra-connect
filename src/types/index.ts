@@ -461,6 +461,9 @@ export interface UIMessage {
   senderPhone?: string | null;
   /** `messages.id` this message replies to (WhatsApp "responder"). */
   replyToId?: string | null;
+  /** The quote as WhatsApp sent it (messages.metadata.quoted) — only when the
+   *  quoted message is not stored here, so `replyToId` is null. */
+  quoted?: { text: string; fromCustomer?: boolean } | null;
   /** When the text was last edited (messages.metadata.edited_at) — shows "Editada". */
   editedAt?: string | null;
   /** Set when the message is a Pix card (messages.metadata.pix); `content` then
@@ -539,6 +542,7 @@ export function transformDBToUIMessage(msg: DBMessage): UIMessage {
     senderName: (msg.metadata as { sender?: { name?: string | null } } | null)?.sender?.name ?? null,
     senderPhone: (msg.metadata as { sender?: { phone?: string | null } } | null)?.sender?.phone ?? null,
     replyToId: msg.reply_to_id ?? null,
+    quoted: (msg.metadata as { quoted?: UIMessage['quoted'] } | null)?.quoted ?? null,
     editedAt: (msg.metadata as { edited_at?: string } | null)?.edited_at ?? null,
     pix: pixFromMetadata(msg.metadata),
     contacts: sharedContactsFromMetadata(msg.metadata),

@@ -1,5 +1,5 @@
 import type { ConversationMode, IncomingMessage, MessageDeliveryStatus } from '../types/index.js';
-import type { InboundAttribution, InboundMedia } from '../channels/channelEvents.js';
+import type { InboundAttribution, InboundMedia, QuotedSnapshot } from '../channels/channelEvents.js';
 import type { PixDetails, PixKeyType, PixMessageMeta } from '../channels/pix.js';
 import type { SharedContact } from '../channels/sharedContact.js';
 import { getSupabase } from './supabaseClient.js';
@@ -95,6 +95,12 @@ export function storageMedia(mimeType: string, fileName?: string): { contentType
   const fromName = fileName?.includes('.') ? fileName.split('.').pop()?.toLowerCase() : undefined;
   const ext = fromName && /^[a-z0-9]{1,5}$/.test(fromName) && !ACTIVE_EXTENSIONS.has(fromName) ? fromName : 'bin';
   return { contentType: 'application/octet-stream', ext };
+}
+
+/** `{ quoted }` for `messages.metadata` when a quote could not be linked to a
+ *  stored message — the reply then still shows what it answers. */
+function unresolvedQuote(replyToId: string | null, quoted?: QuotedSnapshot): { quoted?: QuotedSnapshot } {
+  return !replyToId && quoted ? { quoted } : {};
 }
 
 /** Maps our media kind to the DB `messages.type` literal. */
@@ -758,6 +764,7 @@ class ConversationRepository {
      *  can label each bubble (the conversation contactName is the group subject). */
     sender?: { name?: string; phone?: string };
     quotedProviderMessageId?: string;
+    quoted?: QuotedSnapshot;
     /** A Pix card the other side sent — drawn as a card in the timeline. */
     pix?: PixMessageMeta;
     /** Contact cards the other side shared — drawn as a card in the timeline. */
@@ -765,6 +772,7 @@ class ConversationRepository {
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
     const replyToId = await this.resolveReplyToId(input.conversationId, input);
+    const quoted = unresolvedQuote(replyToId, input.quoted);
     const sentAt = input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString();
 
     const mediaUrl = input.media
@@ -779,6 +787,7 @@ class ConversationRepository {
       ...(sender ? { sender } : {}),
       ...(input.pix ? { pix: input.pix } : {}),
       ...(input.contacts ? { contacts: input.contacts } : {}),
+      ...quoted,
     };
 
     const type = mediaUrl ? mediaKindToDbType(input.media!.kind) : 'text';
@@ -861,11 +870,13 @@ class ConversationRepository {
     replyToId?: string;
     /** Provider id of the quoted message (echo from the phone). */
     quotedProviderMessageId?: string;
+    quoted?: QuotedSnapshot;
     /** `messages.metadata` — e.g. `{ pix }` for a Pix card. */
     metadata?: Record<string, unknown>;
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
     const replyToId = await this.resolveReplyToId(input.conversationId, input);
+    const metadata = { ...input.metadata, ...unresolvedQuote(replyToId, input.quoted) };
     const { error } = await supabase.from('messages').insert({
       conversation_id: input.conversationId,
       channel: input.channel,
@@ -877,7 +888,7 @@ class ConversationRepository {
       status: 'sent',
       sent_at: input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString(),
       reply_to_id: replyToId,
-      ...(input.metadata ? { metadata: input.metadata } : {}),
+      ...(Object.keys(metadata).length ? { metadata } : {}),
     });
 
     if (error) {
@@ -1039,9 +1050,11 @@ class ConversationRepository {
     /** Provider timestamp — see insertOutboundMessage. */
     tsSec?: number;
     quotedProviderMessageId?: string;
+    quoted?: QuotedSnapshot;
   }): Promise<InsertMessageResult> {
     const supabase = getSupabase();
     const replyToId = await this.resolveReplyToId(input.conversationId, input);
+    const quoted = unresolvedQuote(replyToId, input.quoted);
     const { error } = await supabase.from('messages').insert({
       conversation_id: input.conversationId,
       channel: input.channel,
@@ -1055,6 +1068,7 @@ class ConversationRepository {
       status: 'sent',
       sent_at: input.tsSec ? new Date(input.tsSec * 1000).toISOString() : new Date().toISOString(),
       reply_to_id: replyToId,
+      ...(quoted.quoted ? { metadata: quoted } : {}),
     });
 
     if (error) {
