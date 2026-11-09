@@ -1,47 +1,46 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Megaphone } from 'lucide-react';
-import { toast } from 'sonner';
+import { Loader2, Megaphone, Search } from 'lucide-react';
 import { Button } from '@/components/Button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/feedback/EmptyState';
 import { api } from '@/services/api';
-import { fetchCampaigns, updateCampaign } from '@/services/attributionService';
+import { fetchCampaigns } from '@/services/attributionService';
 import { PERIOD_PRESETS, resolvePeriod, type Period, type PeriodPreset } from '@/services/analyticsService';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { fetchCampaignLeads, fetchCampaignWins, type CampaignLead, type LeadOutcome } from '@/services/campaignScoreboardService';
+import { fetchScoreboardLeads, fetchScoreboardWins, type CampaignLead, type LeadOutcome } from '@/services/campaignScoreboardService';
 import { invalidateReport, loadReport } from '@/components/results/useReport';
 import { formatCurrency } from '@/lib/formatCurrency';
+import { AD_STATUS_LABEL, adCode, liveliestStatus, readableAdName } from '@/lib/adName';
 import { CampaignWonDetails } from '@/components/campaigns/CampaignWonDetails';
-import type { Campaign } from '@/types';
 
 /**
- * "Qual campanha vale a pena manter?" — every lead a campaign brought in the
- * period, one mark per person, and what happened to each of them.
+ * "Qual anúncio vale a pena manter?" — every lead each Meta ad brought in the
+ * period, and what happened to each of them.
  *
- * The marks are the point: a percentage hides that "18%" can be 2 of 11 or 11 of
- * 62. Seeing the people is what lets a manager trust the call to end a campaign.
+ * One row per ad, straight from the Meta catalog: name, status and creation
+ * date arrive by themselves, so a new ad shows up on its first lead with no
+ * setup. Ads sharing a name (the same creative in two Meta campaigns) are one
+ * row. Leads that came without an ad appear under the origin named for them in
+ * "Origens sem anúncio" (pre-filled phrase, [ref:] link…).
+ *
+ * The weekly bars are the point: a percentage hides that "18%" can be 2 of 11
+ * or 11 of 62, and a total hides whether the ad still brings anyone.
  */
 
 type Verdict = 'good' | 'early' | 'bad';
+type StatusFilter = 'all' | 'active' | 'paused';
 
 /** Below this many leads, or while most are still being negotiated, a close
  *  rate says nothing yet. */
 const MIN_LEADS = 10;
 /** One sale per ten leads. Without spend data this is the only fair bar
- *  between campaigns; revisit once investment per campaign is recorded. */
+ *  between ads; revisit once investment per ad is recorded. */
 const GOOD_CLOSE_RATE = 0.1;
-const MAX_DOTS = 150;
 const PEOPLE_PREVIEW = 8;
+const MAX_WEEKS = 16;
+const BAR_HEIGHT = 36;
+const WEEK_MS = 7 * 86_400_000;
 
 const VERDICT_LABEL: Record<Verdict, string> = {
   good: 'Rende',
@@ -61,10 +60,24 @@ const OUTCOME_CLASS: Record<LeadOutcome, string> = {
   lost: 'bg-warning-subtle text-warning',
 };
 
-interface CampaignGroup {
-  id: string;
+/** Bar colors: fechou / em negociação / não fechou differ in lightness, not hue alone. */
+const BAR_CLASS: Record<LeadOutcome, string> = {
+  won: 'bg-primary',
+  open: 'bg-info/35',
+  lost: 'bg-warning/45',
+};
+
+interface ScoreGroup {
+  key: string;
+  kind: 'ad' | 'origin';
+  /** Plain-words name ("Sanca"), or the origin's name. */
   name: string;
-  campaign: Campaign | undefined;
+  /** Name exactly as in Ads Manager, shown under the plain one. */
+  raw: string | null;
+  code: string | null;
+  status: string | null;
+  createdAt: string | null;
+  adIds: Set<string>;
   leads: CampaignLead[];
   won: number;
   open: number;
@@ -83,17 +96,29 @@ function closeRatio(won: number, total: number): string {
   return won === 0 ? 'nenhum' : `1 em ${Math.round(total / won)}`;
 }
 
-function todayLocal(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function groupKey(lead: CampaignLead): string | null {
+  if (lead.ad) return lead.ad.name ? `ad:${lead.ad.name}` : `adid:${lead.ad.id}`;
+  return lead.campaignId ? `origin:${lead.campaignId}` : null;
 }
 
-function isEnded(campaign: Campaign | undefined): boolean {
-  return !!campaign?.endedAt && campaign.endedAt <= todayLocal();
-}
+/** "Perfil de LED (ad08)" — the code tells apart ads with the same theme. */
+const groupLabel = (g: ScoreGroup) => (g.code ? `${g.name} (${g.code})` : g.name);
 
 const dateTime = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-const shortDate = (iso: string) => iso.split('-').reverse().slice(0, 2).join('/');
+const fullDate = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const dayMonth = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
+
+/** "há 7 meses", "há 1 ano e 3 meses", "há 6 dias". */
+function ago(iso: string): string {
+  const days = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000));
+  if (days < 14) return days <= 1 ? 'há 1 dia' : `há ${days} dias`;
+  if (days < 60) return `há ${Math.round(days / 7)} semanas`;
+  const months = Math.round(days / 30.4);
+  if (months < 12) return `há ${months} meses`;
+  const years = Math.floor(months / 12);
+  const rest = months - years * 12;
+  return `há ${years === 1 ? '1 ano' : `${years} anos`}${rest ? ` e ${rest} ${rest === 1 ? 'mês' : 'meses'}` : ''}`;
+}
 
 const ALL_TIME: Period = {
   from: new Date(2000, 0, 1),
@@ -115,27 +140,42 @@ function joinNames(names: string[]): string {
   return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
 }
 
-const Mark: React.FC<{ outcome: LeadOutcome }> = ({ outcome }) => {
-  if (outcome === 'won') return <span className="w-2.5 h-2.5 rounded-full bg-primary" />;
-  if (outcome === 'open') return <span className="w-2.5 h-2.5 rounded-full border-2 border-muted-foreground" />;
-  return <span className="w-2.5 h-2.5 rounded-sm bg-warning/40" />;
+function startOfWeek(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+}
+
+const Mark: React.FC<{ outcome: LeadOutcome }> = ({ outcome }) => (
+  <span className={`w-2.5 h-2.5 rounded-sm ${BAR_CLASS[outcome]}`} />
+);
+
+const StatusChip: React.FC<{ status: string | null }> = ({ status }) => {
+  const label = status ? AD_STATUS_LABEL[status] ?? status : 'Sem acesso na Meta';
+  return (
+    <span className={`inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+      status === 'ACTIVE' ? 'bg-primary-subtle text-primary-subtle-foreground' : 'bg-muted text-muted-foreground'
+    }`}>
+      {label}
+    </span>
+  );
 };
 
 /**
  * Everything the scoreboard needs for one period, fetched in parallel. The
- * campaign list only supplies display names, so leads and wins don't wait on
+ * campaign list only names the no-ad origins, so leads and wins don't wait on
  * it — names are applied once everything is back.
  */
 async function fetchScoreboard(period: Period) {
   const noNames = new Map<string, string>();
   const [c, reasons, l, w] = await Promise.all([
-    fetchCampaigns(), api.fetchLossReasons(), fetchCampaignLeads(period, noNames), fetchCampaignWins(period, noNames),
+    fetchCampaigns(), api.fetchLossReasons(), fetchScoreboardLeads(period, noNames), fetchScoreboardWins(period, noNames),
   ]);
   const names = new Map(c.map((x) => [x.id, x.name]));
   const named = (lead: CampaignLead): CampaignLead =>
     lead.campaignId && names.has(lead.campaignId) ? { ...lead, campaignName: names.get(lead.campaignId)! } : lead;
   return {
-    campaigns: c,
     lossLabels: new Map(reasons.map((r) => [r.key, r.label])),
     leads: l.map(named),
     wins: w.map(named),
@@ -143,28 +183,22 @@ async function fetchScoreboard(period: Period) {
 }
 
 export const CampaignScoreboard: React.FC = () => {
-  // Starts with no period: the question is which campaign brings the most
-  // money overall. Over all time the cohort count and the sales-date count are
-  // the same set, so this screen and Detalhes agree.
+  // Starts with no period: the question is which ad brings the most money
+  // overall. Over all time the cohort count and the sales-date count are the
+  // same set, so this screen and Detalhes agree.
   const [preset, setPreset] = useState<PeriodPreset | 'all'>('all');
   const period = useMemo(() => (preset === 'all' ? ALL_TIME : resolvePeriod(preset)), [preset]);
 
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [lossLabels, setLossLabels] = useState<Map<string, string>>(new Map());
   const [leads, setLeads] = useState<CampaignLead[]>([]);
+  const [wins, setWins] = useState<CampaignLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [showAllPeople, setShowAllPeople] = useState(false);
-  const [confirmEnd, setConfirmEnd] = useState<CampaignGroup | null>(null);
-  const [ending, setEnding] = useState(false);
-  const [detailsFor, setDetailsFor] = useState<CampaignGroup | null>(null);
-  const [wins, setWins] = useState<CampaignLead[]>([]);
-  const winsByCampaign = useMemo(() => {
-    const map = new Map<string, CampaignLead[]>();
-    for (const w of wins) if (w.campaignId) map.set(w.campaignId, [...(map.get(w.campaignId) ?? []), w]);
-    return map;
-  }, [wins]);
+  const [detailsFor, setDetailsFor] = useState<ScoreGroup | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async (force = false) => {
     if (force) invalidateReport('scoreboard');
@@ -172,7 +206,6 @@ export const CampaignScoreboard: React.FC = () => {
     setFailed(false);
     try {
       const data = await loadReport('scoreboard', fetchScoreboard, period);
-      setCampaigns(data.campaigns);
       setLossLabels(data.lossLabels);
       setLeads(data.leads);
       setWins(data.wins);
@@ -186,45 +219,109 @@ export const CampaignScoreboard: React.FC = () => {
 
   useEffect(() => { void load(); }, [load]);
 
-  const groups = useMemo<CampaignGroup[]>(() => {
-    const campaignById = new Map(campaigns.map((c) => [c.id, c]));
-    const byId = new Map<string, CampaignLead[]>();
-    for (const lead of leads) {
-      if (!lead.campaignId) continue;
-      const list = byId.get(lead.campaignId);
-      if (list) list.push(lead);
-      else byId.set(lead.campaignId, [lead]);
+  const winsByGroup = useMemo(() => {
+    const map = new Map<string, CampaignLead[]>();
+    for (const w of wins) {
+      const key = groupKey(w);
+      if (key) map.set(key, [...(map.get(key) ?? []), w]);
     }
-    return [...byId.entries()]
-      .map(([id, list]) => {
-        const won = list.filter((l) => l.outcome === 'won');
-        const open = list.filter((l) => l.outcome === 'open').length;
-        const lost = list.filter((l) => l.outcome === 'lost').length;
-        return {
-          id,
-          name: campaignById.get(id)?.name ?? list[0].campaignName ?? 'Campanha',
-          campaign: campaignById.get(id),
-          leads: list,
-          won: won.length,
-          open,
-          lost,
-          revenue: won.reduce((sum, l) => sum + l.value, 0),
-          verdict: verdictFor(won.length, open, lost),
+    return map;
+  }, [wins]);
+
+  const groups = useMemo<ScoreGroup[]>(() => {
+    const byKey = new Map<string, ScoreGroup>();
+    for (const lead of leads) {
+      const key = groupKey(lead);
+      if (!key) continue;
+      let g = byKey.get(key);
+      if (!g) {
+        const ad = lead.ad;
+        g = {
+          key,
+          kind: ad ? 'ad' : 'origin',
+          name: ad ? (ad.name ? readableAdName(ad.name) : 'Anúncio sem nome') : lead.campaignName ?? 'Origem sem nome',
+          raw: ad ? ad.name ?? 'A Meta não liberou a consulta deste anúncio' : null,
+          code: ad?.name ? adCode(ad.name) : null,
+          status: ad?.status ?? null,
+          createdAt: ad?.createdAt ?? null,
+          adIds: new Set(),
+          leads: [],
+          won: 0, open: 0, lost: 0, revenue: 0, verdict: 'early',
         };
-      })
-      .sort((a, b) => b.revenue - a.revenue || b.won - a.won || b.leads.length - a.leads.length);
-  }, [leads, campaigns]);
+        byKey.set(key, g);
+      }
+      if (lead.ad) {
+        g.adIds.add(lead.ad.id);
+        g.status = liveliestStatus(g.status, lead.ad.status);
+        if (lead.ad.createdAt && (!g.createdAt || lead.ad.createdAt < g.createdAt)) g.createdAt = lead.ad.createdAt;
+      }
+      g.leads.push(lead);
+      g[lead.outcome] += 1;
+      if (lead.outcome === 'won') g.revenue += lead.value;
+    }
+    const all = [...byKey.values()];
+    for (const g of all) g.verdict = verdictFor(g.won, g.open, g.lost);
+    const byResult = (a: ScoreGroup, b: ScoreGroup) => b.revenue - a.revenue || b.won - a.won || b.leads.length - a.leads.length;
+    return [...all.filter((g) => g.kind === 'ad').sort(byResult), ...all.filter((g) => g.kind === 'origin').sort(byResult)];
+  }, [leads]);
 
-  const unmappedCount = useMemo(() => leads.filter((l) => !l.campaignId).length, [leads]);
+  const counts = useMemo(() => {
+    const ads = groups.filter((g) => g.kind === 'ad');
+    return {
+      all: groups.length,
+      active: ads.filter((g) => g.status === 'ACTIVE').length,
+      paused: ads.filter((g) => g.status !== 'ACTIVE').length,
+    };
+  }, [groups]);
 
-  // Default to the campaign that most needs a decision: the worst performer if
-  // there is one, otherwise the top seller.
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return groups.filter((g) => {
+      if (statusFilter === 'active' && (g.kind !== 'ad' || g.status !== 'ACTIVE')) return false;
+      if (statusFilter === 'paused' && (g.kind !== 'ad' || g.status === 'ACTIVE')) return false;
+      if (!term) return true;
+      return g.name.toLowerCase().includes(term) || (g.raw ?? '').replace(/_/g, ' ').toLowerCase().includes(term);
+    });
+  }, [groups, statusFilter, search]);
+
+  // Weekly bars: from the first lead (or the period start) to today, at most
+  // MAX_WEEKS, the most recent ones. One scale for every row, so a busy ad and
+  // a quiet one compare at a glance.
+  const weeks = useMemo(() => {
+    const now = Date.now();
+    const end = Math.min(period.to.getTime(), now);
+    const firstLead = leads.reduce((min, l) => (l.createdAt ? Math.min(min, new Date(l.createdAt).getTime()) : min), end);
+    let start = startOfWeek(Math.max(period.from.getTime(), firstLead));
+    const count = Math.min(MAX_WEEKS, Math.max(1, Math.ceil((end - start) / WEEK_MS)));
+    start = startOfWeek(end) - (count - 1) * WEEK_MS;
+    return { start, count };
+  }, [leads, period]);
+
+  const bars = useMemo(() => {
+    const perGroup = new Map<string, Array<Record<LeadOutcome, number>>>();
+    let max = 1;
+    for (const g of groups) {
+      const cells = Array.from({ length: weeks.count }, () => ({ won: 0, open: 0, lost: 0 }));
+      for (const l of g.leads) {
+        const i = Math.floor((new Date(l.createdAt).getTime() - weeks.start) / WEEK_MS);
+        if (i >= 0 && i < weeks.count) cells[i][l.outcome] += 1;
+      }
+      for (const c of cells) max = Math.max(max, c.won + c.open + c.lost);
+      perGroup.set(g.key, cells);
+    }
+    return { perGroup, max };
+  }, [groups, weeks]);
+
+  // Default to the ad that most needs a decision: the worst performer, else
+  // the busiest ad that never sold, else the top seller.
   const selected = useMemo(() => {
-    const explicit = groups.find((g) => g.id === selectedId);
+    const explicit = groups.find((g) => g.key === selectedKey);
     if (explicit) return explicit;
-    const bad = groups.filter((g) => g.verdict === 'bad').sort((a, b) => b.leads.length - a.leads.length);
-    return bad[0] ?? groups[0] ?? null;
-  }, [groups, selectedId]);
+    const bad = groups.filter((g) => g.verdict === 'bad').sort((a, b) => b.leads.length - a.leads.length)[0];
+    const silent = groups.filter((g) => g.kind === 'ad' && g.won === 0 && g.leads.length >= MIN_LEADS)
+      .sort((a, b) => b.leads.length - a.leads.length)[0];
+    return bad ?? silent ?? groups[0] ?? null;
+  }, [groups, selectedKey]);
 
   const summary = useMemo(() => {
     if (groups.length === 0) return '';
@@ -232,53 +329,59 @@ export const CampaignScoreboard: React.FC = () => {
     const parts: string[] = [];
     if (total === 0) {
       const people = groups.reduce((sum, g) => sum + g.leads.length, 0);
-      parts.push(`Nenhuma venda fechada ainda entre as ${people} pessoas que chamaram por campanha ${inPeriod(period.label)}.`);
+      parts.push(`Nenhuma venda fechada ainda entre as ${people} pessoas que chamaram por anúncio ${inPeriod(period.label)}.`);
     } else {
-      const top = groups.filter((g) => g.revenue > 0).slice(0, 2);
+      const top = [...groups].filter((g) => g.revenue > 0).sort((a, b) => b.revenue - a.revenue).slice(0, 2);
       const share = Math.round((top.reduce((sum, g) => sum + g.revenue, 0) / total) * 100);
-      if (groups.length === 1) {
-        parts.push(`${capitalize(inPeriod(period.label))}, ${top[0].name} vendeu ${formatCurrency(top[0].revenue)}.`);
+      if (top.length === 1) {
+        parts.push(`${capitalize(inPeriod(period.label))}, ${groupLabel(top[0])} trouxe ${share}% do que foi vendido.`);
       } else {
-        parts.push(`${capitalize(inPeriod(period.label))}, ${joinNames(top.map((g) => g.name))} ${top.length > 1 ? 'trouxeram' : 'trouxe'} ${share}% do que foi vendido por campanha.`);
+        parts.push(`${capitalize(inPeriod(period.label))}, ${joinNames(top.map(groupLabel))} trouxeram ${share}% do que foi vendido.`);
       }
     }
-    const worst = groups.filter((g) => g.verdict === 'bad').sort((a, b) => b.leads.length - a.leads.length)[0];
+    const worst = groups.filter((g) => g.verdict === 'bad').sort((a, b) => b.leads.length - a.leads.length)[0]
+      ?? groups.filter((g) => g.kind === 'ad' && g.won === 0 && g.leads.length >= MIN_LEADS).sort((a, b) => b.leads.length - a.leads.length)[0];
     if (worst) {
-      parts.push(`${worst.name} recebeu ${worst.leads.length} contatos e fechou ${worst.won === 0 ? 'nenhum negócio' : worst.won === 1 ? 'só 1 negócio' : `${worst.won} negócios`}.`);
+      parts.push(`${groupLabel(worst)} recebeu ${worst.leads.length} contatos e fechou ${worst.won === 0 ? 'nenhum negócio' : worst.won === 1 ? 'só 1 negócio' : `${worst.won} negócios`}.`);
     }
     return parts.join(' ');
   }, [groups, period.label]);
 
-  const handleEnd = async () => {
-    if (!confirmEnd) return;
-    setEnding(true);
-    try {
-      // Ends by date, never by is_active: the attribution view only maps leads
-      // to ACTIVE campaigns, so deactivating would orphan the whole history.
-      await updateCampaign(confirmEnd.id, { endedAt: todayLocal() });
-      toast.success(`${confirmEnd.name} encerrada.`);
-      setConfirmEnd(null);
-      invalidateReport('scoreboard');
-      setCampaigns(await fetchCampaigns());
-    } catch {
-      toast.error('Não foi possível encerrar a campanha.');
-    } finally {
-      setEnding(false);
-    }
-  };
+  const axisLabels = Array.from({ length: weeks.count }, (_, i) => {
+    const step = weeks.count > 8 ? 4 : 2;
+    return i % step === 0 ? dayMonth.format(new Date(weeks.start + i * WEEK_MS)) : '';
+  });
+
+  const pill = (key: StatusFilter, label: string) => (
+    <button
+      key={key}
+      type="button"
+      aria-pressed={statusFilter === key}
+      onClick={() => setStatusFilter(key)}
+      className={`h-9 px-3.5 rounded-full text-sm border transition-colors ${
+        statusFilter === key
+          ? 'bg-primary-subtle text-primary-subtle-foreground border-transparent font-semibold'
+          : 'bg-card text-foreground border-border hover:bg-accent'
+      }`}
+    >
+      {label} ({counts[key]})
+    </button>
+  );
+
+  const COLS = 'md:grid-cols-[minmax(0,17rem)_minmax(0,1fr)_6rem_7rem_9rem]';
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-3xl space-y-2">
           <h2 className="text-2xl md:text-[28px] font-bold tracking-tight text-foreground leading-tight">
-            Qual campanha vale a pena manter?
+            Qual anúncio vale a pena manter?
           </h2>
           {!loading && summary && (
             <p className="text-base leading-relaxed text-muted-foreground">{summary}</p>
           )}
         </div>
-        <Select value={preset} onValueChange={(v) => { setPreset(v as PeriodPreset | 'all'); setSelectedId(null); setShowAllPeople(false); }}>
+        <Select value={preset} onValueChange={(v) => { setPreset(v as PeriodPreset | 'all'); setSelectedKey(null); setShowAllPeople(false); }}>
           <SelectTrigger className="h-9 w-44" aria-label="Período">
             <SelectValue />
           </SelectTrigger>
@@ -293,129 +396,171 @@ export const CampaignScoreboard: React.FC = () => {
 
       {loading ? (
         <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          <Loader2 className="w-4 h-4 animate-spin" /> Carregando campanhas…
+          <Loader2 className="w-4 h-4 animate-spin" /> Carregando anúncios…
         </div>
       ) : failed ? (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4 text-sm">
-          <span className="text-foreground">Não foi possível carregar os contatos das campanhas.</span>
+          <span className="text-foreground">Não foi possível carregar os contatos dos anúncios.</span>
           <Button variant="outline" size="sm" onClick={() => void load(true)}>Tentar de novo</Button>
         </div>
       ) : groups.length === 0 ? (
         <EmptyState
           icon={Megaphone}
-          title="Nenhum contato de campanha neste período"
-          description={unmappedCount > 0
-            ? `${unmappedCount} pessoas chegaram por anúncios que ainda não pertencem a nenhuma campanha. Vincule esses sinais para que apareçam aqui.`
-            : 'Quando alguém chamar por um anúncio ligado a uma campanha, aparece aqui com o resultado da negociação.'}
+          title="Ninguém chamou por anúncio neste período"
+          description="Quando alguém clicar num anúncio da Meta e chamar no WhatsApp, o anúncio aparece aqui sozinho, com o resultado da negociação."
         />
       ) : (
         <>
-          <section aria-label="Placar das campanhas" className="rounded-xl border border-border bg-card p-2">
-            <div className="hidden md:grid grid-cols-[minmax(0,13rem)_minmax(0,1fr)_6rem_7rem_9rem] gap-4 pl-4 pr-[8rem] pt-3 pb-2 text-xs text-muted-foreground items-center">
-              <span>Campanha</span>
-              <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                Cada marca é uma pessoa que chamou
-                <span className="inline-flex items-center gap-1.5"><Mark outcome="won" />fechou</span>
-                <span className="inline-flex items-center gap-1.5"><Mark outcome="open" />em negociação</span>
-                <span className="inline-flex items-center gap-1.5"><Mark outcome="lost" />não fechou</span>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar pelo status na Meta">
+              {pill('all', 'Todos')}
+              {pill('active', 'No ar')}
+              {pill('paused', 'Pausados')}
+            </div>
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
+              <Input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar pelo nome, ex.: perfil de led"
+                aria-label="Buscar pelo nome do anúncio"
+                className="pl-9 h-9"
+              />
+            </div>
+          </div>
+
+          <section aria-label="Placar dos anúncios" className="rounded-xl border border-border bg-card p-2">
+            <div className={`hidden md:grid ${COLS} gap-4 pl-4 pr-[8rem] pt-3 pb-2 text-xs text-muted-foreground items-end`}>
+              <span>Anúncio</span>
+              <span className="flex flex-col gap-1.5">
+                <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  Contatos por semana
+                  <span className="inline-flex items-center gap-1.5"><Mark outcome="won" />fechou</span>
+                  <span className="inline-flex items-center gap-1.5"><Mark outcome="open" />em negociação</span>
+                  <span className="inline-flex items-center gap-1.5"><Mark outcome="lost" />não fechou</span>
+                </span>
+                <span className="flex gap-[3px] text-[11px]" aria-hidden="true">
+                  {axisLabels.map((label, i) => (
+                    <span key={i} className="flex-1 min-w-0 whitespace-nowrap">{label}</span>
+                  ))}
+                </span>
               </span>
               <span className="text-right">Fecha</span>
               <span className="text-right">Vendido</span>
               <span>Avaliação</span>
             </div>
 
-            <ul className="flex flex-col">
-              {groups.map((g) => {
-                const total = g.leads.length;
-                const isSelected = selected?.id === g.id;
-                const ended = isEnded(g.campaign);
-                const marks = g.leads
-                  .map((l) => l.outcome)
-                  .sort((a, b) => ['won', 'open', 'lost'].indexOf(a) - ['won', 'open', 'lost'].indexOf(b));
-                return (
-                  <li key={g.id} className="flex flex-col md:flex-row md:items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { setSelectedId(g.id); setShowAllPeople(false); }}
-                      aria-pressed={isSelected}
-                      className={`flex-1 min-w-0 text-left rounded-lg px-4 py-3.5 grid gap-3 md:gap-4 md:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_6rem_7rem_9rem] md:items-center transition-colors ${
-                        isSelected ? 'bg-primary-subtle/40 ring-2 ring-inset ring-primary' : 'hover:bg-accent'
-                      }`}
-                    >
-                      <span className="flex flex-col gap-0.5 min-w-0">
-                        <span className="text-[15px] font-semibold text-foreground truncate">{g.name}</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          {ended && g.campaign?.endedAt
-                            ? `Encerrada em ${shortDate(g.campaign.endedAt)}`
-                            : g.campaign?.channel || `${total} ${total === 1 ? 'pessoa' : 'pessoas'}`}
-                        </span>
-                      </span>
-                      <span className="flex flex-wrap gap-1 content-center" aria-hidden="true">
-                        {marks.slice(0, MAX_DOTS).map((o, i) => <Mark key={i} outcome={o} />)}
-                        {total > MAX_DOTS && <span className="text-xs text-muted-foreground ml-1">+{total - MAX_DOTS}</span>}
-                      </span>
-                      <span className="sr-only">
-                        {g.won} fecharam, {g.open} em negociação, {g.lost} não fecharam.
-                      </span>
-                      <span className="flex md:flex-col md:items-end gap-2 md:gap-0.5 items-baseline">
-                        <span className="text-[15px] font-semibold text-foreground tabular-nums">{closeRatio(g.won, total)}</span>
-                        <span className="text-xs text-muted-foreground tabular-nums">{g.won} de {total}</span>
-                      </span>
-                      <span className="md:text-right text-[15px] font-semibold text-foreground tabular-nums">{formatCurrency(g.revenue)}</span>
-                      <span>
-                        <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${VERDICT_CLASS[g.verdict]}`}>
-                          {VERDICT_LABEL[g.verdict]}
-                        </span>
-                      </span>
-                    </button>
-                    {/* Only campaigns with a sale have someone to reward; the
-                        empty slot keeps the columns aligned. */}
-                    {winsByCampaign.has(g.id) ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="self-start md:self-center ml-4 md:ml-0 md:mr-2 md:w-24 shrink-0"
-                        onClick={() => setDetailsFor(g)}
-                        aria-label={`Detalhes de quem fechou em ${g.name}`}
+            {visible.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-muted-foreground">
+                Nenhum anúncio com esse filtro. Tente outra palavra ou volte para Todos.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-0.5">
+                {visible.map((g) => {
+                  const total = g.leads.length;
+                  const isSelected = selected?.key === g.key;
+                  const cells = bars.perGroup.get(g.key) ?? [];
+                  const createdMs = g.createdAt ? new Date(g.createdAt).getTime() : null;
+                  return (
+                    <li key={g.key} className="flex flex-col md:flex-row md:items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedKey(g.key); setShowAllPeople(false); }}
+                        aria-pressed={isSelected}
+                        className={`flex-1 min-w-0 text-left rounded-lg px-4 py-3.5 grid gap-3 md:gap-4 ${COLS} md:items-center transition-colors ${
+                          isSelected
+                            ? 'bg-primary-subtle/40 ring-2 ring-inset ring-primary'
+                            : g.kind === 'origin' ? 'border border-dashed border-border hover:bg-accent' : 'hover:bg-accent'
+                        }`}
                       >
-                        Detalhes
-                      </Button>
-                    ) : (
-                      <span className="hidden md:block md:w-24 md:mr-2 shrink-0" aria-hidden="true" />
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+                        <span className="flex flex-col gap-0.5 min-w-0">
+                          <span className="text-[15px] font-semibold text-foreground truncate">{g.name}</span>
+                          <span className="text-xs text-muted-foreground truncate" title={g.raw ?? undefined}>
+                            {g.kind === 'ad' ? g.raw : 'Chegaram sem anúncio, pela origem com esse nome'}
+                          </span>
+                          {g.kind === 'ad' && (
+                            <span className="flex flex-wrap items-center gap-1.5 mt-1">
+                              <StatusChip status={g.status} />
+                              <span className="text-xs text-muted-foreground">
+                                {g.createdAt ? `Criado em ${fullDate.format(new Date(g.createdAt))}, ${ago(g.createdAt)}` : 'Sem data de criação'}
+                              </span>
+                            </span>
+                          )}
+                        </span>
+                        <span className="flex items-end gap-[3px] h-9" aria-hidden="true">
+                          {cells.map((c, i) => {
+                            const n = c.won + c.open + c.lost;
+                            const h = n ? Math.max(3, Math.round(BAR_HEIGHT * Math.sqrt(n / bars.max))) : 0;
+                            const part = (x: number) => (n ? Math.round((h * x) / n) : 0);
+                            const weekStart = weeks.start + i * WEEK_MS;
+                            const beforeAd = createdMs !== null && createdMs >= weekStart + WEEK_MS;
+                            return (
+                              <span
+                                key={i}
+                                title={`Semana de ${dayMonth.format(new Date(weekStart))}: ${n} ${n === 1 ? 'contato' : 'contatos'}${c.won ? `, ${c.won} fechou` : ''}`}
+                                className={`flex-1 min-w-0 h-full flex flex-col justify-end border-b ${beforeAd ? 'border-transparent' : 'border-border'}`}
+                              >
+                                <span className={BAR_CLASS.lost} style={{ height: part(c.lost) }} />
+                                <span className={BAR_CLASS.open} style={{ height: n ? h - part(c.won) - part(c.lost) : 0 }} />
+                                <span className={BAR_CLASS.won} style={{ height: part(c.won) }} />
+                              </span>
+                            );
+                          })}
+                        </span>
+                        <span className="sr-only">
+                          {g.won} fecharam, {g.open} em negociação, {g.lost} não fecharam.
+                        </span>
+                        <span className="flex md:flex-col md:items-end gap-2 md:gap-0.5 items-baseline">
+                          <span className="text-[15px] font-semibold text-foreground tabular-nums">{closeRatio(g.won, total)}</span>
+                          <span className="text-xs text-muted-foreground tabular-nums">{g.won} de {total}</span>
+                        </span>
+                        <span className="md:text-right text-[15px] font-semibold text-foreground tabular-nums">{formatCurrency(g.revenue)}</span>
+                        <span>
+                          <span className={`inline-block text-xs font-semibold px-2.5 py-1 rounded-full ${VERDICT_CLASS[g.verdict]}`}>
+                            {VERDICT_LABEL[g.verdict]}
+                          </span>
+                        </span>
+                      </button>
+                      {/* Only rows with a sale have someone to reward; the
+                          empty slot keeps the columns aligned. */}
+                      {winsByGroup.has(g.key) ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="self-start md:self-center ml-4 md:ml-0 md:mr-2 md:w-24 shrink-0"
+                          onClick={() => setDetailsFor(g)}
+                          aria-label={`Detalhes de quem fechou em ${g.name}`}
+                        >
+                          Detalhes
+                        </Button>
+                      ) : (
+                        <span className="hidden md:block md:w-24 md:mr-2 shrink-0" aria-hidden="true" />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
 
             <p className="px-4 pt-3 pb-1 text-xs text-muted-foreground max-w-4xl">
               {preset === 'all'
-                ? 'Conta todo mundo que já chamou por campanha e o que aconteceu com cada pessoa até hoje.'
-                : `Conta quem chamou ${inPeriod(period.label)} e o que aconteceu com cada pessoa até hoje; Detalhes mostra as vendas fechadas ${inPeriod(period.label)}.`} Com pelo menos {MIN_LEADS} contatos
-              e a maioria já decidida, uma campanha que fecha menos de 1 em cada {Math.round(1 / GOOD_CLOSE_RATE)} aparece como “não está rendendo”.
+                ? 'Conta todo mundo que já chamou por anúncio e o que aconteceu com cada pessoa até hoje.'
+                : `Conta quem chamou ${inPeriod(period.label)} e o que aconteceu com cada pessoa até hoje; Detalhes mostra as vendas fechadas ${inPeriod(period.label)}.`}{' '}
+              Nome, status e data de criação vêm da Meta sozinhos: anúncio novo aparece aqui no primeiro contato. Anúncios com o
+              mesmo nome em campanhas diferentes da Meta somam numa linha só. Com pelo menos {MIN_LEADS} contatos e a maioria já
+              decidida, quem fecha menos de 1 em cada {Math.round(1 / GOOD_CLOSE_RATE)} aparece como “não está rendendo”.{' '}
+              Quem chega sem anúncio entra pelas{' '}
+              <Link to="/campanhas/configurar" className="text-primary hover:underline underline-offset-4">origens sem anúncio</Link>.
             </p>
-
-            {unmappedCount > 0 && (
-              <Link
-                to="/campanhas/configurar"
-                className="mx-2 mt-2 flex flex-wrap justify-between gap-2 rounded-lg bg-warning-subtle px-3.5 py-3 text-sm text-warning hover:underline"
-              >
-                <span>
-                  {unmappedCount} {unmappedCount === 1 ? 'pessoa chegou' : 'pessoas chegaram'} por anúncios que ainda não têm campanha e
-                  {unmappedCount === 1 ? ' fica' : ' ficam'} fora deste placar.
-                </span>
-                <span className="font-semibold">Vincular sinais</span>
-              </Link>
-            )}
           </section>
 
           {selected && (
-            <SelectedCampaign
+            <SelectedGroup
               group={selected}
               lossLabels={lossLabels}
               showAll={showAllPeople}
               onShowAll={() => setShowAllPeople(true)}
-              onEnd={() => setConfirmEnd(selected)}
             />
           )}
         </>
@@ -426,39 +571,20 @@ export const CampaignScoreboard: React.FC = () => {
         onOpenChange={(open) => { if (!open) setDetailsFor(null); }}
         campaignName={detailsFor?.name ?? ''}
         periodLabel={inPeriod(period.label)}
-        leads={(detailsFor && winsByCampaign.get(detailsFor.id)) || []}
+        leads={(detailsFor && winsByGroup.get(detailsFor.key)) || []}
       />
-
-      <AlertDialog open={!!confirmEnd} onOpenChange={(open) => { if (!open) setConfirmEnd(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Encerrar {confirmEnd?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              A campanha fica marcada como encerrada hoje e as pessoas que já chegaram por ela continuam contando no histórico.
-              O anúncio continua no ar até você pausar no Gerenciador de Anúncios da Meta.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={ending}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={(e) => { e.preventDefault(); void handleEnd(); }} disabled={ending}>
-              {ending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Encerrar campanha'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
 
-interface SelectedCampaignProps {
-  group: CampaignGroup;
+interface SelectedGroupProps {
+  group: ScoreGroup;
   lossLabels: Map<string, string>;
   showAll: boolean;
   onShowAll: () => void;
-  onEnd: () => void;
 }
 
-const SelectedCampaign: React.FC<SelectedCampaignProps> = ({ group, lossLabels, showAll, onShowAll, onEnd }) => {
+const SelectedGroup: React.FC<SelectedGroupProps> = ({ group, lossLabels, showAll, onShowAll }) => {
   const total = group.leads.length;
   const people = useMemo(
     () => [...group.leads].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
@@ -484,35 +610,59 @@ const SelectedCampaign: React.FC<SelectedCampaignProps> = ({ group, lossLabels, 
   };
 
   const luDoubts = group.leads.filter((l) => l.outcome === 'open' && l.lu?.doubt).length;
-  const canEnd = group.verdict === 'bad' && !!group.campaign && !isEnded(group.campaign);
+  const facts: { label: string; value: string; hint?: string }[] = group.kind === 'ad'
+    ? [
+      { label: 'Criado na Meta', value: group.createdAt ? fullDate.format(new Date(group.createdAt)) : 'Sem data', hint: group.createdAt ? ago(group.createdAt) : undefined },
+      { label: 'Status na Meta', value: group.status ? AD_STATUS_LABEL[group.status] ?? group.status : 'Sem acesso' },
+      { label: 'Contatos', value: String(total) },
+      { label: 'Fecharam', value: String(group.won), hint: group.won ? closeRatio(group.won, total) : undefined },
+      { label: 'Em negociação', value: String(group.open) },
+      { label: 'Vendido', value: formatCurrency(group.revenue) },
+    ]
+    : [
+      { label: 'Contatos', value: String(total) },
+      { label: 'Fecharam', value: String(group.won), hint: group.won ? closeRatio(group.won, total) : undefined },
+      { label: 'Em negociação', value: String(group.open) },
+      { label: 'Vendido', value: formatCurrency(group.revenue) },
+    ];
+
   return (
     <section aria-label={`Contatos de ${group.name}`} className="rounded-xl border border-border bg-card">
-      <div className="flex flex-wrap items-start justify-between gap-4 px-5 pt-5 pb-4 border-b border-border">
-        <div className="flex flex-col gap-2 min-w-0">
-          <h3 className="text-lg font-semibold text-foreground">Quem chegou por {group.name}</h3>
-          <p className="text-sm text-muted-foreground">
-            {total} {total === 1 ? 'pessoa chamou' : 'pessoas chamaram'}. {group.won === 0 ? 'Nenhuma comprou' : `${group.won} ${group.won === 1 ? 'comprou' : 'compraram'}`}
-            {group.open > 0 && `, ${group.open} ${group.open === 1 ? 'ainda está' : 'ainda estão'} em negociação`}.
-            {luDoubts > 0 && ` A Lu ficou em dúvida em ${luDoubts}: vale abrir a conversa.`}
+      <div className="flex flex-col gap-2 px-5 pt-5 pb-4 border-b border-border">
+        <h3 className="text-lg font-semibold text-foreground">Quem chegou por {group.name}</h3>
+        {group.raw && <p className="text-xs text-muted-foreground break-all">{group.raw}</p>}
+        {group.adIds.size > 1 && (
+          <p className="self-start text-xs text-info bg-info-subtle rounded-md px-3 py-2">
+            A Meta tem {group.adIds.size} anúncios com esse nome, em campanhas diferentes. Esta linha soma todos.
           </p>
-          {reasons.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">Por que não fecharam:</span>
-              {reasons.map(([label, n]) => (
-                <span key={label} className="text-xs text-foreground bg-muted px-2.5 py-1 rounded-full">{label} ({n})</span>
-              ))}
-            </div>
-          )}
-        </div>
-        {canEnd && (
-          <div className="flex flex-col items-end gap-1.5">
-            <Button variant="danger" onClick={onEnd}>Encerrar campanha</Button>
-            <span className="text-xs text-muted-foreground max-w-[16rem] text-right">
-              O anúncio continua no ar até você pausar na Meta.
-            </span>
+        )}
+        <p className="text-sm text-muted-foreground">
+          {total} {total === 1 ? 'pessoa chamou' : 'pessoas chamaram'}. {group.won === 0 ? 'Nenhuma comprou' : `${group.won} ${group.won === 1 ? 'comprou' : 'compraram'}`}
+          {group.open > 0 && `, ${group.open} ${group.open === 1 ? 'ainda está' : 'ainda estão'} em negociação`}.
+          {luDoubts > 0 && ` A Lu ficou em dúvida em ${luDoubts}: vale abrir a conversa.`}
+        </p>
+        {reasons.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Por que não fecharam:</span>
+            {reasons.map(([label, n]) => (
+              <span key={label} className="text-xs text-foreground bg-muted px-2.5 py-1 rounded-full">{label} ({n})</span>
+            ))}
           </div>
         )}
+        {group.kind === 'ad' && group.status === 'ACTIVE' && group.verdict === 'bad' && (
+          <p className="text-xs text-muted-foreground">Para parar de receber contatos por aqui, pause o anúncio no Gerenciador de Anúncios da Meta.</p>
+        )}
       </div>
+
+      <dl className="grid grid-cols-2 md:grid-cols-6 gap-x-6 gap-y-4 px-5 py-4 border-b border-border">
+        {facts.map((f) => (
+          <div key={f.label} className="flex flex-col gap-0.5 min-w-0">
+            <dt className="text-xs text-muted-foreground">{f.label}</dt>
+            <dd className="text-base font-semibold text-foreground tabular-nums">{f.value}</dd>
+            {f.hint && <dd className="text-xs text-muted-foreground">{f.hint}</dd>}
+          </div>
+        ))}
+      </dl>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
@@ -521,7 +671,6 @@ const SelectedCampaign: React.FC<SelectedCampaignProps> = ({ group, lossLabels, 
             <tr className="text-left text-xs text-muted-foreground border-b border-border">
               <th scope="col" className="py-2.5 px-5 font-medium">Pessoa</th>
               <th scope="col" className="py-2.5 pr-4 font-medium">Chamou em</th>
-              <th scope="col" className="hidden md:table-cell py-2.5 pr-4 font-medium">Anúncio</th>
               <th scope="col" className="py-2.5 pr-4 font-medium">Situação</th>
               <th scope="col" className="py-2.5 pr-4 font-medium text-right">Valor</th>
               <th scope="col" className="py-2.5 pr-5"><span className="sr-only">Conversa</span></th>
@@ -534,7 +683,6 @@ const SelectedCampaign: React.FC<SelectedCampaignProps> = ({ group, lossLabels, 
                 <td className="py-2.5 pr-4 text-muted-foreground tabular-nums whitespace-nowrap">
                   {l.createdAt ? dateTime.format(new Date(l.createdAt)) : '—'}
                 </td>
-                <td className="hidden md:table-cell py-2.5 pr-4 text-muted-foreground">{l.adName ?? '—'}</td>
                 <td className="py-2.5 pr-4">
                   <span className="inline-flex items-center gap-1.5">
                     <span className={`inline-block whitespace-nowrap text-xs font-semibold px-2 py-0.5 rounded-full ${OUTCOME_CLASS[l.outcome]}`}>

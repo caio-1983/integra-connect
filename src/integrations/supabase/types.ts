@@ -1357,7 +1357,9 @@ export type Database = {
           campaign_channel: string | null
           campaign_id: string | null
           campaign_name: string | null
+          catalog_ad_created_at: string | null
           catalog_ad_name: string | null
+          catalog_ad_status: string | null
           catalog_adset_name: string | null
           catalog_campaign_name: string | null
           contact_id: string | null

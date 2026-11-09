@@ -3,12 +3,16 @@ import type { Period } from '@/services/analyticsService';
 
 /**
  * Per-lead rows behind the Campanhas scoreboard: who came in through which
- * campaign, and what happened to them.
+ * Meta ad (or, without an ad, which named origin), and what happened to them.
+ *
+ * Ads need no setup: name, status and creation date come from the Meta ad
+ * catalog. Campaign rules only name the origins that carry no ad (pre-filled
+ * phrase, [ref:] link, UTM, dedicated number).
  *
  * This is a COHORT view, unlike `report_campaign_performance`: it takes the leads
  * that arrived in the period and follows each one to its current outcome. That is
- * the question "is this campaign worth keeping?" asks — a sale in September from
- * an August lead belongs to August's campaign result.
+ * the question "is this ad worth keeping?" asks — a sale in September from
+ * an August lead belongs to August's result.
  *
  * Deals are paged past the 1000-row cap on purpose (see the header of
  * 20260810100500_report_functions.sql): a silently truncated list would make a
@@ -26,16 +30,28 @@ export interface CampaignLead {
   value: number;
   outcome: LeadOutcome;
   lostReasonCode: string | null;
-  /** Null = the lead's signal matches no campaign rule (shows up as "sem campanha"). */
+  /** Named origin from the campaign rules; used for leads that carry no ad. */
   campaignId: string | null;
   campaignName: string | null;
   /** Ad the lead clicked, when known: catalog name first, then the ad headline. */
   adName: string | null;
+  /** The Meta ad behind the lead, with what the catalog knows of it. */
+  ad: LeadAd | null;
   /** Lu's read of the conversation (scripts/detectSales.ts), when it ran on this deal. */
   lu: LuSaleRead | null;
   wonAt: string | null;
   /** deals.owner_id → team_members.id */
   ownerId: string | null;
+}
+
+export interface LeadAd {
+  id: string;
+  /** Name in Ads Manager; null when the catalog could not resolve the id. */
+  name: string | null;
+  /** Meta effective_status: ACTIVE, PAUSED, ADSET_PAUSED, CAMPAIGN_PAUSED… */
+  status: string | null;
+  /** When the ad was created in Ads Manager. */
+  createdAt: string | null;
 }
 
 export interface LuSaleRead {
@@ -91,19 +107,15 @@ interface ResolvedOrigin {
   campaignId: string | null;
   campaignName: string | null;
   adName: string | null;
-  /** Carries a campaign-type signal (ad, Meta campaign, UTM, ref). The WhatsApp
-   *  number alone does not count: every lead has one, organic included. */
-  hasCampaignSignal: boolean;
+  ad: LeadAd | null;
 }
-
-const CAMPAIGN_SIGNAL_KEYS = ['ad_id', 'meta_campaign_name', 'utm_campaign', 'ref'];
 
 async function fetchOrigins(contactIds: string[]): Promise<Map<string, ResolvedOrigin>> {
   const result = new Map<string, ResolvedOrigin>();
   const pages = await Promise.all(chunks(contactIds).map(async (ids) => {
     const { data, error } = await supabase
       .from('lead_attribution_resolved')
-      .select('contact_id, campaign_id, campaign_name, catalog_ad_name, catalog_campaign_name, source_raw')
+      .select('contact_id, campaign_id, campaign_name, catalog_ad_name, catalog_ad_status, catalog_ad_created_at, source_raw')
       .in('contact_id', ids);
     if (error) throw error;
     return data ?? [];
@@ -116,7 +128,9 @@ async function fetchOrigins(contactIds: string[]): Promise<Map<string, ResolvedO
         campaignId: row.campaign_id ?? null,
         campaignName: row.campaign_name ?? null,
         adName: row.catalog_ad_name ?? raw.ad_title ?? null,
-        hasCampaignSignal: !!row.catalog_campaign_name || CAMPAIGN_SIGNAL_KEYS.some((k) => !!raw[k]),
+        ad: raw.ad_id
+          ? { id: raw.ad_id, name: row.catalog_ad_name ?? null, status: row.catalog_ad_status ?? null, createdAt: row.catalog_ad_created_at ?? null }
+          : null,
       });
     }
   }
@@ -151,11 +165,11 @@ async function fetchLuReads(dealIds: string[]): Promise<Map<string, LuSaleRead>>
 }
 
 /**
- * Leads created in the period that came from a campaign — mapped, or carrying a
- * campaign signal no rule maps yet. Organic and untracked leads are left out:
- * they are not any campaign's result.
+ * Leads created in the period that came from a Meta ad, or from a named origin
+ * without an ad. Organic and untracked leads are left out: they are not any
+ * ad's result.
  */
-export async function fetchCampaignLeads(
+export async function fetchScoreboardLeads(
   period: Period,
   campaignNames: Map<string, string>,
 ): Promise<CampaignLead[]> {
@@ -169,7 +183,7 @@ export async function fetchCampaignLeads(
     // Same convention as the report functions: a per-deal override wins over
     // the contact's first-touch origin.
     const campaignId = d.campaign_id ?? origin?.campaignId ?? null;
-    if (!campaignId && !origin?.hasCampaignSignal) continue;
+    if (!origin?.ad && !campaignId) continue;
 
     leads.push({
       dealId: d.id,
@@ -183,6 +197,7 @@ export async function fetchCampaignLeads(
       campaignId,
       campaignName: campaignId ? (campaignNames.get(campaignId) ?? origin?.campaignName ?? null) : null,
       adName: origin?.adName ?? null,
+      ad: origin?.ad ?? null,
       lu: luReads.get(d.id) ?? null,
       wonAt: d.won_at,
       ownerId: d.owner_id,
@@ -196,7 +211,7 @@ export async function fetchCampaignLeads(
  * same rule as "Faturamento por campanha" and the one prizes are paid on.
  * The scoreboard above is a cohort view and answers a different question.
  */
-export async function fetchCampaignWins(
+export async function fetchScoreboardWins(
   period: Period,
   campaignNames: Map<string, string>,
 ): Promise<CampaignLead[]> {
@@ -220,7 +235,7 @@ export async function fetchCampaignWins(
   for (const d of deals) {
     const origin = d.contact_id ? origins.get(d.contact_id) : undefined;
     const campaignId = d.campaign_id ?? origin?.campaignId ?? null;
-    if (!campaignId) continue;
+    if (!origin?.ad && !campaignId) continue;
     wins.push({
       dealId: d.id,
       contactId: d.contact_id,
@@ -231,8 +246,9 @@ export async function fetchCampaignWins(
       outcome: 'won',
       lostReasonCode: null,
       campaignId,
-      campaignName: campaignNames.get(campaignId) ?? origin?.campaignName ?? null,
+      campaignName: campaignId ? (campaignNames.get(campaignId) ?? origin?.campaignName ?? null) : null,
       adName: origin?.adName ?? null,
+      ad: origin?.ad ?? null,
       lu: luReads.get(d.id) ?? null,
       wonAt: d.won_at,
       ownerId: d.owner_id,

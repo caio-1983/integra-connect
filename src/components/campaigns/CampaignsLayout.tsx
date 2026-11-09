@@ -4,14 +4,14 @@ import { PageContainer, PageHeader, Toolbar } from '@/components/layout';
 import { useCompanySettings } from '@/hooks/useCompanySettings';
 
 /**
- * Shell for "Campanhas": the scoreboard (is each campaign worth keeping?) and the
- * setup behind it (signals, rules, tracking) as tabs of one page.
+ * Shell for "Campanhas": the scoreboard (is each ad worth keeping?) and the
+ * names for origins without an ad, as tabs of one page.
  */
 
 // "Desempenho" compara atendentes: só admin/gestor (rota atrás de RoleRoute).
 const TABS = [
   { to: '/campanhas', label: 'Desempenho', managerOnly: true },
-  { to: '/campanhas/configurar', label: 'Sinais e regras', managerOnly: false },
+  { to: '/campanhas/configurar', label: 'Origens sem anúncio', managerOnly: false },
 ];
 
 export const CampaignsLayout: React.FC = () => {
@@ -22,7 +22,7 @@ export const CampaignsLayout: React.FC = () => {
     <PageContainer>
       <PageHeader
         title="Campanhas"
-        description="Quem chamou por cada campanha, quem fechou negócio e quais valem a pena manter."
+        description="Quem chamou por cada anúncio, quem fechou negócio e quais valem a pena manter."
       />
 
       <Toolbar>

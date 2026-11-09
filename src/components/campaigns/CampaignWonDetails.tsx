@@ -106,7 +106,7 @@ export const CampaignWonDetails: React.FC<Props> = ({ open, onOpenChange, campai
           <SheetTitle>Quem fechou em {campaignName}</SheetTitle>
           <SheetDescription>
             {won.length === 0
-              ? `Nenhuma venda fechada nesta campanha ${periodLabel}.`
+              ? `Nenhuma venda fechada por aqui ${periodLabel}.`
               : `${won.length} ${won.length === 1 ? 'venda fechada' : 'vendas fechadas'} ${periodLabel}, ${formatCurrency(won.reduce((s, l) => s + l.value, 0))}. Conta pela data da venda, como o Faturamento por campanha.`}
           </SheetDescription>
         </SheetHeader>
