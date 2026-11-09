@@ -4,7 +4,9 @@
  *
  *   npx tsx src/scripts/syncMetaAdCatalog.ts              # ids never looked up
  *   npx tsx src/scripts/syncMetaAdCatalog.ts --retry      # + ids that failed before
- *   npx tsx src/scripts/syncMetaAdCatalog.ts --refresh    # all ids (campaigns renamed)
+ *   npx tsx src/scripts/syncMetaAdCatalog.ts --refresh    # all ids (renamed, status, created_time)
+ *
+ * The backend also runs the --refresh pass by itself every 6 h (startAdCatalogRefresh).
  */
 import { conversationRepository } from '../persistence/ConversationRepository.js';
 import { lookupAds } from '../channels/meta/MetaAdsCatalog.js';

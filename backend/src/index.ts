@@ -14,6 +14,7 @@ import { conversationReplyRoutes } from './routes/conversationReply.js';
 import { metaAccountRoutes } from './routes/metaAccounts.js';
 import { smartPixRoutes } from './routes/smartPix.js';
 import { lightingProjectRoutes } from './routes/lightingProjects.js';
+import { startAdCatalogRefresh } from './channels/meta/MetaAdsCatalog.js';
 // Side-effect imports: each subscribes its handlers to the EventBus at boot.
 import './telemetry/TelemetryService.js';
 import './channels/ChannelOrchestrator.js';
@@ -114,6 +115,7 @@ async function main(): Promise<void> {
   const port = configService.getNumber('PORT', 8787);
   await app.listen({ port, host: '0.0.0.0' });
   logger.info(`AI Runtime listening on port ${port}${docsEnabled ? ' — docs at /docs' : ''}`);
+  startAdCatalogRefresh();
 }
 
 main().catch((error) => {

@@ -13,7 +13,10 @@ import { GRAPH_BASE } from './MetaClient.js';
  * its raw ad id — attribution itself never depends on this.
  */
 
-const FIELDS = 'name,effective_status,account_id,adset{id,name},campaign{id,name},creative{body}';
+const FIELDS = 'name,effective_status,created_time,account_id,adset{id,name},campaign{id,name},creative{body}';
+/** Status changes in Ads Manager (paused, back on) reach the scoreboard this often. */
+const REFRESH_MS = 6 * 60 * 60_000;
+const FIRST_REFRESH_MS = 2 * 60_000;
 /**
  * Boosted posts get "Post do Instagram: …" (truncated) as ad, ad set and
  * campaign name; the readable name is the first line of the post text.
@@ -39,6 +42,13 @@ function firstLineOfPost(body: unknown): string | null {
   return line.length > MAX_POST_NAME ? `${line.slice(0, MAX_POST_NAME - 1).trimEnd()}…` : line;
 }
 
+/** Graph sends `2026-03-30T13:47:15-0300`; the offset needs a colon to be ISO 8601. */
+export function graphTime(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const ms = Date.parse(value.replace(/([+-]\d{2})(\d{2})$/, '$1:$2'));
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString();
+}
+
 function toRow(adId: string, ad: Record<string, any>): MetaAdCatalogRow {
   const fromPost = firstLineOfPost(ad.creative?.body);
   const readable = (name: string | undefined) =>
@@ -52,6 +62,7 @@ function toRow(adId: string, ad: Record<string, any>): MetaAdCatalogRow {
     campaign_id: ad.campaign?.id ?? null,
     campaign_name: readable(ad.campaign?.name),
     ad_account_id: ad.account_id ? `act_${ad.account_id}` : null,
+    ad_created_at: graphTime(ad.created_time),
     lookup_error: null,
   };
 }
@@ -59,7 +70,8 @@ function toRow(adId: string, ad: Record<string, any>): MetaAdCatalogRow {
 function failedRow(adId: string, error: string): MetaAdCatalogRow {
   return {
     ad_id: adId, ad_name: null, ad_status: null, adset_id: null, adset_name: null,
-    campaign_id: null, campaign_name: null, ad_account_id: null, lookup_error: error.slice(0, 500),
+    campaign_id: null, campaign_name: null, ad_account_id: null, ad_created_at: null,
+    lookup_error: error.slice(0, 500),
   };
 }
 
@@ -73,6 +85,8 @@ async function graphGet(path: string, token: string): Promise<{ ok: boolean; jso
 /**
  * Looks up the given ad ids and upserts one catalog row per id — resolved, or
  * with `lookup_error` so it is not retried on every message. Returns the rows.
+ * A failed lookup never overwrites a row already resolved: a Graph hiccup on a
+ * refresh must not wipe an ad's name off the scoreboard.
  *
  * One request per id: Graph rejects `?ids=` ("deprecated in v26.0+").
  */
@@ -88,8 +102,31 @@ export async function lookupAds(adIds: string[]): Promise<MetaAdCatalogRow[]> {
       : failedRow(adId, single.json?.error?.message ?? 'erro desconhecido'));
   }
 
-  await conversationRepository.upsertAdCatalog(rows);
+  const failed = rows.filter((r) => r.lookup_error).map((r) => r.ad_id);
+  const keep = failed.length ? await conversationRepository.resolvedAdIds(failed) : new Set<string>();
+  await conversationRepository.upsertAdCatalog(rows.filter((r) => !(r.lookup_error && keep.has(r.ad_id))));
   return rows;
+}
+
+/**
+ * Re-reads every ad leads came from, so status, names and creation dates follow
+ * Ads Manager: an ad paused there leaves the scoreboard's "No ar" filter within
+ * REFRESH_MS. Started once at boot; without META_ADS_TOKEN it does nothing.
+ */
+export function startAdCatalogRefresh(): void {
+  if (!adsToken()) return;
+  const run = async () => {
+    try {
+      const adIds = await conversationRepository.listAdIdsForCatalog('all');
+      const rows = await lookupAds(adIds);
+      const failed = rows.filter((r) => r.lookup_error).length;
+      logger.info({ ads: rows.length, failed }, '[meta-ads] catalog refreshed');
+    } catch (error) {
+      logger.warn({ err: String(error) }, '[meta-ads] catalog refresh failed');
+    }
+  };
+  setTimeout(() => { void run(); }, FIRST_REFRESH_MS).unref?.();
+  setInterval(() => { void run(); }, REFRESH_MS).unref?.();
 }
 
 /**

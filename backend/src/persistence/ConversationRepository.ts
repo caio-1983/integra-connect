@@ -26,6 +26,8 @@ export interface MetaAdCatalogRow {
   campaign_id: string | null;
   campaign_name: string | null;
   ad_account_id: string | null;
+  /** Graph `created_time`: when the ad was created in Ads Manager. */
+  ad_created_at: string | null;
   lookup_error: string | null;
 }
 
@@ -607,6 +609,21 @@ class ConversationRepository {
       (data ?? []).filter((r) => mode === 'missing' || !r.lookup_error).map((r) => r.ad_id as string),
     );
     return [...adIds].filter((id) => !settled.has(id));
+  }
+
+  /** Of these ad ids, the ones the catalog already resolved (row without lookup_error). */
+  async resolvedAdIds(adIds: string[]): Promise<Set<string>> {
+    const resolved = new Set<string>();
+    for (let i = 0; i < adIds.length; i += 150) {
+      const { data, error } = await getSupabase()
+        .from('meta_ad_catalog')
+        .select('ad_id')
+        .in('ad_id', adIds.slice(i, i + 150))
+        .is('lookup_error', null);
+      if (error) throw new Error(`[repo] resolvedAdIds: ${error.message}`);
+      for (const row of data ?? []) resolved.add(row.ad_id as string);
+    }
+    return resolved;
   }
 
   async upsertAdCatalog(rows: MetaAdCatalogRow[]): Promise<void> {
