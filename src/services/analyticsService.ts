@@ -376,6 +376,68 @@ export async function fetchAttendantPerformance(period: Period): Promise<Attenda
   }));
 }
 
+// ============= Attendant x-ray (managers only) =============
+
+export interface AttendantXrayRow {
+  /** team_members.id; null = the "Sem responsável" row. */
+  memberId: string | null;
+  name: string;
+  /** Contacts received in the period (deals created). */
+  leads: number;
+  /** Of `leads`, already won — conversion over the same people. */
+  leadsWon: number;
+  /** Sales closed in the period (by won_at). */
+  wonCount: number;
+  /** Value of those sales: the commission base. */
+  revenue: number;
+  lostCount: number;
+  /** Open deals right now, whatever their age. */
+  openNow: number;
+  /** Of `leads`, assigned through the WhatsApp number's responsible. */
+  viaNumber: number;
+  lossReasons: { label: string; count: number }[];
+  /** `ad` null = sold without a Meta ad. */
+  salesByAd: { ad: string | null; count: number; revenue: number }[];
+  messagesSent: number;
+  avgFirstResponseSeconds: number | null;
+  awaitingCount: number;
+}
+
+/**
+ * Raio-x dos atendentes. The function refuses anyone who is not a manager or
+ * admin, so an attendant calling it directly gets an error, not the numbers.
+ */
+export async function fetchAttendantXray(period: Period): Promise<AttendantXrayRow[]> {
+  const { data, error } = await (supabase as any).rpc('report_attendant_xray', {
+    p_from: iso(period.from),
+    p_to: iso(period.to),
+  });
+
+  if (error) {
+    console.error('[analytics] report_attendant_xray failed:', error);
+    throw error;
+  }
+
+  return ((data ?? []) as Array<Record<string, any>>).map((row) => ({
+    memberId: row.member_id ?? null,
+    name: row.attendant_name,
+    leads: Number(row.leads),
+    leadsWon: Number(row.leads_won),
+    wonCount: Number(row.won_count),
+    revenue: Number(row.revenue),
+    lostCount: Number(row.lost_count),
+    openNow: Number(row.open_now),
+    viaNumber: Number(row.via_number),
+    lossReasons: ((row.loss_reasons ?? []) as { label: string; count: number }[])
+      .map((r) => ({ label: r.label, count: Number(r.count) })),
+    salesByAd: ((row.sales_by_ad ?? []) as { ad: string | null; count: number; revenue: number }[])
+      .map((r) => ({ ad: r.ad, count: Number(r.count), revenue: Number(r.revenue) })),
+    messagesSent: Number(row.messages_sent),
+    avgFirstResponseSeconds: row.avg_first_response_seconds === null ? null : Number(row.avg_first_response_seconds),
+    awaitingCount: Number(row.awaiting_count),
+  }));
+}
+
 // ============= Daily contacts =============
 
 export interface DailyContactsPoint {
