@@ -77,7 +77,7 @@ export const sidebarNavigation: SidebarSectionConfig[] = [
       { id: 'pipeline',   label: 'Vendas',      href: '/pipeline',   icon: Briefcase     },
       { id: 'scheduling', label: 'Agenda',       href: '/scheduling', icon: CalendarDays  },
       { id: 'dashboard',  label: 'Resultados',  href: '/dashboard',  icon: TrendingUp    },
-      { id: 'campaigns',  label: 'Campanhas',   href: '/campanhas',  icon: Megaphone     },
+      { id: 'campaigns',  label: 'Anúncios',    href: '/campanhas',  icon: Megaphone     },
       { id: 'projects',   label: 'Projetos',    href: '/projetos',   icon: Lightbulb     },
     ],
   },

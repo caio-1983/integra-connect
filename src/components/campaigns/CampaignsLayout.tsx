@@ -21,12 +21,12 @@ export const CampaignsLayout: React.FC = () => {
   return (
     <PageContainer>
       <PageHeader
-        title="Campanhas"
+        title="Anúncios"
         description="Quem chamou por cada anúncio, quem fechou negócio e quais valem a pena manter."
       />
 
       <Toolbar>
-        <nav className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border" aria-label="Seções de campanhas">
+        <nav className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border" aria-label="Seções de anúncios">
           {tabs.map((tab) => (
             <NavLink
               key={tab.to}
