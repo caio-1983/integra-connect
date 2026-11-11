@@ -1387,6 +1387,21 @@ export const api = {
    * 0, so without writing the figure here every revenue report would sum to
    * zero. Callers collect it via WonDealModal.
    */
+  /** The contact's most recent deal still open (not won, not lost), or null. */
+  fetchOpenDealForContact: async (contactId: string): Promise<{ id: string; title: string; value: number } | null> => {
+    const { data, error } = await supabase
+      .from('deals')
+      .select('id, title, value')
+      .eq('contact_id', contactId)
+      .is('won_at', null)
+      .is('lost_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data ? { id: data.id, title: data.title, value: Number(data.value) || 0 } : null;
+  },
+
   markDealWon: async (dealId: string, value: number): Promise<void> => {
     const { ganhoId } = await getSystemStageIds();
 

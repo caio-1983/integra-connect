@@ -13,6 +13,9 @@ import { randomUUID } from 'node:crypto';
 // inbound-media bucket.
 const MEDIA_BUCKET = 'audio-messages';
 
+/** Days after a customer's last closed deal before a new message opens a new lead (repeat purchase). */
+const REPEAT_LEAD_AFTER_DAYS = 15;
+
 /** Postgres unique_violation — a concurrent insert of the same row won. */
 const UNIQUE_VIOLATION = '23505';
 
@@ -462,13 +465,27 @@ class ConversationRepository {
    * who just made contact — replaces the old `auto_create_deal_on_contact`
    * trigger, which fired for EVERY inserted contact and flooded the pipeline
    * with leads for bulk-imported address-book entries. Now called only from the
-   * inbound path (someone actually messaged). Idempotent: skips if the contact
-   * already has any deal, and never throws (a CRM hiccup must not drop the
-   * message). */
+   * inbound path (someone actually messaged). Idempotent: skips while the
+   * contact has an open deal, and never throws (a CRM hiccup must not drop the
+   * message).
+   *
+   * A customer whose every deal is closed (won or lost) and who writes again
+   * at least REPEAT_LEAD_AFTER_DAYS after the last close gets a NEW lead: that
+   * is a new purchase, not the old one. Reusing the closed deal hid the card
+   * (the board drops deals closed over 30 days ago) and a second "Pedido
+   * Finalizado" had nothing to move to Ganho. Inside the gap, messages like
+   * "obrigado" or delivery questions right after a sale don't open a lead. */
   async createLeadForContact(contactId: string, title: string): Promise<void> {
     const supabase = getSupabase();
-    const { data: existing } = await supabase.from('deals').select('id').eq('contact_id', contactId).limit(1).maybeSingle();
-    if (existing) return;
+    const { data: deals } = await supabase
+      .from('deals')
+      .select('won_at, lost_at')
+      .eq('contact_id', contactId);
+    if (deals && deals.length > 0) {
+      if (deals.some(d => !d.won_at && !d.lost_at)) return;
+      const lastClose = Math.max(...deals.map(d => new Date((d.won_at ?? d.lost_at) as string).getTime()));
+      if (Date.now() - lastClose < REPEAT_LEAD_AFTER_DAYS * 86_400_000) return;
+    }
 
     const { data: stage } = await supabase
       .from('pipeline_stages')

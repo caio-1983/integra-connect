@@ -15,6 +15,7 @@ import { api } from '@/services/api';
 import { startConversation, transcribeConversationAudio } from '@/services/whatsappConnectionService';
 import { toast } from 'sonner';
 import { ContactFormDialog, type ContactFormValues } from './contact/ContactFormDialog';
+import { WonDealModal } from './WonDealModal';
 import {
   ConversationQueue,
   ConversationHeader,
@@ -30,6 +31,9 @@ import type { QueueFilter } from './workspace';
 
 /** WhatsApp accepts an edit only within 15 minutes of sending. */
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
+
+/** Tag that means the sale closed — applying it marks the open deal as won. */
+const PEDIDO_FINALIZADO = 'pedido_finalizado';
 
 const ChatInterface: React.FC = () => {
   const { conversations, loading, sendMessage, sendMediaMessage, sendPixMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, setPinned, assignConversation, appendLocalMessage, setConversationTags, setContactInfo, loadTaggedConversations, refetch, hasMore, loadingMore, loadMore } = useConversations();
@@ -205,10 +209,58 @@ const ChatInterface: React.FC = () => {
     }
   };
 
+  /** Open deal waiting for its closed value before "Pedido Finalizado" is applied. */
+  const [pendingWon, setPendingWon] = useState<{ conversationId: string; contactId: string; deal: { id: string; title: string; value: number } } | null>(null);
+
+  const applyTag = async (conversationId: string, contactId: string, current: string[], tagKey: string) => {
+    setConversationTags(conversationId, [...current, tagKey]); // optimistic
+    try {
+      await api.addContactTag(contactId, tagKey);
+      toast.success('Tag atualizada');
+    } catch {
+      setConversationTags(conversationId, current); // revert
+      toast.error('Erro ao atualizar tag');
+    }
+  };
+
+  const confirmPedidoFinalizado = async (value: number) => {
+    if (!pendingWon) return;
+    const { conversationId, contactId, deal } = pendingWon;
+    setPendingWon(null);
+    try {
+      await api.markDealWon(deal.id, value);
+    } catch {
+      toast.error('Não foi possível marcar a venda como ganha');
+      return;
+    }
+    const current = conversations.find(c => c.id === conversationId)?.tags || [];
+    if (!current.includes(PEDIDO_FINALIZADO)) await applyTag(conversationId, contactId, current, PEDIDO_FINALIZADO);
+    else toast.success('Venda marcada como ganha');
+  };
+
   const handleToggleTag = async (tagKey: string) => {
     if (!activeChat) return;
     const current = activeChat.tags || [];
     const removing = current.includes(tagKey);
+    // "Pedido Finalizado" closes the sale: ask the closed value first, like
+    // dropping a card on Ganho. The database trigger alone moved the deal with
+    // R$ 0, so the sale counted as nothing in every report.
+    if (!removing && tagKey === PEDIDO_FINALIZADO) {
+      let deal: { id: string; title: string; value: number } | null = null;
+      try {
+        deal = await api.fetchOpenDealForContact(activeChat.contactId);
+      } catch {
+        toast.error('Erro ao buscar o negócio do cliente');
+        return;
+      }
+      if (deal) {
+        setPendingWon({ conversationId: activeChat.id, contactId: activeChat.contactId, deal });
+        return;
+      }
+      await applyTag(activeChat.id, activeChat.contactId, current, tagKey);
+      toast.info('Este cliente não tem negócio aberto no funil, então nenhuma venda foi registrada.');
+      return;
+    }
     const updated = removing ? current.filter(t => t !== tagKey) : [...current, tagKey];
     setConversationTags(activeChat.id, updated); // optimistic
     try {
@@ -513,6 +565,14 @@ const ChatInterface: React.FC = () => {
           onSubmit={handleSubmitContact}
         />
       )}
+
+      <WonDealModal
+        open={!!pendingWon}
+        onOpenChange={(open) => { if (!open) setPendingWon(null); }}
+        onConfirm={confirmPedidoFinalizado}
+        dealTitle={pendingWon?.deal.title ?? ''}
+        currentValue={pendingWon?.deal.value ?? 0}
+      />
     </div>
   );
 };
