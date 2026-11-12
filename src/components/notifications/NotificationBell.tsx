@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, CalendarClock } from 'lucide-react';
+import { AlertTriangle, Bell, CalendarClock } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useNotifications } from '@/hooks/useNotifications';
@@ -69,6 +69,7 @@ export const NotificationBell: React.FC = () => {
           <ul className="max-h-[60vh] overflow-y-auto pb-1">
             {recent.map(n => {
               const pending = isPending(n, now);
+              const Icon = n.type === 'whatsapp_delay' ? AlertTriangle : CalendarClock;
               return (
                 <li key={n.id}>
                   <button
@@ -76,7 +77,7 @@ export const NotificationBell: React.FC = () => {
                     onClick={() => { setPopoverOpen(false); open(n); }}
                     className="w-full flex items-start gap-3 px-4 py-2.5 text-left transition-colors hover:bg-accent"
                   >
-                    <CalendarClock aria-hidden="true" className={cn('w-5 h-5 mt-0.5 flex-shrink-0', pending ? 'text-primary' : 'text-icon')} />
+                    <Icon aria-hidden="true" className={cn('w-5 h-5 mt-0.5 flex-shrink-0', pending ? 'text-primary' : 'text-icon')} />
                     <span className="min-w-0 flex-1">
                       <span className={cn('block truncate text-sm', pending ? 'font-medium text-foreground' : 'text-muted-foreground')}>
                         {n.title}

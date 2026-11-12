@@ -1055,6 +1055,168 @@ class ConversationRepository {
     }
   }
 
+  /** Which of these provider message ids are already stored (any conversation),
+   *  with when each was stored — `created_at - sent_at` is the delivery delay. */
+  async storedProviderMessages(ids: string[]): Promise<Map<string, { createdAt: string; sentAt: string }>> {
+    const found = new Map<string, { createdAt: string; sentAt: string }>();
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data, error } = await getSupabase()
+        .from('messages')
+        .select('whatsapp_message_id, created_at, sent_at')
+        .in('whatsapp_message_id', ids.slice(i, i + 200));
+      if (error) throw new Error(`[repo] failed to look up message ids: ${error.message}`);
+      for (const row of data ?? []) {
+        found.set(row.whatsapp_message_id as string, { createdAt: row.created_at as string, sentAt: row.sent_at as string });
+      }
+    }
+    return found;
+  }
+
+  /** Managers and admins — who gets told when a WhatsApp number stops delivering. */
+  async managerUserIds(): Promise<string[]> {
+    const { data, error } = await getSupabase()
+      .from('user_roles')
+      .select('user_id')
+      .in('role', ['admin', 'manager']);
+    if (error) throw new Error(`[repo] failed to read manager roles: ${error.message}`);
+    return [...new Set((data ?? []).map((r) => r.user_id as string))];
+  }
+
+  /** True when this alert was already raised within `withinMs` (survives restarts). */
+  async hasRecentNotification(type: string, title: string, withinMs: number): Promise<boolean> {
+    const { count } = await getSupabase()
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('type', type)
+      .eq('title', title)
+      .gte('created_at', new Date(Date.now() - withinMs).toISOString());
+    return (count ?? 0) > 0;
+  }
+
+  async notifyUsers(userIds: string[], notification: { type: string; title: string; body: string; link?: string }): Promise<void> {
+    if (userIds.length === 0) return;
+    const { error } = await getSupabase()
+      .from('notifications')
+      .insert(userIds.map((userId) => ({ user_id: userId, ...notification })));
+    if (error) throw new Error(`[repo] failed to insert notifications: ${error.message}`);
+  }
+
+  /**
+   * A message the webhook never delivered, found later in Evolution's own store
+   * by the EvolutionReconciler, inserted into a conversation that already exists.
+   *
+   * When newer messages are already in the thread, this one is history: the
+   * triggers' `last_message_at = now()` and the unarchive on inbound are put
+   * back, the row goes in as `read` and carries `metadata.backfill` (the
+   * timeline then slots it in place without bumping or counting it unread).
+   * The put-back is conditional on nothing else having touched the row in the
+   * meantime, so a real message arriving concurrently keeps its bump.
+   * When it IS the latest message, it behaves like a live one.
+   */
+  async insertReconciledMessage(input: {
+    conversationId: string;
+    channel: string;
+    providerMessageId: string;
+    content: string;
+    tsSec: number;
+    fromMe: boolean;
+    media?: InboundMedia;
+    sender?: { name?: string; phone?: string };
+    quotedProviderMessageId?: string;
+    quoted?: QuotedSnapshot;
+    pix?: PixMessageMeta;
+    contacts?: SharedContact[];
+  }): Promise<{ inserted: boolean; latest: boolean }> {
+    const supabase = getSupabase();
+    const sentAt = new Date(input.tsSec * 1000).toISOString();
+
+    const { data: before, error: convError } = await supabase
+      .from('conversations')
+      .select('contact_id, last_message_at, archived_at')
+      .eq('id', input.conversationId)
+      .single();
+    if (convError || !before) throw new Error(`[repo] conversation not found: ${convError?.message}`);
+    const { data: contactBefore } = await supabase
+      .from('contacts')
+      .select('last_activity')
+      .eq('id', before.contact_id)
+      .maybeSingle();
+    const { count: newer } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('conversation_id', input.conversationId)
+      .gt('sent_at', sentAt);
+    const latest = !newer;
+
+    const replyToId = await this.resolveReplyToId(input.conversationId, input);
+    const mediaUrl = input.media
+      ? (input.fromMe
+          ? await this.storeOutboundMedia(input.conversationId, input.media.base64, input.media.mimeType, input.media.fileName)
+          : await this.uploadInboundMedia(input.conversationId, input.media))
+      : null;
+
+    const sender = input.sender && (input.sender.name || input.sender.phone)
+      ? { name: input.sender.name ?? null, phone: input.sender.phone ?? null }
+      : null;
+    const metadata = {
+      ...(sender ? { sender } : {}),
+      ...(input.pix ? { pix: input.pix } : {}),
+      ...(input.contacts ? { contacts: input.contacts } : {}),
+      ...unresolvedQuote(replyToId, input.quoted),
+      ...(latest ? {} : { backfill: { reason: 'reconciler', at: new Date().toISOString() } }),
+    };
+
+    const { error } = await supabase.from('messages').insert({
+      conversation_id: input.conversationId,
+      channel: input.channel,
+      whatsapp_message_id: input.providerMessageId,
+      content: input.content,
+      type: mediaUrl ? mediaKindToDbType(input.media!.kind) : 'text',
+      media_url: mediaUrl,
+      media_type: mediaUrl ? input.media!.mimeType : null,
+      from_type: input.fromMe ? 'human' : 'user',
+      sent_by: null,
+      status: input.fromMe || latest ? 'sent' : 'read',
+      sent_at: sentAt,
+      reply_to_id: replyToId,
+      metadata,
+    });
+    if (error) {
+      if ((error as { code?: string }).code === UNIQUE_VIOLATION) return { inserted: false, latest };
+      throw new Error(`[repo] failed to insert reconciled message: ${error.message}`);
+    }
+    if (latest) return { inserted: true, latest };
+
+    const later = (a: string, b: string) => (Date.parse(a) >= Date.parse(b) ? a : b);
+    const { data: after } = await supabase
+      .from('conversations')
+      .select('last_message_at')
+      .eq('id', input.conversationId)
+      .single();
+    if (after) {
+      await supabase
+        .from('conversations')
+        .update({ last_message_at: later(before.last_message_at as string, sentAt), archived_at: before.archived_at })
+        .eq('id', input.conversationId)
+        .eq('last_message_at', after.last_message_at);
+    }
+    if (contactBefore?.last_activity) {
+      const { data: contactAfter } = await supabase
+        .from('contacts')
+        .select('last_activity')
+        .eq('id', before.contact_id)
+        .single();
+      if (contactAfter) {
+        await supabase
+          .from('contacts')
+          .update({ last_activity: later(contactBefore.last_activity as string, sentAt) })
+          .eq('id', before.contact_id)
+          .eq('last_activity', contactAfter.last_activity);
+      }
+    }
+    return { inserted: true, latest };
+  }
+
   /** Uploads an outbound attachment to the shared public media bucket and
    *  returns its public URL (for our own timeline display). Throws on failure —
    *  unlike the inbound path, a human is waiting on the send, so a storage

@@ -347,6 +347,25 @@ export class EvolutionClient {
     return res?.messages?.records?.[0] ?? null;
   }
 
+  /** POST /chat/findMessages/{instance}, one page of Evolution's own store,
+   * newest first (v2). Used by the reconciler to find what the webhook missed. */
+  async findMessagesPage(instanceName: string, page: number, pageSize: number): Promise<{ records: Record<string, any>[]; pages: number }> {
+    const res = await this.request<{ messages?: { records?: Record<string, any>[]; pages?: number } }>(
+      'POST',
+      `/chat/findMessages/${seg(instanceName)}`,
+      { page, offset: pageSize },
+    );
+    return { records: res?.messages?.records ?? [], pages: res?.messages?.pages ?? 1 };
+  }
+
+  /** POST /chat/findChats/{instance} (v2). Each chat's `lastMessage.key` pairs a
+   * LID JID with the phone JID (`remoteJidAlt`) — the only place that mapping
+   * exists for history synced without it. */
+  async findChats(instanceName: string): Promise<Record<string, any>[]> {
+    const res = await this.request<Record<string, any>[]>('POST', `/chat/findChats/${seg(instanceName)}`, {});
+    return Array.isArray(res) ? res : [];
+  }
+
   /** POST /chat/findContacts/{instance} — v2 only (not in the official OpenAPI
    * spec; confirmed via Evolution's own docs/GitHub issues). Returns every
    * contact Baileys has synced from the connected phone's address book. */

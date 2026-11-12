@@ -78,7 +78,9 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
 
   const announce = useCallback((n: AppNotification) => {
     const description = describe(n);
-    toast(`Lembrete: ${n.title}`, {
+    // Avisos do sistema (ex.: número de WhatsApp atrasado) já dizem o que são no título.
+    const heading = n.type === 'appointment_reminder' ? `Lembrete: ${n.title}` : n.title;
+    toast(heading, {
       id: n.id,
       description: description || undefined,
       duration: 15000,
@@ -91,7 +93,7 @@ export const NotificationsProvider = ({ children }: { children: ReactNode }) => 
     if (document.visibilityState === 'visible' && document.hasFocus()) return;
     try {
       // tag = id: várias abas abertas trocam o mesmo aviso em vez de empilhar.
-      const desktop = new Notification(`Lembrete: ${n.title}`, { body: description, tag: n.id, icon: '/favicon.ico' });
+      const desktop = new Notification(heading, { body: description, tag: n.id, icon: '/favicon.ico' });
       desktop.onclick = () => { window.focus(); openRef.current(n); desktop.close(); };
     } catch (error) {
       // Alguns navegadores (Chrome no Android) só aceitam aviso vindo de service worker.
