@@ -4,6 +4,7 @@ import { configService } from '../config/ConfigService.js';
 import { conversationRepository } from '../persistence/ConversationRepository.js';
 import { getConnector } from '../channels/connectorRegistry.js';
 import { applySignature, signatureFooter } from '../channels/outboundSignature.js';
+import { deliverOutbound } from '../channels/OutboundMessageService.js';
 import { fetchPixHeaderImage, pixCaption, pixCardStyle, pixHeaderImageUrl, pixMessageText } from '../channels/pix.js';
 import { createSmartPixMessage, SmartPixKeyNotSupportedError, type SmartPixMessage } from '../smartPix/smartPixMessage.js';
 import { ensureAdCataloged } from '../channels/meta/MetaAdsCatalog.js';
@@ -176,8 +177,10 @@ async function onOutboundSent(event: AppEvent): Promise<void> {
  * Entry point for a human operator's manual reply typed in the Workspace
  * (no fresh inbound event to read instance/phone from, unlike the AI path
  * above — resolved instead from what was stored on the conversation at
- * creation time). Reuses the exact same OutboundMessageRequested pipeline
- * the AI uses, so it goes out through the same connector/EventBus.
+ * creation time). Goes out through the same `deliverOutbound` the AI uses, but
+ * called directly rather than via the bus: the bus swallows a handler's error,
+ * which left the attendant's bubble on screen as if sent while the customer
+ * got nothing (Evelim, 12/11/2026). Here a failed send throws to the route.
  */
 export async function requestManualReply(
   conversationId: string,
@@ -213,11 +216,15 @@ export async function requestManualReply(
     replyToId: replyTarget?.id,
     quotedProviderMessageId: replyTarget?.providerMessageId ?? undefined,
   };
-  await aiEventBus.publish({
-    type: ChannelEvents.OutboundMessageRequested,
-    payload: outbound as unknown as Record<string, unknown>,
-    timestamp: new Date(),
-  });
+  try {
+    await deliverOutbound(outbound);
+  } catch (error) {
+    logger.error(
+      { conversationId, instance: info.instance, err: error instanceof Error ? error.message : String(error) },
+      '[conversation] manual reply not sent',
+    );
+    throw new Error('O WhatsApp não aceitou a mensagem. Ela não foi enviada.');
+  }
 }
 
 /** WhatsApp only accepts an edit within 15 minutes of sending. */

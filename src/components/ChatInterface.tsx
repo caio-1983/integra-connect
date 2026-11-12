@@ -36,7 +36,7 @@ const EDIT_WINDOW_MS = 15 * 60 * 1000;
 const PEDIDO_FINALIZADO = 'pedido_finalizado';
 
 const ChatInterface: React.FC = () => {
-  const { conversations, loading, sendMessage, sendMediaMessage, sendPixMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, setPinned, assignConversation, appendLocalMessage, setConversationTags, setContactInfo, loadTaggedConversations, refetch, hasMore, loadingMore, loadMore } = useConversations();
+  const { conversations, loading, sendMessage, retryMessage, sendMediaMessage, sendPixMessage, editMessage, updateStatus, markAsRead, markAsUnread, setArchived, setPinned, assignConversation, appendLocalMessage, setConversationTags, setContactInfo, loadTaggedConversations, refetch, hasMore, loadingMore, loadMore } = useConversations();
   const { sdrName } = useCompanySettings();
   const { simulateCustomerMessage } = useAgentRuntime({ appendLocalMessage, updateStatus });
   const { grantsByInstance } = useInstanceAccessGrants();
@@ -450,6 +450,7 @@ const ChatInterface: React.FC = () => {
               onReply={setReplyingTo}
               onEdit={setEditingMessage}
               canEdit={canEditMessage}
+              onRetry={(msg) => retryMessage(activeChat.id, msg)}
               onMessageContact={handleMessageSharedContact}
               onTranscribe={async (msg) => {
                 try {

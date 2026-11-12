@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MessageSquare, Bot, Check, CheckCheck, Play, Pause, Paperclip, Download, Reply, Pencil, Sparkles, Camera, Mic, FileText, Video, Diamond, Lightbulb, UserRound, type LucideIcon } from 'lucide-react';
+import { MessageSquare, Bot, Check, CheckCheck, AlertCircle, Clock, RotateCw, Play, Pause, Paperclip, Download, Reply, Pencil, Sparkles, Camera, Mic, FileText, Video, Diamond, Lightbulb, UserRound, type LucideIcon } from 'lucide-react';
 import { ChannelType, UIMessage, MessageDirection, MessageType } from '@/types';
 import { cn, contactDisplayName } from '@/lib/utils';
 import { CHANNEL_CONFIG } from '@/lib/channelConfig';
@@ -142,6 +142,8 @@ interface ConversationTimelineProps {
   /** Opens the edit dialog (WhatsApp "Editar"); offered only where `canEdit` says so. */
   onEdit?: (msg: UIMessage) => void;
   canEdit?: (msg: UIMessage) => boolean;
+  /** Sends again a bubble WhatsApp refused (`sendState === 'failed'`). */
+  onRetry?: (msg: UIMessage) => void;
   /** Lu's one-line reading of what the customer asked, shown right after the message it was based on. */
   luNote?: { messageId: string; text: string; onOpen?: () => void } | null;
   /** Transcribes a customer voice note on demand (old audio or a failed one). */
@@ -263,7 +265,7 @@ export function messageAuthor(msg: UIMessage, contactName?: string, isGroup?: bo
 }
 
 const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
-  messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply, onEdit, canEdit, luNote, onTranscribe, onMessageContact,
+  messages, messagesEndRef, primaryChannel, isGroup, contactName, onReply, onEdit, canEdit, onRetry, luNote, onTranscribe, onMessageContact,
 }) => {
   const messagesById = useMemo(() => new Map(messages.map(m => [m.id, m])), [messages]);
   const olderQuoted = useOlderQuoted(messages, messagesById);
@@ -557,6 +559,8 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
             {msg.editedAt && <span>Editada</span>}
             {msg.timestamp}
             {isOutgoing && (
+              msg.sendState === 'failed'  ? <AlertCircle aria-label="Não enviada" className="w-3.5 h-3.5 text-destructive" /> :
+              msg.sendState === 'sending' ? <Clock aria-label="Enviando" className="w-3 h-3" /> :
               msg.status === 'read'      ? <CheckCheck aria-label="Lida" className="w-4 h-4 text-read-receipt" /> :
               msg.status === 'delivered' ? <CheckCheck aria-label="Entregue" className="w-4 h-4" /> :
                                           <Check      aria-label="Enviada" className="w-3.5 h-3.5" />
@@ -668,6 +672,24 @@ const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                   )
                 )}
               </div>
+              {isOutgoing && msg.sendState === 'failed' && (
+                <div className="flex items-center gap-1.5 mt-1 text-[12px]">
+                  <span className="text-destructive">Não enviada</span>
+                  {onRetry && (
+                    <>
+                      <span className="text-[var(--wa-meta)]" aria-hidden="true">·</span>
+                      <button
+                        type="button"
+                        onClick={() => onRetry(msg)}
+                        className="inline-flex items-center gap-1 font-medium text-read-receipt hover:underline"
+                      >
+                        <RotateCw className="w-3 h-3" aria-hidden="true" />
+                        Tentar de novo
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             {!isOutgoing && replyButton}
           </div>

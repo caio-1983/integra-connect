@@ -292,9 +292,11 @@ export function useConversations() {
               }
             }
 
-            // Check for temp message with same content and fromType (optimistic update)
+            // Check for temp message with same content and fromType (optimistic update).
+            // A failed bubble never matches: it was not sent, so no row stands for it.
             const tempMessageIndex = conv.messages.findIndex(m =>
               m.id.startsWith('temp-') &&
+              m.sendState !== 'failed' &&
               m.content === uiMessage.content &&
               m.fromType === uiMessage.fromType
             );
@@ -507,6 +509,7 @@ export function useConversations() {
       mediaUrl: null,
       whatsappMessageId: null,
       replyToId: replyToId ?? null,
+      sendState: 'sending',
     };
 
     setConversations(prev => {
@@ -526,26 +529,38 @@ export function useConversations() {
     });
 
     try {
-      // The realtime handler will detect and replace the temp message automatically
+      // The backend answers only after WhatsApp accepted the message; the
+      // realtime INSERT then replaces the temp bubble with the stored row.
       await sendConversationReply(conversationId, content, replyToId);
+      // Sent for sure now, even if realtime has not delivered the row yet.
+      setConversations(prev => prev.map(conv =>
+        conv.id === conversationId
+          ? { ...conv, messages: conv.messages.map(m => (m.id === tempId ? { ...m, sendState: undefined } : m)) }
+          : conv,
+      ));
     } catch (err) {
       console.error('[useConversations] Error sending message:', err);
-      toast.error('Erro ao enviar mensagem');
-      
-      // Remove optimistic message on error
-      setConversations(prev => {
-        return prev.map(conv => {
-          if (conv.id === conversationId) {
-            return {
-              ...conv,
-              messages: conv.messages.filter(m => m.id !== tempId)
-            };
-          }
-          return conv;
-        });
-      });
+      toast.error('Mensagem não enviada. Use "Tentar de novo" na conversa.');
+
+      // Keep the bubble, marked as not sent, so the attendant sees what the
+      // customer did not get (it used to vanish, or worse, look sent).
+      setConversations(prev => prev.map(conv =>
+        conv.id === conversationId
+          ? { ...conv, messages: conv.messages.map(m => (m.id === tempId ? { ...m, sendState: 'failed' as const } : m)) }
+          : conv,
+      ));
     }
   }, []);
+
+  /** "Tentar de novo" on a bubble that was not sent: drops it and sends again. */
+  const retryMessage = useCallback(async (conversationId: string, message: UIMessage) => {
+    setConversations(prev => prev.map(conv =>
+      conv.id === conversationId
+        ? { ...conv, messages: conv.messages.filter(m => m.id !== message.id) }
+        : conv,
+    ));
+    await sendMessage(conversationId, message.content, message.replyToId ?? undefined);
+  }, [sendMessage]);
 
   const sendMediaMessage = useCallback(async (conversationId: string, file: File, caption?: string) => {
     if (file.size > MAX_ATTACHMENT_BYTES) {
@@ -867,6 +882,7 @@ export function useConversations() {
     error,
     realtimeConnected,
     sendMessage,
+    retryMessage,
     sendMediaMessage,
     sendPixMessage,
     editMessage,

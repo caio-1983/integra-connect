@@ -475,6 +475,9 @@ export interface UIMessage {
   /** Customer voice note → text (backend TranscriptionService). */
   transcription?: string | null;
   transcriptionStatus?: 'pending' | 'done' | 'failed' | 'skipped' | null;
+  /** Local only, on the attendant's own optimistic bubble: still on its way,
+   *  or refused by WhatsApp (then offered "Tentar de novo"). Never stored. */
+  sendState?: 'sending' | 'failed';
 }
 
 // ============= Utility Functions =============
