@@ -258,9 +258,13 @@ export async function reconcileAll(opts: ReconcileOptions = {}): Promise<Record<
     for (const inst of instances) {
       const name = inst.name ?? inst.instance?.instanceName;
       const status = inst.connectionStatus ?? inst.instance?.status;
-      if (!name || status !== 'open' || (opts.instance && opts.instance !== name)) continue;
+      if (!name || (opts.instance && opts.instance !== name)) continue;
+      // A number named explicitly is read even when closed or moved to WAHA:
+      // its Evolution store still holds what was never delivered.
+      const named = opts.instance === name;
+      if (status !== 'open' && !named) continue;
       // Moved to WAHA: its Evolution twin is stale, and its silence is expected.
-      if (await wahaDirectory.isOnWaha(name)) continue;
+      if (!named && (await wahaDirectory.isOnWaha(name))) continue;
       try {
         report[name] = await reconcileInstance(name, opts);
       } catch (error) {

@@ -195,6 +195,25 @@ export class WahaClient {
     );
   }
 
+  /** Chats, most recent activity first (`lastMessage.timestamp`, seconds). */
+  async chatsOverview(session: string, limit: number, offset: number): Promise<Array<{ id: string; lastMessage?: Record<string, any> | null }>> {
+    const q = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    return this.request('GET', `/api/${encodeURIComponent(session)}/chats/overview?${q}`);
+  }
+
+  /** One stored message, with its media downloaded (so `media.url` is set). */
+  async getMessage(session: string, chatId: string, messageId: string): Promise<Record<string, any> | undefined> {
+    try {
+      return await this.request(
+        'GET',
+        `/api/${encodeURIComponent(session)}/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}?downloadMedia=true`,
+      );
+    } catch (error) {
+      logger.debug({ err: String(error) }, '[waha] get message failed');
+      return undefined;
+    }
+  }
+
   async getMessages(session: string, chatId: string, opts: { limit: number; sinceSec?: number }): Promise<Record<string, any>[]> {
     const q = new URLSearchParams({ limit: String(opts.limit), downloadMedia: 'false', sortBy: 'timestamp', sortOrder: 'desc' });
     if (opts.sinceSec) q.set('filter.timestamp.gte', String(opts.sinceSec));

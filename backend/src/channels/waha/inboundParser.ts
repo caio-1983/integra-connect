@@ -33,6 +33,15 @@ const DEFAULT_MIME: Record<InboundMediaKind, string> = {
   sticker: 'image/webp',
 };
 
+function kindFromMime(mime: unknown): InboundMediaKind {
+  const m = typeof mime === 'string' ? mime.toLowerCase() : '';
+  if (m === 'image/webp') return 'sticker';
+  if (m.startsWith('image/')) return 'image';
+  if (m.startsWith('video/')) return 'video';
+  if (m.startsWith('audio/')) return 'audio';
+  return 'document';
+}
+
 /** Chats that are not conversations: channels, status updates, broadcast lists. */
 const IGNORED_CHAT = /@(newsletter|broadcast)$/;
 
@@ -161,6 +170,8 @@ export function parseWahaMessage(rawBody: unknown): WahaParsedMessage | null {
     : msg.videoMessage ? { kind: 'video', node: msg.videoMessage }
     : documentNode ? { kind: 'document', node: documentNode }
     : msg.stickerMessage ? { kind: 'sticker', node: msg.stickerMessage }
+    // A stored message may come without the raw proto: fall back to WAHA's own fields.
+    : p.hasMedia === true ? { kind: kindFromMime(p.media?.mimetype), node: { mimetype: p.media?.mimetype, fileName: p.media?.filename } }
     : null;
 
   const caption: string | undefined = msg.imageMessage?.caption ?? msg.videoMessage?.caption ?? documentNode?.caption;

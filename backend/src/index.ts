@@ -16,6 +16,7 @@ import { smartPixRoutes } from './routes/smartPix.js';
 import { lightingProjectRoutes } from './routes/lightingProjects.js';
 import { startAdCatalogRefresh } from './channels/meta/MetaAdsCatalog.js';
 import { startEvolutionReconciler } from './channels/evolution/EvolutionReconciler.js';
+import { startWahaReconciler } from './channels/waha/WahaReconciler.js';
 // Side-effect imports: each subscribes its handlers to the EventBus at boot.
 import './telemetry/TelemetryService.js';
 import './channels/ChannelOrchestrator.js';
@@ -118,6 +119,7 @@ async function main(): Promise<void> {
   logger.info(`AI Runtime listening on port ${port}${docsEnabled ? ' — docs at /docs' : ''}`);
   startAdCatalogRefresh();
   startEvolutionReconciler();
+  startWahaReconciler();
 }
 
 main().catch((error) => {
