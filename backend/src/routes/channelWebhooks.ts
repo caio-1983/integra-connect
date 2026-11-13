@@ -36,7 +36,7 @@ const webhookParamsJsonSchema = {
   type: 'object',
   required: ['provider', 'secret'],
   properties: {
-    provider: { type: 'string', description: 'Conector de destino.', enum: ['evolution', 'meta'] },
+    provider: { type: 'string', description: 'Conector de destino.', enum: ['evolution', 'waha', 'meta'] },
     secret: { type: 'string', description: 'Segredo compartilhado no caminho da URL.' },
   },
 } as const;
@@ -62,6 +62,8 @@ const verifyQueryJsonSchema = {
 function expectedPathSecret(provider: string): string | undefined {
   if (provider === 'meta') return configService.get('META_WEBHOOK_SECRET') || undefined;
   if (provider === 'evolution') return configService.require('EVOLUTION_WEBHOOK_SECRET');
+  // Own secret, like Meta: unset = WAHA not in use and its deliveries refused.
+  if (provider === 'waha') return configService.get('WAHA_WEBHOOK_SECRET') || undefined;
   return undefined;
 }
 
@@ -99,6 +101,20 @@ function metaSignatureValid(request: FastifyRequest): boolean {
   // from throwing on a malformed header.
   if (received.length !== expected.length) return false;
   return timingSafeEqual(Buffer.from(received, 'utf8'), Buffer.from(expected, 'utf8'));
+}
+
+/**
+ * Verifies WAHA's `X-Webhook-Hmac`: HMAC-SHA512 of the raw body, keyed with
+ * WAHA_WEBHOOK_SECRET (the same value set as each session's `hmac.key`). Raw
+ * body for the same reason as Meta's check above. Required: the path secret
+ * alone sits in WAHA's session config.
+ */
+export function wahaSignatureValid(raw: string | undefined, header: unknown, algorithm: unknown, secret: string | undefined): boolean {
+  if (!secret || raw === undefined || typeof header !== 'string') return false;
+  if (algorithm !== undefined && String(algorithm).toLowerCase() !== 'sha512') return false;
+  const expected = createHmac('sha512', secret).update(raw, 'utf8').digest('hex');
+  if (header.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(header, 'utf8'), Buffer.from(expected, 'utf8'));
 }
 
 export async function channelWebhookRoutes(app: FastifyInstance): Promise<void> {
@@ -180,6 +196,14 @@ export async function channelWebhookRoutes(app: FastifyInstance): Promise<void> 
     if (provider === 'meta' && !metaSignatureValid(request)) {
       request.log.warn('[webhooks] meta signature mismatch — payload rejected');
       return reply.code(401).send({ error: 'invalid signature' });
+    }
+
+    if (provider === 'waha') {
+      const raw = (request as FastifyRequest & { rawBody?: string }).rawBody;
+      if (!wahaSignatureValid(raw, request.headers['x-webhook-hmac'], request.headers['x-webhook-hmac-algorithm'], configService.get('WAHA_WEBHOOK_SECRET'))) {
+        request.log.warn('[webhooks] waha signature mismatch — payload rejected');
+        return reply.code(401).send({ error: 'invalid signature' });
+      }
     }
 
     const payload: InboundWebhookReceivedPayload = { provider, rawBody: request.body };

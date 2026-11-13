@@ -951,15 +951,15 @@ class ConversationRepository {
   /** The message an operator chose to reply to, checked to belong to this
    *  conversation. `providerMessageId` is null for rows the provider never
    *  acknowledged — the reply is then stored as a reply but sent unquoted. */
-  async getReplyTarget(conversationId: string, messageId: string): Promise<{ id: string; providerMessageId: string | null } | null> {
+  async getReplyTarget(conversationId: string, messageId: string): Promise<{ id: string; providerMessageId: string | null; fromMe: boolean } | null> {
     const supabase = getSupabase();
     const { data } = await supabase
       .from('messages')
-      .select('id, whatsapp_message_id')
+      .select('id, whatsapp_message_id, from_type')
       .eq('id', messageId)
       .eq('conversation_id', conversationId)
       .maybeSingle();
-    return data ? { id: data.id, providerMessageId: data.whatsapp_message_id ?? null } : null;
+    return data ? { id: data.id, providerMessageId: data.whatsapp_message_id ?? null, fromMe: data.from_type !== 'user' } : null;
   }
 
   /** A message an operator wants to edit, checked to belong to this

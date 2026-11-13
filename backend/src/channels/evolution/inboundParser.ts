@@ -92,7 +92,7 @@ function findQuoteContext(data: Record<string, any>, message: Record<string, any
 const QUOTED_TEXT_MAX = 500;
 
 /** One-line text of the quoted message, in the same forms the parser stores. */
-function quotedText(quoted: Record<string, any> | undefined): string | undefined {
+export function quotedText(quoted: Record<string, any> | undefined): string | undefined {
   if (!quoted || typeof quoted !== 'object') return undefined;
   const doc = quoted.documentMessage ?? quoted.documentWithCaptionMessage?.message?.documentMessage;
   const contacts = extractSharedContacts(quoted);
@@ -149,7 +149,7 @@ function extractQuoted(
  * to a few wrappers are peeled off. Only interactive content is looked for: a
  * view-once photo stays unhandled, as before.
  */
-function unwrapInteractive(message: Record<string, any>): Record<string, any> | undefined {
+export function unwrapInteractive(message: Record<string, any>): Record<string, any> | undefined {
   let node: Record<string, any> | undefined = message;
   for (let depth = 0; node && depth < 4; depth++) {
     if (node.interactiveMessage) return node.interactiveMessage;
@@ -163,7 +163,7 @@ function unwrapInteractive(message: Record<string, any>): Record<string, any> | 
  * WhatsApp Business app sends from the phone. Its params are a JSON string;
  * the key itself is in `payment_settings[].pix_static_code`.
  */
-function extractPix(interactive: Record<string, any>): PixMessageMeta | undefined {
+export function extractPix(interactive: Record<string, any>): PixMessageMeta | undefined {
   const buttons: unknown[] = interactive.nativeFlowMessage?.buttons ?? [];
   for (const button of buttons as Array<Record<string, any>>) {
     if (button?.name !== 'payment_info' || typeof button.buttonParamsJson !== 'string') continue;

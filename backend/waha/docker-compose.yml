@@ -1,0 +1,59 @@
+# WAHA (WhatsApp HTTP API, engine GOWS) — replaces Evolution, one number at a time.
+#
+# Deploy as its own Portainer stack ("waha"). It joins the same Docker network
+# as the backend (ai-runtime), so the two talk privately:
+#   backend → WAHA:   http://waha:3000              (WAHA_API_URL in ai-runtime)
+#   WAHA → backend:   http://ai-runtime:8787/webhooks/waha/<secret>
+# Nothing here is published to the internet. The dashboard is reachable only
+# from the VPS itself (127.0.0.1:3000), e.g. through an SSH tunnel.
+#
+# Required variables (Portainer → stack → Environment variables):
+#   WAHA_API_KEY             long random string; the SAME value goes to ai-runtime
+#   WAHA_DASHBOARD_PASSWORD  long random string
+services:
+  waha:
+    # Pinned: never `latest` — a silent upgrade is how Evolution drifted.
+    image: devlikeapro/waha:gows-2026.10.1
+    container_name: waha
+    restart: unless-stopped
+    environment:
+      WHATSAPP_DEFAULT_ENGINE: GOWS
+      WAHA_API_KEY: ${WAHA_API_KEY:?set WAHA_API_KEY}
+      # Media URLs in webhooks point here, i.e. inside the Docker network.
+      WAHA_BASE_URL: http://waha:3000
+      # Download media so the backend can fetch it, and keep it a day: if the
+      # backend is down, WAHA retries the webhook and the file must still exist.
+      WHATSAPP_DOWNLOAD_MEDIA: "true"
+      WHATSAPP_FILES_FOLDER: /app/.media
+      WHATSAPP_FILES_LIFETIME: "86400"
+      WAHA_LOCAL_STORE_BASE_DIR: /app/.sessions
+      WAHA_PRINT_QR: "False"
+      WAHA_LOG_LEVEL: info
+      WAHA_DASHBOARD_ENABLED: "true"
+      WAHA_DASHBOARD_USERNAME: admin
+      WAHA_DASHBOARD_PASSWORD: ${WAHA_DASHBOARD_PASSWORD:?set WAHA_DASHBOARD_PASSWORD}
+      WHATSAPP_SWAGGER_USERNAME: admin
+      WHATSAPP_SWAGGER_PASSWORD: ${WAHA_DASHBOARD_PASSWORD}
+      TZ: America/Sao_Paulo
+    volumes:
+      # Paired sessions: losing this volume means scanning every QR again.
+      - waha_sessions:/app/.sessions
+      - waha_media:/app/.media
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - proxy
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+volumes:
+  waha_sessions:
+  waha_media:
+
+networks:
+  proxy:
+    external: true
+    name: nginx-proxy-manager_default

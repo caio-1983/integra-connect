@@ -26,6 +26,14 @@ services:
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
       EVOLUTION_WEBHOOK_SECRET: ${EVOLUTION_WEBHOOK_SECRET}
+      # WAHA (backend/waha/docker-compose.yml). Empty WAHA_API_URL = Evolution only.
+      WAHA_API_URL: ${WAHA_API_URL:-}
+      WAHA_API_KEY: ${WAHA_API_KEY:-}
+      WAHA_WEBHOOK_SECRET: ${WAHA_WEBHOOK_SECRET:-}
+      # WAHA reaches us over the Docker network, not the internet.
+      WAHA_WEBHOOK_BASE_URL: ${WAHA_WEBHOOK_BASE_URL:-http://ai-runtime:8787}
+      # Where new / re-paired numbers go once WAHA is configured: waha | evolution.
+      WHATSAPP_NEW_NUMBERS_ON: ${WHATSAPP_NEW_NUMBERS_ON:-waha}
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       # Meta (Messenger/Instagram). Without META_WEBHOOK_SECRET and

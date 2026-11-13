@@ -20,6 +20,9 @@ export interface SendTextOptions {
   /** Provider id of the message this one replies to (WhatsApp "responder").
    *  A connector that can't quote simply sends the text unquoted. */
   quotedProviderMessageId?: string;
+  /** Whether that quoted message is ours. Evolution resolves it from its own
+   *  store; WAHA needs it in the quote id. Unknown = treated as the customer's. */
+  quotedFromMe?: boolean;
 }
 
 /**
@@ -38,7 +41,10 @@ export interface ChannelConnector {
   sendMedia(instance: string, to: string, media: OutboundMediaPayload): Promise<{ providerMessageId?: string }>;
   /** Replace the text of a message we already sent. Optional: a channel with no
    *  edit API (Messenger/Instagram) leaves it out and the caller refuses the edit. */
-  editText?(instance: string, providerMessageId: string, text: string): Promise<void>;
+  editText?(instance: string, providerMessageId: string, text: string, to: string): Promise<void>;
+  /** The Pix key can only go as text here (no card): the Smart Pix link still
+   *  applies, the native/branded card falls back to plain messages. */
+  readonly textOnlyPix?: boolean;
   /** Send the company's Pix key as a card the customer copies with one tap.
    *  Returns the card actually sent, so the stored row matches what the customer
    *  saw. Optional: a channel without interactive cards leaves it out. */

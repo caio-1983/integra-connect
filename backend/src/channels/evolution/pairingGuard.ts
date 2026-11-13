@@ -1,5 +1,3 @@
-import { getEvolutionClient } from './evolutionClientInstance.js';
-import { toInstanceSummary } from './instanceSummary.js';
 import { accessRepository } from '../../persistence/AccessRepository.js';
 import { logger } from '../../logger/Logger.js';
 
@@ -46,8 +44,9 @@ export function pairingVerdict(watch: Pick<Watch, 'expected' | 'enforce'>, conne
 }
 
 async function connectedNumber(instanceName: string): Promise<{ connected: boolean; number: string | null }> {
-  const raw = await getEvolutionClient().fetchInstances();
-  const summary = raw.map(toInstanceSummary).find((instance) => instance.name === instanceName);
+  // Evolution or WAHA, whichever holds the number.
+  const { whatsappConnections } = await import('../whatsappConnections.js');
+  const summary = (await whatsappConnections.listInstances()).find((instance) => instance.name === instanceName);
   return { connected: summary?.connected ?? false, number: phoneDigits(summary?.number) };
 }
 
@@ -67,7 +66,8 @@ async function settle(instanceName: string): Promise<void> {
   if (pairingVerdict(watch, number) === 'reject') {
     rejections.set(instanceName, Date.now());
     logger.warn({ instanceName, expected: watch.expected, connected: number }, '[pairing] agent paired another number — logging it out');
-    await getEvolutionClient().logout(instanceName).catch((error) => {
+    const { whatsappConnections } = await import('../whatsappConnections.js');
+    await whatsappConnections.disconnect(instanceName).catch((error) => {
       logger.error({ err: String(error), instanceName }, '[pairing] logout of the wrong number failed');
     });
     return;

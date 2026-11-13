@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { authMiddleware, authUserOf, requireRole, BEARER_SECURITY } from '../middleware/auth.js';
 import { canAccessInstance, isValidInstanceName, requireInstanceAccess, requirePairingRole, INSTANCE_NAME_RE } from '../middleware/access.js';
-import { evolutionConnectionService } from '../channels/evolution/EvolutionConnectionService.js';
+import { whatsappConnections } from '../channels/whatsappConnections.js';
 import { pairingGuard } from '../channels/evolution/pairingGuard.js';
 import { accessRepository } from '../persistence/AccessRepository.js';
 import { clientErrorMessage } from '../utils/httpErrors.js';
@@ -69,7 +69,7 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
     try {
       const user = authUserOf(request);
       const [instances, visibility] = await Promise.all([
-        evolutionConnectionService.listInstances(),
+        whatsappConnections.listInstances(),
         accessRepository.getInstanceVisibility(user.id),
       ]);
       return reply.send(instances.filter((instance) => canAccessInstance(user, instance.name, visibility)));
@@ -103,7 +103,7 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
       // pairing, and the grant below, which is why an existing name must
       // already be accessible.
       const [instances, visibility] = await Promise.all([
-        evolutionConnectionService.listInstances(),
+        whatsappConnections.listInstances(),
         accessRepository.getInstanceVisibility(user.id),
       ]);
       const exists = instances.some((instance) => instance.name === instanceName);
@@ -111,7 +111,7 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
         return reply.code(409).send({ error: 'Já existe uma instância com esse nome.' });
       }
 
-      const result = await evolutionConnectionService.createInstance(instanceName);
+      const result = await whatsappConnections.createInstance(instanceName);
       // Admins see every number; anyone else would lose sight of the number
       // they just created, so they get its grant.
       if (!exists && user.role !== 'admin') await accessRepository.grantInstanceAccess(instanceName, user.id);
@@ -133,7 +133,7 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
     if (!parsed.success) return reply.code(400).send({ error: 'name obrigatório' });
     try {
       await pairingGuard.watch(parsed.data.name, !isManager(authUserOf(request).role), { fresh: false });
-      return reply.send(await evolutionConnectionService.getQr(parsed.data.name));
+      return reply.send(await whatsappConnections.getQr(parsed.data.name));
     } catch (error) {
       request.log.error(error);
       return reply.code(502).send({ error: clientErrorMessage(error, 'Erro ao obter QR.') });
@@ -154,7 +154,7 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
     if (!parsed.success) return reply.code(400).send({ error: 'name obrigatório' });
     const { name } = parsed.data;
     try {
-      const result = await evolutionConnectionService.getState(name);
+      const result = await whatsappConnections.getState(name);
       if (result.state === 'open') await pairingGuard.check(name);
       if (pairingGuard.wasRejected(name)) return reply.send({ state: 'close', rejectedWrongNumber: true });
       return reply.send(result);
@@ -174,7 +174,7 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
     const parsed = nameParams.safeParse(request.params);
     if (!parsed.success) return reply.code(400).send({ error: 'name obrigatório' });
     try {
-      await evolutionConnectionService.disconnect(parsed.data.name);
+      await whatsappConnections.disconnect(parsed.data.name);
       return reply.send({ ok: true });
     } catch (error) {
       request.log.error(error);
@@ -193,7 +193,7 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
     if (!parsed.success) return reply.code(400).send({ error: 'name obrigatório' });
     try {
       await pairingGuard.watch(parsed.data.name, !isManager(authUserOf(request).role), { fresh: true });
-      const qr = await evolutionConnectionService.reconnect(parsed.data.name);
+      const qr = await whatsappConnections.reconnect(parsed.data.name);
       return reply.send({ qr: qr.base64 });
     } catch (error) {
       request.log.error(error);
@@ -211,7 +211,7 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
     const parsed = nameParams.safeParse(request.params);
     if (!parsed.success) return reply.code(400).send({ error: 'name obrigatório' });
     try {
-      return reply.send(await evolutionConnectionService.importContacts(parsed.data.name));
+      return reply.send(await whatsappConnections.importContacts(parsed.data.name));
     } catch (error) {
       request.log.error(error);
       return reply.code(502).send({ error: clientErrorMessage(error, 'Erro ao importar contatos.') });
@@ -228,7 +228,7 @@ export async function whatsappInstanceRoutes(app: FastifyInstance): Promise<void
     const parsed = nameParams.safeParse(request.params);
     if (!parsed.success) return reply.code(400).send({ error: 'name obrigatório' });
     try {
-      await evolutionConnectionService.remove(parsed.data.name);
+      await whatsappConnections.remove(parsed.data.name);
       return reply.send({ ok: true });
     } catch (error) {
       request.log.error(error);

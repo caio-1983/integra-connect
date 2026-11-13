@@ -1,3 +1,4 @@
+import { wahaDirectory } from '../waha/wahaRuntime.js';
 import { configService } from '../../config/ConfigService.js';
 import { logger } from '../../logger/Logger.js';
 import { aiEventBus } from '../../runtime/EventBus.js';
@@ -258,6 +259,8 @@ export async function reconcileAll(opts: ReconcileOptions = {}): Promise<Record<
       const name = inst.name ?? inst.instance?.instanceName;
       const status = inst.connectionStatus ?? inst.instance?.status;
       if (!name || status !== 'open' || (opts.instance && opts.instance !== name)) continue;
+      // Moved to WAHA: its Evolution twin is stale, and its silence is expected.
+      if (await wahaDirectory.isOnWaha(name)) continue;
       try {
         report[name] = await reconcileInstance(name, opts);
       } catch (error) {

@@ -1,6 +1,7 @@
 import { logger } from '../logger/Logger.js';
 import { conversationRepository } from '../persistence/ConversationRepository.js';
 import { getEvolutionClient } from '../channels/evolution/evolutionClientInstance.js';
+import { getWahaClient, wahaDirectory } from '../channels/waha/wahaRuntime.js';
 
 /** How long a fetched (or confirmed-missing) picture is trusted before re-checking. */
 export const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -21,7 +22,10 @@ export const contactAvatarService = {
   /** Fetches, copies and stores the picture. Throws on failure — callers on
    * the message path should use refreshInBackground instead. */
   async refresh(contactId: string, instance: string, phone: string): Promise<'updated' | 'none'> {
-    const url = await getEvolutionClient().fetchProfilePictureUrl(instance, phone);
+    const waha = await wahaDirectory.sessionFor(instance);
+    const url = waha
+      ? await getWahaClient().profilePictureUrl(waha.name, phone)
+      : await getEvolutionClient().fetchProfilePictureUrl(instance, phone);
     if (!url) {
       await conversationRepository.setContactAvatar(contactId, null);
       return 'none';

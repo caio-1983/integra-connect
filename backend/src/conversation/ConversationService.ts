@@ -2,7 +2,7 @@ import { aiEventBus, type AppEvent } from '../runtime/EventBus.js';
 import { logger } from '../logger/Logger.js';
 import { configService } from '../config/ConfigService.js';
 import { conversationRepository } from '../persistence/ConversationRepository.js';
-import { getConnector } from '../channels/connectorRegistry.js';
+import { connectorFor, whatsappProviderFor } from '../channels/connectorRegistry.js';
 import { applySignature, signatureFooter } from '../channels/outboundSignature.js';
 import { deliverOutbound } from '../channels/OutboundMessageService.js';
 import { fetchPixHeaderImage, pixCaption, pixCardStyle, pixHeaderImageUrl, pixMessageText } from '../channels/pix.js';
@@ -45,7 +45,7 @@ async function onInboundMessage(event: AppEvent): Promise<void> {
 
   const { contactId, avatarCheckedAt } = await conversationRepository.findOrCreateContact(msg.channel, msg.externalContactId, msg.contactName, msg.isGroup);
   // Profile picture: copied in the background, at most once a week per contact.
-  if (msg.provider === 'evolution' && !msg.isGroup && !msg.externalContactId.includes('@') && contactAvatarService.isStale(avatarCheckedAt)) {
+  if ((msg.provider === 'evolution' || msg.provider === 'waha') && !msg.isGroup && !msg.externalContactId.includes('@') && contactAvatarService.isStale(avatarCheckedAt)) {
     contactAvatarService.refreshInBackground(contactId, msg.instance, msg.externalContactId);
   }
   const { conversationId, created } = await conversationRepository.findOrCreateConversation(contactId, msg.instance, {
@@ -215,6 +215,7 @@ export async function requestManualReply(
     signature,
     replyToId: replyTarget?.id,
     quotedProviderMessageId: replyTarget?.providerMessageId ?? undefined,
+    quotedFromMe: replyTarget?.fromMe,
   };
   try {
     await deliverOutbound(outbound);
@@ -262,12 +263,12 @@ export async function requestMessageEdit(
 
   const info = await conversationRepository.getConversationChannelInfo(conversationId);
   if (!info) throw new Error('Conversa sem instância associada.');
-  const connector = getConnector(info.provider);
+  const connector = await connectorFor(info.provider, info.instance);
   if (!connector?.editText) throw new Error('Este canal não permite editar mensagens.');
 
   // Re-signed like the original send, so the customer still sees whose reply it is.
   const signature = await conversationRepository.getOperatorName(operatorId);
-  await connector.editText(info.instance, message.providerMessageId, applySignature(content, signature, info.channel));
+  await connector.editText(info.instance, message.providerMessageId, applySignature(content, signature, info.channel), info.to);
   await conversationRepository.applyMessageEdit(message, content);
 }
 
@@ -302,7 +303,7 @@ export async function requestManualMediaReply(conversationId: string, media: Man
     throw new Error('Conversa sem instância associada (anterior a este recurso, ou contato não encontrado).');
   }
 
-  const connector = getConnector(info.provider);
+  const connector = await connectorFor(info.provider, info.instance);
   if (!connector) throw new Error('Conector de canal indisponível.');
 
   const kind = mediaKindFromMime(media.mimeType);
@@ -354,7 +355,7 @@ export async function requestManualPixReply(conversationId: string, operatorId?:
     throw new Error('Conversa sem instância associada (anterior a este recurso, ou contato não encontrado).');
   }
 
-  const connector = getConnector(info.provider);
+  const connector = await connectorFor(info.provider, info.instance);
   if (!connector) throw new Error('Conector de canal indisponível.');
 
   const pix = await conversationRepository.getPixSettings();
@@ -364,7 +365,7 @@ export async function requestManualPixReply(conversationId: string, operatorId?:
 
   // Smart Pix replaces the card, so it applies only where the card would go;
   // a channel without one (Meta) keeps the plain messages below.
-  if (pixCardStyle() === 'smart' && connector.sendPix) {
+  if (pixCardStyle() === 'smart' && (connector.sendPix || connector.textOnlyPix)) {
     let smart: SmartPixMessage;
     try {
       smart = await createSmartPixMessage(pix);
@@ -462,7 +463,7 @@ export async function startConversation(instance: string, phone: string, name: s
   const { contactId } = await conversationRepository.findOrCreateContact('whatsapp', digits, name);
   const { conversationId, created } = await conversationRepository.findOrCreateConversation(contactId, instance, {
     channel: 'whatsapp',
-    provider: 'evolution',
+    provider: await whatsappProviderFor(instance),
     assignedUserId: operatorId,
   });
   return { conversationId, contactId, created };
@@ -505,7 +506,7 @@ async function onOutboundEcho(event: AppEvent): Promise<void> {
     const { contactId } = await conversationRepository.findOrCreateContact(echo.channel, echo.externalContactId);
     ({ conversationId } = await conversationRepository.findOrCreateConversation(contactId, echo.instance, {
       channel: echo.channel,
-      provider: 'evolution',
+      provider: echo.provider,
       humanHandled: true,
     }));
   }

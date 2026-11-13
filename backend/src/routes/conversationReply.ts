@@ -4,7 +4,7 @@ import { authMiddleware, authUserOf, BEARER_SECURITY } from '../middleware/auth.
 import { requireConversationAccess, isValidInstanceName, userCanAccessInstance } from '../middleware/access.js';
 import { clientErrorMessage } from '../utils/httpErrors.js';
 import { requestManualReply, requestManualMediaReply, requestManualPixReply, requestMessageEdit, startConversation } from '../conversation/ConversationService.js';
-import { evolutionConnectionService } from '../channels/evolution/EvolutionConnectionService.js';
+import { whatsappConnections } from '../channels/whatsappConnections.js';
 import { summarizeConversation } from '../conversation/ConversationSummaryService.js';
 import { qualifyLead } from '../conversation/LeadQualificationService.js';
 import { getConversationInsight } from '../conversation/ConversationInsightService.js';
@@ -174,7 +174,7 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
       if (!(await userCanAccessInstance(authUserOf(request), instance))) {
         return reply.code(404).send({ error: 'Instância não encontrada.' });
       }
-      const instances = await evolutionConnectionService.listInstances();
+      const instances = await whatsappConnections.listInstances();
       if (!instances.some((i) => i.name === instance)) {
         return reply.code(404).send({ error: 'Instância não encontrada.' });
       }
@@ -201,7 +201,7 @@ export async function conversationReplyRoutes(app: FastifyInstance): Promise<voi
     if (!parsed.success) return reply.code(400).send({ error: 'conversationId obrigatório' });
 
     try {
-      return reply.send(await evolutionConnectionService.getGroupParticipants(parsed.data.conversationId));
+      return reply.send(await whatsappConnections.getGroupParticipants(parsed.data.conversationId));
     } catch (error) {
       request.log.error(error);
       return reply.code(400).send({ error: clientErrorMessage(error, 'Erro ao carregar participantes.') });

@@ -1,5 +1,5 @@
 import { aiEventBus, type AppEvent } from '../runtime/EventBus.js';
-import { getConnector } from './connectorRegistry.js';
+import { connectorFor } from './connectorRegistry.js';
 import { ChannelEvents, type OutboundMessageRequestedPayload, type OutboundMessageSentPayload } from './channelEvents.js';
 import { applySignature } from './outboundSignature.js';
 
@@ -9,7 +9,7 @@ import { applySignature } from './outboundSignature.js';
  * so a caller that needs to know — the attendant's manual reply — finds out.
  */
 export async function deliverOutbound(req: OutboundMessageRequestedPayload): Promise<void> {
-  const connector = getConnector(req.provider);
+  const connector = await connectorFor(req.provider, req.instance);
   if (!connector) throw new Error('Conector de canal indisponível.');
 
   // Signed for the customer, clean for us: `text` below is deliberately the
@@ -18,6 +18,7 @@ export async function deliverOutbound(req: OutboundMessageRequestedPayload): Pro
   const outgoing = applySignature(req.text, req.signature, req.channel);
   const { providerMessageId } = await connector.sendText(req.instance, req.to, outgoing, {
     quotedProviderMessageId: req.quotedProviderMessageId,
+    quotedFromMe: req.quotedFromMe,
   });
 
   const sent: OutboundMessageSentPayload = {

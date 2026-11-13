@@ -158,6 +158,8 @@ export interface OutboundMessageRequestedPayload {
   replyToId?: string;
   /** Provider id of that same message, for the provider-side quote. */
   quotedProviderMessageId?: string;
+  /** Whether the quoted message is ours (WAHA needs it to build the quote). */
+  quotedFromMe?: boolean;
 }
 
 export interface OutboundMessageSentPayload {
