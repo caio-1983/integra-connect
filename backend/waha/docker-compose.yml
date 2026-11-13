@@ -5,7 +5,7 @@
 #   backend → WAHA:   http://waha:3000              (WAHA_API_URL in ai-runtime)
 #   WAHA → backend:   http://ai-runtime:8787/webhooks/waha/<secret>
 # Nothing here is published to the internet. The dashboard is reachable only
-# from the VPS itself (127.0.0.1:3000), e.g. through an SSH tunnel.
+# from the VPS itself (127.0.0.1:3010), e.g. through an SSH tunnel.
 #
 # Required variables (Portainer → stack → Environment variables):
 #   WAHA_API_KEY             long random string; the SAME value goes to ai-runtime
@@ -39,8 +39,10 @@ services:
       # Paired sessions: losing this volume means scanning every QR again.
       - waha_sessions:/app/.sessions
       - waha_media:/app/.media
+    # Dashboard only (the backend uses http://waha:3000 inside the network).
+    # 3000 is taken on the VPS by another project.
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3010:3000"
     networks:
       - proxy
     logging:
