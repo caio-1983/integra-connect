@@ -112,6 +112,11 @@ export function extractAdReplyWaha(message: Record<string, any>): InboundAttribu
   };
 }
 
+/** Stored (history) protos carry absent fields as "" — an image with no caption has `caption: ""`. */
+function nonEmpty(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
 /** Peels the envelopes WhatsApp wraps content in (disappearing, view-once, captioned document). */
 function unwrapContent(message: Record<string, any>): Record<string, any> {
   let node = message;
@@ -174,7 +179,7 @@ export function parseWahaMessage(rawBody: unknown): WahaParsedMessage | null {
     : p.hasMedia === true ? { kind: kindFromMime(p.media?.mimetype), node: { mimetype: p.media?.mimetype, fileName: p.media?.filename } }
     : null;
 
-  const caption: string | undefined = msg.imageMessage?.caption ?? msg.videoMessage?.caption ?? documentNode?.caption;
+  const caption: string | undefined = nonEmpty(msg.imageMessage?.caption) ?? nonEmpty(msg.videoMessage?.caption) ?? nonEmpty(documentNode?.caption);
   const interactive = unwrapInteractive(rawMessage);
   const pix = interactive ? extractPix(interactive) : undefined;
   const interactiveText: string | undefined = pix
@@ -183,8 +188,8 @@ export function parseWahaMessage(rawBody: unknown): WahaParsedMessage | null {
   const contacts = extractSharedContacts(msg);
 
   const rawText: string | undefined =
-    msg.conversation ??
-    msg.extendedTextMessage?.text ??
+    nonEmpty(msg.conversation) ??
+    nonEmpty(msg.extendedTextMessage?.text) ??
     caption ??
     interactiveText ??
     (contacts ? sharedContactsText(contacts) : undefined) ??

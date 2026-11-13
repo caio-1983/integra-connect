@@ -47,6 +47,15 @@ describe('WAHA inbound parser', () => {
     assert.equal(parsed.message.contactName, undefined);
   });
 
+  test('stored history image with empty caption "" still becomes an image message', () => {
+    const parsed = parseWahaMessage(event({
+      id: `true_${LID}_3EB0BBBBBBBBBBBBBBBBBB`, timestamp: 1794568002, from: LID, fromMe: true, body: '', hasMedia: true,
+      _data: { Info: info({ IsFromMe: true, SenderAlt: ME, RecipientAlt: PHONE, ID: '3EB0BBBBBBBBBBBBBBBBBB' }), Message: { imageMessage: { caption: '', mimetype: 'image/jpeg' }, messageContextInfo: {} } },
+    }));
+    assert.ok(parsed);
+    assert.equal(parsed.message.text, '📷 Imagem');
+  });
+
   test('@lid with no phone alongside is left for the connector to resolve', () => {
     const parsed = parseWahaMessage(event({
       id: 'x', timestamp: 1, from: LID, fromMe: false, body: 'oi',
